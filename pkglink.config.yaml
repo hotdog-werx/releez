@@ -1,0 +1,4 @@
+github:
+  hotdog-werx/codeguide:
+    version: v0.0.2
+    inside_pkglink: false

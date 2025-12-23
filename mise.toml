@@ -1,0 +1,22 @@
+[env]
+
+[tools]
+uv = "0.9.18"
+lefthook = "2.0.12"
+dprint = "0.50.1"
+"pipx:pkglink" = { version = "1.0.1" }
+"pipx:poethepoet" = { version = "0.38.0" }
+"pipx:tbelt" = { version = "0.0.3" }
+"pipx:ruff" = { version = "0.14.10" }
+"pipx:ty" = { version = "0.0.5" }
+
+[hooks]
+postinstall = [
+  "mise exec -- pkglink sync",
+  "poe setup-hook",
+  "lefthook install",
+]
+
+[settings]
+experimental = true
+python.uv_venv_auto = true

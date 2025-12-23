@@ -1,0 +1,6 @@
+include:
+  - .codeguide/toolbelt/toolbelt.yaml
+
+variables:
+  TB_COVERAGE_CONFIG: .codeguide/configs/coveragerc.toml
+  TB_COVERAGE_VERBOSE: vv

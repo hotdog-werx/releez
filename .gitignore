@@ -1,0 +1,18 @@
+# Venv
+.venv
+
+# Python artifacts
+__pycache__/
+*.egg-info/
+*.pyc
+.coverage
+.coverage.*
+.coverage-files/
+.pytest_cache/*
+
+# Temp files
+/tmp*
+
+# pkglink sources
+.codeguide*
+.editorconfig

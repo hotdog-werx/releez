@@ -1,0 +1,19 @@
+[project]
+name = "releez"
+description = "CLI tool for helping to manage release processes."
+readme = "README.md"
+requires-python = ">=3.13"
+version = "0.0.0"
+
+dependencies = ["typer ==0.20.0"]
+
+[project.scripts]
+releez = "releez.cli:main"
+
+[tool.uv.build-backend]
+module-name = "releez"
+module-root = "packages/python"
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
