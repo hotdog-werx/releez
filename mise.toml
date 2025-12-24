@@ -11,10 +11,11 @@ dprint = "0.50.1"
 "pipx:ty" = { version = "0.0.5" }
 
 [hooks]
+# Note: Postinstall hooks do not run in CI, this is intentional
 postinstall = [
-  # "mise exec -- pkglink sync",
-  "poe setup-hook",
-  # "mise exec -- lefthook install",
+  "[ \"$IS_CI\" -eq '1' ] && pkglink sync",
+  "[ \"$IS_CI\" -eq '1' ] && poe setup-hook",
+  "[ \"$IS_CI\" -eq '1' ] && mise exec -- lefthook install",
 ]
 
 [settings]

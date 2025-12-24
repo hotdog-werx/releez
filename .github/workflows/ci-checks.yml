@@ -14,25 +14,26 @@ jobs:
     name: Run checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install mise tools
         uses: jdx/mise-action@v3
 
-      - name: pkglink sync
-        run: mise exec -- pkglink sync
+      - name: Sync with pkglink
+        run: pkglink sync
 
-      - name: Sync python packages
-        run: uv sync --group dev
+      - name: Setup environment
+        run: poe setup-hook
 
       - name: Run dprint check
-        run: mise exec -- poe check-dprint
+        run: poe check-dprint
 
       - name: Run Python checks
-        run: mise exec -- poe check-python
+        run: poe check-python
 
       - name: Run complexity check
-        run: mise exec -- poe check-complexity
+        run: poe check-complexity
 
       - name: Run coverage check
-        run: mise exec -- poe check-coverage
+        run: poe check-coverage
