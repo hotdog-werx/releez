@@ -19,6 +19,12 @@ jobs:
       - name: Install mise tools
         uses: jdx/mise-action@v3
 
+      - name: pkglink sync
+        run: mise exec -- pkglink sync
+
+      - name: Sync python packages
+        run: uv sync --group dev
+
       - name: Run dprint check
         run: mise exec -- poe check-dprint
 
