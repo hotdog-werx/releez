@@ -10,12 +10,12 @@ dprint = "0.50.1"
 "pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = { version = "0.0.5" }
 
-# [hooks]
-# postinstall = [
-#   "mise exec -- pkglink sync",
-#   "mise exec -- poe setup-hook",
-#   "mise exec -- lefthook install",
-# ]
+[hooks]
+postinstall = [
+  "mise exec -- pkglink sync",
+  # "mise exec -- poe setup-hook",
+  # "mise exec -- lefthook install",
+]
 
 [settings]
 experimental = true
