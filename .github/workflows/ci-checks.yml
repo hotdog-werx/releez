@@ -23,8 +23,8 @@ jobs:
       - name: Sync with pkglink
         run: pkglink sync
 
-      - name: Setup environment
-        run: poe setup-hook
+      - name: Install python dependencies
+        run: uv sync --all-groups
 
       - name: Run dprint check
         run: poe check-dprint
