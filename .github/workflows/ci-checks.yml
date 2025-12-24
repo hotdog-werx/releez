@@ -1,0 +1,32 @@
+name: CI checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Run checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v2
+
+      - name: Run dprint check
+        run: mise exec -- poe check-dprint
+
+      - name: Run Python checks
+        run: mise exec -- poe check-python
+
+      - name: Run complexity check
+        run: mise exec -- poe check-complexity
+
+      - name: Run coverage check
+        run: mise exec -- poe check-coverage

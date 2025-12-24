@@ -5,14 +5,32 @@ readme = "README.md"
 requires-python = ">=3.13"
 version = "0.0.0"
 
-dependencies = ["typer ==0.20.0"]
+dependencies = [
+  "typer ==0.20.0",
+  "GitPython >= 3.1.45, <4",
+  "PyGithub >= 2.8.1, <3",
+  "git-cliff >=2.11.0, <3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest >=9.0.2, <10",
+  "pytest-cov >=7.0.0, <8",
+  "pytest-mock >=3.15.1, <4",
+]
 
 [project.scripts]
 releez = "releez.cli:main"
 
+[tool.ruff]
+extend = ".codeguide/configs/ruff.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.uv.build-backend]
 module-name = "releez"
-module-root = "packages/python"
+module-root = "src"
 
 [build-system]
 requires = ["uv_build"]
