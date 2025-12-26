@@ -47,14 +47,26 @@ Examples:
 
 Create git tags for a release:
 
-`releez release tag --version 2.3.4` (pushes tags to `origin` by default)
+`releez release tag` (tags the git-cliff computed release version; pushes tags
+to `origin` by default)
+
+Override the tagged version if needed:
+
+`releez release tag --version-override 2.3.4`
 
 Optionally update major/minor tags:
 
-- Major only: `releez release tag --version 2.3.4 --alias-tags major` (creates
-  `2.3.4` and `v2`)
-- Major + minor: `releez release tag --version 2.3.4 --alias-tags minor`
-  (creates `2.3.4`, `v2`, `v2.3`)
+- Major only: `releez release tag --version-override 2.3.4 --alias-tags major`
+  (creates `2.3.4` and `v2`)
+- Major + minor:
+  `releez release tag --version-override 2.3.4 --alias-tags minor` (creates
+  `2.3.4`, `v2`, `v2.3`)
+
+Preview what will be published (version and tags):
+
+`releez release preview` (prints markdown to stdout)
+
+`releez release preview --output release-preview.md` (write markdown to a file)
 
 ## GitHub recommendations
 

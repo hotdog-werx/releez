@@ -10,7 +10,9 @@ from releez.artifact_version import (
 from releez.version_tags import VersionTags
 
 
-def test_cli_version_artifact_builds_input_and_prints_result(mocker: MockerFixture) -> None:
+def test_cli_version_artifact_builds_input_and_prints_result(
+    mocker: MockerFixture,
+) -> None:
     runner = CliRunner()
 
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:

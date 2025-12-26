@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -9,9 +10,9 @@ from releez.artifact_version import (
     PrereleaseType,
     compute_artifact_version,
 )
-from releez.cliff import GitCliffBump
+from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import AliasTagsRequireFullReleaseError, ReleezError
-from releez.git_repo import create_tags, open_repo, push_tags
+from releez.git_repo import create_tags, fetch, open_repo, push_tags
 from releez.release import StartReleaseInput, start_release
 from releez.version_tags import AliasTags, compute_version_tags, select_tags
 
@@ -69,6 +70,18 @@ def _emit_artifact_version_output(
     tags = compute_version_tags(version=artifact_version, prefix=prefix)
     for tag in select_tags(tags=tags, aliases=alias_tags):
         typer.echo(tag)
+
+
+def _resolve_release_version(
+    *,
+    repo_root: Path,
+    version_override: str | None,
+) -> str:
+    """Resolve the release version, defaulting to git-cliff."""
+    if version_override is not None:
+        return version_override
+    cliff = GitCliff(repo_root=repo_root)
+    return cliff.compute_next_version(bump='auto')
 
 
 @release_app.command('start')
@@ -306,14 +319,14 @@ def version_artifact(  # noqa: PLR0913
 @release_app.command('tag')
 def release_tag(
     *,
-    version: Annotated[
-        str,
+    version_override: Annotated[
+        str | None,
         typer.Option(
-            '--version',
-            help='Full release version to tag (x.y.z).',
+            '--version-override',
+            help='Override release version to tag (x.y.z).',
             show_default=False,
         ),
-    ],
+    ] = None,
     alias_tags: Annotated[
         AliasTags,
         typer.Option(
@@ -351,6 +364,11 @@ def release_tag(
     """Create git tag(s) for a release and push them."""
     try:
         repo, _info = open_repo()
+        fetch(repo, remote_name=remote)
+        version = _resolve_release_version(
+            repo_root=_info.root,
+            version_override=version_override,
+        )
         prefix = 'v' if v_prefix else ''
         tags = compute_version_tags(version=version, prefix=prefix)
         selected = select_tags(tags=tags, aliases=alias_tags)
@@ -367,6 +385,75 @@ def release_tag(
 
     for tag in selected:
         typer.echo(tag)
+
+
+@release_app.command('preview')
+def release_preview(
+    *,
+    version_override: Annotated[
+        str | None,
+        typer.Option(
+            '--version-override',
+            help='Override release version to preview (x.y.z).',
+            show_default=False,
+        ),
+    ] = None,
+    alias_tags: Annotated[
+        AliasTags,
+        typer.Option(
+            '--alias-tags',
+            help='Include major/minor tags in the preview.',
+            show_default=True,
+            case_sensitive=False,
+        ),
+    ] = AliasTags.none,
+    v_prefix: Annotated[
+        bool,
+        typer.Option(
+            '--v-prefix/--no-v-prefix',
+            help='Prefix alias tags with `v` (v2, v2.3).',
+            show_default=True,
+        ),
+    ] = True,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            '--output',
+            help='Write markdown preview to a file instead of stdout.',
+            show_default=False,
+        ),
+    ] = None,
+) -> None:
+    """Preview the version and tags that would be published."""
+    try:
+        _repo, info = open_repo()
+        version = _resolve_release_version(
+            repo_root=info.root,
+            version_override=version_override,
+        )
+
+        prefix = 'v' if v_prefix else ''
+        computed = compute_version_tags(version=version, prefix=prefix)
+        tags = select_tags(tags=computed, aliases=alias_tags)
+
+        markdown = '\n'.join(
+            [
+                '## `releez` release preview',
+                '',
+                f'- Version: `{version}`',
+                '- Tags:',
+                *[f'  - `{tag}`' for tag in tags],
+                '',
+            ],
+        )
+
+        if output is not None:
+            output.write_text(markdown, encoding='utf-8')
+        else:
+            typer.echo(markdown)
+    except ReleezError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
 
 
 app.add_typer(release_app, name='release')
