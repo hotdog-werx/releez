@@ -12,7 +12,7 @@ from releez.errors import GitCliffVersionComputeError, MissingCliError
 from releez.process import run_checked
 
 GIT_CLIFF_BIN = 'git-cliff'
-GIT_CLIFF_IGNORE_TAGS = 'v*'
+GIT_CLIFF_IGNORE_TAGS = 'v'
 
 GitCliffBump = Literal['major', 'minor', 'patch', 'auto']
 

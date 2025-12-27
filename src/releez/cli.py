@@ -452,7 +452,7 @@ def release_notes(
 ) -> None:
     """Generate the new changelog section for the release."""
     try:
-        _repo, info = open_repo()
+        _, info = open_repo()
         version = _resolve_release_version(
             repo_root=info.root,
             version_override=version_override,
