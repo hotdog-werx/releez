@@ -22,7 +22,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
     runner = CliRunner()
 
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
-        assert artifact_input.scheme == ArtifactVersionScheme.docker
+        assert artifact_input.scheme == ArtifactVersionScheme.semver
         assert artifact_input.next_version_override == '1.2.3'
         assert artifact_input.is_full_release is True
         assert artifact_input.prerelease_type == PrereleaseType.alpha

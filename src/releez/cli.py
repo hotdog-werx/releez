@@ -216,7 +216,7 @@ def version_artifact(  # noqa: PLR0913
             show_default=True,
             case_sensitive=False,
         ),
-    ] = ArtifactVersionScheme.docker,
+    ] = ArtifactVersionScheme.semver,
     is_full_release: Annotated[
         bool,
         typer.Option(
