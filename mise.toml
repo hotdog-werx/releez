@@ -7,14 +7,15 @@ dprint = "0.50.1"
 "pipx:pkglink" = { version = "1.0.1" }
 "pipx:poethepoet" = { version = "0.38.0" }
 "pipx:tbelt" = { version = "0.0.3" }
-"pipx:ruff" = { version = "0.14.10" }
+"pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = { version = "0.0.5" }
 
 [hooks]
+# Note: Postinstall hooks do not run in CI, this is intentional.
 postinstall = [
-  "mise exec -- pkglink sync",
-  "poe setup-hook",
-  "lefthook install",
+  "if [ \"${CI:-}\" = \"true\" ]; then exit 0; fi; pkglink sync",
+  "if [ \"${CI:-}\" = \"true\" ]; then exit 0; fi; poe setup-hook",
+  "if [ \"${CI:-}\" = \"true\" ]; then exit 0; fi; lefthook install",
 ]
 
 [settings]

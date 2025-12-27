@@ -1,0 +1,8 @@
+{
+  "ty.inlayHints.callArgumentNames": false,
+  "ty.inlayHints.variableTypes": false,
+  "editor.rulers": [
+    80,
+    120
+  ]
+}
