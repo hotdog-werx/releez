@@ -48,6 +48,7 @@ class StartReleaseInput:
 
     Attributes:
         bump: Bump mode for git-cliff.
+        version_override: Override the computed next version.
         base_branch: Base branch for the release PR.
         remote_name: Remote name to use.
         labels: Labels to add to the PR.
@@ -59,6 +60,7 @@ class StartReleaseInput:
     """
 
     bump: GitCliffBump
+    version_override: str | None
     base_branch: str
     remote_name: str
     labels: list[str]
@@ -147,7 +149,10 @@ def start_release(
             branch=release_input.base_branch,
         )
 
-    version = cliff.compute_next_version(bump=release_input.bump)
+    if release_input.version_override is not None:
+        version = release_input.version_override
+    else:
+        version = cliff.compute_next_version(bump=release_input.bump)
     notes = cliff.generate_unreleased_notes(version=version)
 
     if release_input.dry_run:

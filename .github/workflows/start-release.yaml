@@ -1,0 +1,61 @@
+name: Start release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version-override:
+        description: 'Override version instead of computing via git-cliff (e.g. 1.2.3)'
+        required: false
+        default: ''
+        type: string
+      dry-run:
+        description: 'Compute version and notes without changing the repo'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  start:
+    name: Start release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Sync with pkglink
+        run: pkglink sync
+
+      - name: Install python dependencies
+        run: uv sync --all-groups
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Releez release start
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          args=(release start --create-pr)
+
+          if [ -n "${{ inputs.version-override }}" ]; then
+            args+=(--version-override "${{ inputs.version-override }}")
+          fi
+
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+
+          uv run releez "${args[@]}"

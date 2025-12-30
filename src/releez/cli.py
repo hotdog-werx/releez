@@ -103,6 +103,19 @@ def release_start(  # noqa: PLR0913
             case_sensitive=False,
         ),
     ] = 'auto',
+    version_override: Annotated[
+        str | None,
+        typer.Option(
+            '--version-override',
+            envvar=[
+                'RELEEZ_VERSION_OVERRIDE',
+                'NEXT_VERSION',
+                '__GIT_CLIFF_NEXT_VERSION',
+            ],
+            help='Override version instead of computing via git-cliff.',
+            show_default=False,
+        ),
+    ] = None,
     create_pr: Annotated[
         bool,
         typer.Option(
@@ -172,6 +185,7 @@ def release_start(  # noqa: PLR0913
 
     Args:
         bump: Bump mode for git-cliff.
+        version_override: Override the computed next version.
         create_pr: If true, create a GitHub pull request.
         dry_run: If true, do not modify the repo; just output version and notes.
         base: Base branch for the release PR.
@@ -187,6 +201,7 @@ def release_start(  # noqa: PLR0913
     try:
         release_input = StartReleaseInput(
             bump=bump,
+            version_override=version_override,
             base_branch=base,
             remote_name=remote,
             labels=labels.split(',') if labels else [],
