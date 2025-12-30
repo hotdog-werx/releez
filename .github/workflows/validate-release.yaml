@@ -1,0 +1,50 @@
+name: Validate release
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release PR
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'release/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Releez release dry-run
+        id: releez
+        uses: hotdog-werx/releez-finalize-action@v0
+        with:
+          is-full-release: 'true'
+          dry-run: 'true'
+
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: releez-validate-release
+          mode: recreate
+          message: |
+            ✅ Releez release validation completed successfully.
+
+            # Releez: release preview
+
+            ${{ steps.releez.outputs.release-preview }}
+
+            # Releez: release notes
+
+            ${{ steps.releez.outputs.release-notes }}
