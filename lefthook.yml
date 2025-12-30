@@ -14,7 +14,7 @@ pre-push:
   parallel: true
   jobs:
     - name: python complexity
-      run: poe check-complexity
+      run: mise exec -- poe check-complexity
 
     - name: python coverage
-      run: poe check-coverage
+      run: mise exec -- poe check-coverage
