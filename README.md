@@ -24,8 +24,7 @@ Compute an artifact version for CI:
 Common options / env vars:
 
 - `--scheme docker|semver|pep440`
-- `--next-version-override ...` (or set `NEXT_VERSION` /
-  `__GIT_CLIFF_NEXT_VERSION`)
+- `--version-override ...` (or set `NEXT_VERSION` / `__GIT_CLIFF_NEXT_VERSION`)
 - `--is-full-release` (or set `RELEEZ_IS_FULL_RELEASE`)
 - `--prerelease-type alpha|beta|rc` (or set `RELEEZ_PRERELEASE_TYPE`)
 - `--prerelease-number ...` (or set `RELEEZ_PRERELEASE_NUMBER`)
@@ -35,12 +34,12 @@ Common options / env vars:
 Examples:
 
 - Docker PR build:
-  `releez version artifact --scheme docker --next-version-override 0.1.0 --prerelease-type alpha --prerelease-number 123 --build-number 456`
+  `releez version artifact --scheme docker --version-override 0.1.0 --prerelease-type alpha --prerelease-number 123 --build-number 456`
   (outputs `0.1.0-alpha123-456`)
 - Python PR build:
-  `releez version artifact --scheme pep440 --next-version-override 0.1.0 --prerelease-type alpha --prerelease-number 123 --build-number 456`
+  `releez version artifact --scheme pep440 --version-override 0.1.0 --prerelease-type alpha --prerelease-number 123 --build-number 456`
 - Main branch RC build:
-  `releez version artifact --scheme docker --next-version-override 0.1.0 --prerelease-type rc --prerelease-number 0 --build-number 456`
+  `releez version artifact --scheme docker --version-override 0.1.0 --prerelease-type rc --prerelease-number 0 --build-number 456`
   (outputs `0.1.0-rc0-456`)
 
 Create git tags for a release:

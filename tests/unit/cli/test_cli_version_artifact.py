@@ -23,7 +23,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
 
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         assert artifact_input.scheme == ArtifactVersionScheme.semver
-        assert artifact_input.next_version_override == '1.2.3'
+        assert artifact_input.version_override == '1.2.3'
         assert artifact_input.is_full_release is True
         assert artifact_input.prerelease_type == PrereleaseType.alpha
         assert artifact_input.prerelease_number is None
@@ -40,7 +40,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
         [
             'version',
             'artifact',
-            '--next-version-override',
+            '--version-override',
             '1.2.3',
             '--is-full-release',
         ],
@@ -66,7 +66,7 @@ def test_cli_version_artifact_alias_tags_use_v_prefix_only_for_aliases(
         [
             'version',
             'artifact',
-            '--next-version-override',
+            '--version-override',
             '1.2.3',
             '--is-full-release',
             '--alias-tags',
@@ -87,7 +87,7 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
         [
             'version',
             'artifact',
-            '--next-version-override',
+            '--version-override',
             '0.1.0',
             '--prerelease-type',
             'canary',
@@ -99,3 +99,28 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
     )
 
     assert result.exit_code != 0
+
+
+def test_cli_version_artifact_rejects_alias_tags_for_pep440(mocker: MockerFixture) -> None:
+    runner = CliRunner()
+    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
+    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--scheme',
+            'pep440',
+            '--version-override',
+            '1.2.3',
+            '--is-full-release',
+            '--alias-tags',
+            'major',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == '1.2.3\n'
+    compute_tags.assert_not_called()

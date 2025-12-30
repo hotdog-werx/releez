@@ -17,7 +17,7 @@ from releez.errors import (
 def test_compute_artifact_version_full_release_uses_override() -> None:
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
-        next_version_override='1.2.3',
+        version_override='1.2.3',
         is_full_release=True,
         prerelease_type=PrereleaseType.alpha,
         prerelease_number=None,
@@ -50,7 +50,7 @@ def test_compute_artifact_version_prerelease_formats(
 ) -> None:
     artifact_input = ArtifactVersionInput(
         scheme=scheme,
-        next_version_override='0.1.0',
+        version_override='0.1.0',
         is_full_release=False,
         prerelease_type=PrereleaseType.alpha,
         prerelease_number=123,
@@ -63,7 +63,7 @@ def test_compute_artifact_version_prerelease_formats(
 def test_compute_artifact_version_requires_build_number_for_prerelease() -> None:
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
-        next_version_override='0.1.0',
+        version_override='0.1.0',
         is_full_release=False,
         prerelease_type=PrereleaseType.beta,
         prerelease_number=1,
@@ -77,7 +77,7 @@ def test_compute_artifact_version_requires_build_number_for_prerelease() -> None
 def test_compute_artifact_version_requires_prerelease_number_for_prerelease() -> None:
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
-        next_version_override='0.1.0',
+        version_override='0.1.0',
         is_full_release=False,
         prerelease_type=PrereleaseType.rc,
         prerelease_number=None,

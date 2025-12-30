@@ -13,7 +13,10 @@ from releez.artifact_version import (
     compute_artifact_version,
 )
 from releez.cliff import GitCliff, GitCliffBump
-from releez.errors import AliasTagsRequireFullReleaseError, ReleezError
+from releez.errors import (
+    AliasTagsRequireFullReleaseError,
+    ReleezError,
+)
 from releez.git_repo import create_tags, fetch, open_repo, push_tags
 from releez.release import StartReleaseInput, start_release
 from releez.version_tags import AliasTags, compute_version_tags, select_tags
@@ -33,7 +36,7 @@ class _VersionArtifactArgs:
     """CLI arguments for the `version artifact` command."""
 
     scheme: ArtifactVersionScheme
-    next_version_override: str | None
+    version_override: str | None
     is_full_release: bool
     prerelease_type: PrereleaseType
     prerelease_number: int | None
@@ -46,7 +49,7 @@ def _build_artifact_version_input(
 ) -> ArtifactVersionInput:
     return ArtifactVersionInput(
         scheme=args.scheme,
-        next_version_override=args.next_version_override,
+        version_override=args.version_override,
         is_full_release=args.is_full_release,
         prerelease_type=args.prerelease_type,
         prerelease_number=args.prerelease_number,
@@ -57,9 +60,14 @@ def _build_artifact_version_input(
 def _emit_artifact_version_output(
     *,
     artifact_version: str,
+    scheme: ArtifactVersionScheme,
     is_full_release: bool,
     alias_tags: AliasTags,
 ) -> None:
+    if scheme == ArtifactVersionScheme.pep440:
+        typer.echo(artifact_version)
+        return
+
     if alias_tags == AliasTags.none:
         typer.echo(artifact_version)
         return
@@ -261,17 +269,16 @@ def version_artifact(  # noqa: PLR0913
             show_default=False,
         ),
     ] = None,
-    next_version_override: Annotated[
+    version_override: Annotated[
         str | None,
         typer.Option(
-            '--next-version-override',
-            '--next-version',
+            '--version-override',
             envvar=[
-                'RELEEZ_NEXT_VERSION_OVERRIDE',
+                'RELEEZ_VERSION_OVERRIDE',
                 'NEXT_VERSION',
                 '__GIT_CLIFF_NEXT_VERSION',
             ],
-            help='Override next version instead of computing via git-cliff.',
+            help='Override version instead of computing via git-cliff.',
             show_default=False,
         ),
     ] = None,
@@ -289,7 +296,7 @@ def version_artifact(  # noqa: PLR0913
     try:
         artifact_args = _VersionArtifactArgs(
             scheme=scheme,
-            next_version_override=next_version_override,
+            version_override=version_override,
             is_full_release=is_full_release,
             prerelease_type=prerelease_type,
             prerelease_number=prerelease_number,
@@ -299,6 +306,7 @@ def version_artifact(  # noqa: PLR0913
         artifact_version = compute_artifact_version(artifact_input)
         _emit_artifact_version_output(
             artifact_version=artifact_version,
+            scheme=scheme,
             is_full_release=is_full_release,
             alias_tags=alias_tags,
         )

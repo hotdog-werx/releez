@@ -36,7 +36,7 @@ class ArtifactVersionInput:
 
     Attributes:
         scheme: Output scheme for the artifact version.
-        next_version_override: If set, use this instead of computing via git-cliff.
+        version_override: If set, use this instead of computing via git-cliff.
         is_full_release: If true, output a full release version without prerelease markers.
         prerelease_type: Prerelease label (e.g. alpha, beta, rc).
         prerelease_number: Optional prerelease number (e.g. PR number for alpha123).
@@ -44,7 +44,7 @@ class ArtifactVersionInput:
     """
 
     scheme: ArtifactVersionScheme
-    next_version_override: str | None
+    version_override: str | None
     is_full_release: bool
     prerelease_type: PrereleaseType
     prerelease_number: int | None
@@ -71,7 +71,7 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
         BuildNumberRequiredError: If a prerelease build is missing a build number.
         ReleezError: If git or git-cliff are unavailable, or git-cliff fails.
     """
-    next_version = artifact_input.next_version_override or _compute_next_version()
+    next_version = artifact_input.version_override or _compute_next_version()
     if artifact_input.is_full_release:
         return next_version
 
