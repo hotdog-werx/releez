@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -17,6 +17,21 @@ def _to_kebab(name: str) -> str:
     return name.replace('_', '-')
 
 
+def _validation_alias(name: str) -> AliasChoices:
+    """Accept both snake_case and kebab-case for settings keys.
+
+    `AliasChoices` order matters: we list the snake_case field name first so if both
+    variants are present (e.g. env var + pyproject), the env var wins.
+    """
+    return AliasChoices(name, _to_kebab(name))
+
+
+_ALIASES = AliasGenerator(
+    validation_alias=_validation_alias,
+    serialization_alias=_to_kebab,
+)
+
+
 class ReleezHooks(BaseModel):
     """Hook-related configuration.
 
@@ -26,7 +41,7 @@ class ReleezHooks(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=_to_kebab,
+        alias_generator=_ALIASES,
         populate_by_name=True,
     )
 
@@ -48,7 +63,7 @@ class ReleezSettings(BaseSettings):
         env_nested_delimiter='__',
         extra='ignore',
         pyproject_toml_table_header=('tool', 'releez'),
-        alias_generator=_to_kebab,
+        alias_generator=_ALIASES,
         populate_by_name=True,
     )
 

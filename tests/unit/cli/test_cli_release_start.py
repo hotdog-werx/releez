@@ -7,6 +7,8 @@ from typer.testing import CliRunner
 from releez import cli
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pytest
     from pytest_mock import MockerFixture
 
@@ -66,9 +68,11 @@ def test_cli_release_start_defaults_version_override_to_none(
 
 def test_cli_release_start_run_changelog_format_uses_configured_command(
     mocker: MockerFixture,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
 
     monkeypatch.setenv(
         'RELEEZ_HOOKS__CHANGELOG_FORMAT',
@@ -102,8 +106,11 @@ def test_cli_release_start_run_changelog_format_uses_configured_command(
 
 def test_cli_release_start_run_changelog_format_requires_command(
     mocker: MockerFixture,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
 
     mocker.patch(
         'releez.cli.start_release',

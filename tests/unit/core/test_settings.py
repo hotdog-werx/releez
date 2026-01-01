@@ -49,3 +49,21 @@ def test_settings_reads_env_vars(
 
     settings = ReleezSettings()
     assert settings.alias_tags == AliasTags.major
+
+
+def test_settings_env_vars_override_pyproject_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'pyproject.toml').write_text(
+        '[tool.releez.hooks]\nchangelog-format = ["mise", "exec", "--", "poe", "format-dprint", "{changelog}"]\n',
+        encoding='utf-8',
+    )
+    monkeypatch.setenv(
+        'RELEEZ_HOOKS__CHANGELOG_FORMAT',
+        '["dprint", "fmt", "{changelog}"]',
+    )
+
+    settings = ReleezSettings()
+    assert settings.hooks.changelog_format == ['dprint', 'fmt', '{changelog}']
