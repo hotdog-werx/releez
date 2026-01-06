@@ -1,3 +1,10 @@
+## [0.1.2] - 2026-01-06
+
+### 🐛 Bug Fixes
+
+- Allow RELEEZ_GITHUB_TOKEN alias by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.1.1] - 2026-01-06
 
 ### 🚜 Refactor
