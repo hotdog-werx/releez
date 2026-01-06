@@ -1,3 +1,10 @@
+## [0.1.1] - 2026-01-06
+
+### 🚜 Refactor
+
+- Rename alias_tags to alias_versions and update related logic by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.1.0] - 2026-01-01
 
 ### 🚀 Features
