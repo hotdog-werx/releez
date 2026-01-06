@@ -29,7 +29,7 @@ Common options / env vars:
 - `--prerelease-type alpha|beta|rc` (or set `RELEEZ_PRERELEASE_TYPE`)
 - `--prerelease-number ...` (or set `RELEEZ_PRERELEASE_NUMBER`)
 - `--build-number ...` (or set `RELEEZ_BUILD_NUMBER`)
-- `--alias-tags none|major|minor` (full releases only)
+- `--alias-versions none|major|minor` (full releases only)
 
 Examples:
 
@@ -53,10 +53,11 @@ Override the tagged version if needed:
 
 Optionally update major/minor tags:
 
-- Major only: `releez release tag --version-override 2.3.4 --alias-tags major`
-  (creates `2.3.4` and `v2`)
+- Major only:
+  `releez release tag --version-override 2.3.4 --alias-versions major` (creates
+  `2.3.4` and `v2`)
 - Major + minor:
-  `releez release tag --version-override 2.3.4 --alias-tags minor` (creates
+  `releez release tag --version-override 2.3.4 --alias-versions minor` (creates
   `2.3.4`, `v2`, `v2.3`)
 
 Preview what will be published (version and tags):

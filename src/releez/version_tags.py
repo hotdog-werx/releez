@@ -8,8 +8,8 @@ from semver import VersionInfo
 from releez.errors import InvalidReleaseVersionError
 
 
-class AliasTags(StrEnum):
-    """Which alias tags to include in addition to the exact version."""
+class AliasVersions(StrEnum):
+    """Which alias versions to include in addition to the exact version."""
 
     none = 'none'
     major = 'major'
@@ -60,10 +60,10 @@ def compute_version_tags(*, version: str) -> VersionTags:
     )
 
 
-def select_tags(*, tags: VersionTags, aliases: AliasTags) -> list[str]:
-    """Select which tags to output/publish given an alias level."""
-    if aliases == AliasTags.none:
+def select_tags(*, tags: VersionTags, aliases: AliasVersions) -> list[str]:
+    """Select which version aliases to output/publish given an alias level."""
+    if aliases == AliasVersions.none:
         return [tags.exact]
-    if aliases == AliasTags.major:
+    if aliases == AliasVersions.major:
         return [tags.exact, tags.major]
     return [tags.exact, tags.major, tags.minor]

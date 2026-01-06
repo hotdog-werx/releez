@@ -28,6 +28,9 @@ releez = "releez.cli:main"
 [tool.ruff]
 extend = ".codeguide/configs/ruff.toml"
 
+[tool.pyright]
+typeCheckingMode = "standard"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

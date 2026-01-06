@@ -44,7 +44,7 @@ def run_checked(
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or '').strip()
         raise ExternalCommandError(
-            args=args,
+            cmd_args=args,
             returncode=exc.returncode,
             stderr=stderr,
         ) from exc

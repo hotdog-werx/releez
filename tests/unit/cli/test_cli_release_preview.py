@@ -36,7 +36,7 @@ def test_cli_release_preview_writes_markdown(
         [
             'release',
             'preview',
-            '--alias-tags',
+            '--alias-versions',
             'major',
             '--output',
             str(output),
@@ -72,7 +72,7 @@ def test_cli_release_preview_stdout(
         [
             'release',
             'preview',
-            '--alias-tags',
+            '--alias-versions',
             'none',
         ],
     )

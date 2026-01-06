@@ -29,22 +29,22 @@ class MissingCliError(ReleezError):
 class ExternalCommandError(ReleezError):
     """Raised when an external command returns a non-zero status."""
 
-    args: list[str]
+    cmd_args: list[str]
     returncode: int
     stderr: str
 
     def __init__(
         self,
         *,
-        args: Sequence[str],
+        cmd_args: Sequence[str],
         returncode: int,
         stderr: str | None = None,
     ) -> None:
-        self.args = list(args)
+        self.cmd_args = list(cmd_args)
         self.returncode = returncode
         self.stderr = (stderr or '').strip()
 
-        cmd = ' '.join(self.args)
+        cmd = ' '.join(self.cmd_args)
         message = f'Command failed ({self.returncode}): {cmd}'
         if self.stderr:
             message = f'{message}\n{self.stderr}'
@@ -205,12 +205,12 @@ class InvalidReleaseVersionError(ReleezError):
         )
 
 
-class AliasTagsRequireFullReleaseError(ReleezError):
-    """Raised when alias tags are requested for a non-full-release build."""
+class AliasVersionsRequireFullReleaseError(ReleezError):
+    """Raised when alias versions are requested for a non-full-release build."""
 
     def __init__(self) -> None:
         super().__init__(
-            'Alias tags are only supported for full releases (use --is-full-release).',
+            'Alias versions are only supported for full releases (use --is-full-release).',
         )
 
 

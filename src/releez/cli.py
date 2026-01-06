@@ -14,14 +14,14 @@ from releez.artifact_version import (
 )
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
-    AliasTagsRequireFullReleaseError,
+    AliasVersionsRequireFullReleaseError,
     ChangelogFormatCommandRequiredError,
     ReleezError,
 )
 from releez.git_repo import create_tags, fetch, open_repo, push_tags
 from releez.release import StartReleaseInput, start_release
 from releez.settings import ReleezSettings
-from releez.version_tags import AliasTags, compute_version_tags, select_tags
+from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
 release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
@@ -47,15 +47,15 @@ def _root(ctx: typer.Context) -> None:
         },
         'tag': {
             'remote': settings.git_remote,
-            'alias_tags': settings.alias_tags,
+            'alias_versions': settings.alias_versions,
         },
         'preview': {
-            'alias_tags': settings.alias_tags,
+            'alias_versions': settings.alias_versions,
         },
     }
     default_map['version'] = {
         'artifact': {
-            'alias_tags': settings.alias_tags,
+            'alias_versions': settings.alias_versions,
         },
     }
 
@@ -99,21 +99,21 @@ def _emit_artifact_version_output(
     artifact_version: str,
     scheme: ArtifactVersionScheme,
     is_full_release: bool,
-    alias_tags: AliasTags,
+    alias_versions: AliasVersions,
 ) -> None:
     if scheme == ArtifactVersionScheme.pep440:
         typer.echo(artifact_version)
         return
 
-    if alias_tags == AliasTags.none:
+    if alias_versions == AliasVersions.none:
         typer.echo(artifact_version)
         return
 
     if not is_full_release:
-        raise AliasTagsRequireFullReleaseError
+        raise AliasVersionsRequireFullReleaseError
 
     tags = compute_version_tags(version=artifact_version)
-    for tag in select_tags(tags=tags, aliases=alias_tags):
+    for tag in select_tags(tags=tags, aliases=alias_versions):
         typer.echo(tag)
 
 
@@ -335,15 +335,15 @@ def version_artifact(  # noqa: PLR0913
             show_default=False,
         ),
     ] = None,
-    alias_tags: Annotated[
-        AliasTags,
+    alias_versions: Annotated[
+        AliasVersions,
         typer.Option(
-            '--alias-tags',
+            '--alias-versions',
             help='For full releases, also output major/minor tags.',
             show_default=True,
             case_sensitive=False,
         ),
-    ] = AliasTags.none,
+    ] = AliasVersions.none,
 ) -> None:
     """Compute an artifact version string."""
     try:
@@ -361,7 +361,7 @@ def version_artifact(  # noqa: PLR0913
             artifact_version=artifact_version,
             scheme=scheme,
             is_full_release=is_full_release,
-            alias_tags=alias_tags,
+            alias_versions=alias_versions,
         )
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
@@ -379,15 +379,15 @@ def release_tag(
             show_default=False,
         ),
     ] = None,
-    alias_tags: Annotated[
-        AliasTags,
+    alias_versions: Annotated[
+        AliasVersions,
         typer.Option(
-            '--alias-tags',
+            '--alias-versions',
             help='Also create major/minor tags (v2, v2.3).',
             show_default=True,
             case_sensitive=False,
         ),
-    ] = AliasTags.none,
+    ] = AliasVersions.none,
     remote: Annotated[
         str,
         typer.Option(
@@ -406,7 +406,7 @@ def release_tag(
             version_override=version_override,
         )
         tags = compute_version_tags(version=version)
-        selected = select_tags(tags=tags, aliases=alias_tags)
+        selected = select_tags(tags=tags, aliases=alias_versions)
         exact_tags = selected[:1]
         alias_only_tags = selected[1:]
 
@@ -440,15 +440,15 @@ def release_preview(
             show_default=False,
         ),
     ] = None,
-    alias_tags: Annotated[
-        AliasTags,
+    alias_versions: Annotated[
+        AliasVersions,
         typer.Option(
-            '--alias-tags',
+            '--alias-versions',
             help='Include major/minor tags in the preview.',
             show_default=True,
             case_sensitive=False,
         ),
-    ] = AliasTags.none,
+    ] = AliasVersions.none,
     output: Annotated[
         Path | None,
         typer.Option(
@@ -467,7 +467,7 @@ def release_preview(
         )
 
         computed = compute_version_tags(version=version)
-        tags = select_tags(tags=computed, aliases=alias_tags)
+        tags = select_tags(tags=computed, aliases=alias_versions)
 
         markdown = '\n'.join(
             [

@@ -35,5 +35,8 @@ jobs:
       - name: Run complexity check
         run: poe check-complexity
 
+      - name: Run type check
+        run: poe check-basedpyright
+
       - name: Run coverage check
         run: poe check-coverage

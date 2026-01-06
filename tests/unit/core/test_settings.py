@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from releez.settings import ReleezSettings
-from releez.version_tags import AliasTags
+from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,12 +17,12 @@ def test_settings_reads_pyproject_tool_releez_kebab_case(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'pyproject.toml').write_text(
-        '[tool.releez]\nalias-tags = "major"\ngit-remote = "upstream"\n',
+        '[tool.releez]\nalias-versions = "major"\ngit-remote = "upstream"\n',
         encoding='utf-8',
     )
 
     settings = ReleezSettings()
-    assert settings.alias_tags == AliasTags.major
+    assert settings.alias_versions == AliasVersions.major
     assert settings.git_remote == 'upstream'
 
 
@@ -32,12 +32,12 @@ def test_settings_reads_releez_toml(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'releez.toml').write_text(
-        'alias_tags = "minor"\n',
+        'alias_versions = "minor"\n',
         encoding='utf-8',
     )
 
     settings = ReleezSettings()
-    assert settings.alias_tags == AliasTags.minor
+    assert settings.alias_versions == AliasVersions.minor
 
 
 def test_settings_reads_env_vars(
@@ -45,10 +45,10 @@ def test_settings_reads_env_vars(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv('RELEEZ_ALIAS_TAGS', 'major')
+    monkeypatch.setenv('RELEEZ_ALIAS_VERSIONS', 'major')
 
     settings = ReleezSettings()
-    assert settings.alias_tags == AliasTags.major
+    assert settings.alias_versions == AliasVersions.major
 
 
 def test_settings_env_vars_override_pyproject_config(

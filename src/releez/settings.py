@@ -9,7 +9,7 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-from releez.version_tags import AliasTags
+from releez.version_tags import AliasVersions
 
 
 def _to_kebab(name: str) -> str:
@@ -74,7 +74,7 @@ class ReleezSettings(BaseSettings):
     changelog_path: str = 'CHANGELOG.md'
     create_pr: bool = False
     run_changelog_format: bool = False
-    alias_tags: AliasTags = AliasTags.none
+    alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
 
     @classmethod

@@ -36,7 +36,7 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
             'tag',
             '--version-override',
             '2.3.4',
-            '--alias-tags',
+            '--alias-versions',
             'minor',
         ],
     )

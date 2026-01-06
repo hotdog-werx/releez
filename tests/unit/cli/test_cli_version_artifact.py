@@ -43,7 +43,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
             '--version-override',
             '1.2.3',
             '--is-full-release',
-            '--alias-tags',
+            '--alias-versions',
             'none',
         ],
     )
@@ -52,7 +52,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
     assert result.stdout == '1.2.3\n'
 
 
-def test_cli_version_artifact_alias_tags_use_v_prefix_only_for_aliases(
+def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     mocker: MockerFixture,
 ) -> None:
     runner = CliRunner()
@@ -71,7 +71,7 @@ def test_cli_version_artifact_alias_tags_use_v_prefix_only_for_aliases(
             '--version-override',
             '1.2.3',
             '--is-full-release',
-            '--alias-tags',
+            '--alias-versions',
             'major',
         ],
     )
@@ -103,7 +103,7 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
     assert result.exit_code != 0
 
 
-def test_cli_version_artifact_rejects_alias_tags_for_pep440(
+def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     mocker: MockerFixture,
 ) -> None:
     runner = CliRunner()
@@ -120,7 +120,7 @@ def test_cli_version_artifact_rejects_alias_tags_for_pep440(
             '--version-override',
             '1.2.3',
             '--is-full-release',
-            '--alias-tags',
+            '--alias-versions',
             'major',
         ],
     )
