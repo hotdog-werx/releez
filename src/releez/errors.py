@@ -205,15 +205,6 @@ class InvalidReleaseVersionError(ReleezError):
         )
 
 
-class AliasVersionsRequireFullReleaseError(ReleezError):
-    """Raised when alias versions are requested for a non-full-release build."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            'Alias versions are only supported for full releases (use --is-full-release).',
-        )
-
-
 class GitTagExistsError(ReleezError):
     """Raised when attempting to create a tag that already exists."""
 
