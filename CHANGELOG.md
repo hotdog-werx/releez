@@ -1,3 +1,16 @@
+## [0.1.3] - 2026-01-08
+
+### 🐛 Bug Fixes
+
+- Update alias versions handling (#5) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#5](https://github.com/hotdog-werx/releez/pull/5)
+
+### ⚙️ Miscellaneous Tasks
+
+- _(docs)_ Update documentation by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.1.2] - 2026-01-06
 
 ### 🐛 Bug Fixes
