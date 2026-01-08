@@ -14,7 +14,6 @@ from releez.artifact_version import (
 )
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
-    AliasVersionsRequireFullReleaseError,
     ChangelogFormatCommandRequiredError,
     ReleezError,
 )
@@ -102,6 +101,12 @@ def _emit_artifact_version_output(
     alias_versions: AliasVersions,
 ) -> None:
     if scheme == ArtifactVersionScheme.pep440:
+        if alias_versions != AliasVersions.none:
+            typer.secho(
+                'Note: --alias-versions is ignored for --scheme pep440.',
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
         typer.echo(artifact_version)
         return
 
@@ -110,7 +115,13 @@ def _emit_artifact_version_output(
         return
 
     if not is_full_release:
-        raise AliasVersionsRequireFullReleaseError
+        typer.secho(
+            'Note: --alias-versions is only applied for full releases; ignoring because --is-full-release is not set.',
+            err=True,
+            fg=typer.colors.YELLOW,
+        )
+        typer.echo(artifact_version)
+        return
 
     tags = compute_version_tags(version=artifact_version)
     for tag in select_tags(tags=tags, aliases=alias_versions):

@@ -128,3 +128,38 @@ def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     assert result.exit_code == 0
     assert result.stdout == '1.2.3\n'
     compute_tags.assert_not_called()
+
+
+def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
+    mocker: MockerFixture,
+) -> None:
+    runner = CliRunner()
+    mocker.patch(
+        'releez.cli.compute_artifact_version',
+        return_value='1.2.3-alpha1-2',
+    )
+    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--scheme',
+            'docker',
+            '--version-override',
+            '1.2.3',
+            '--prerelease-type',
+            'alpha',
+            '--prerelease-number',
+            '1',
+            '--build-number',
+            '2',
+            '--alias-versions',
+            'major',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == '1.2.3-alpha1-2\n'
+    compute_tags.assert_not_called()
