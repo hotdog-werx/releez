@@ -1,0 +1,6 @@
+{
+  "recommendations": [
+    "pucelle.run-on-save",
+    "charliermarsh.ruff"
+  ]
+}

@@ -4,5 +4,17 @@
   "editor.rulers": [
     80,
     120
-  ]
+  ],
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "\\.(md|yaml|yml|json|toml)$",
+        "cmd": "mise exec -- poe format-dprint ${file}"
+      },
+      {
+        "match": "\\.py$",
+        "cmd": "mise exec -- poe format-python ${file}"
+      }
+    ]
+  }
 }

@@ -223,7 +223,7 @@ def release_start(  # noqa: PLR0913
         str | None,
         typer.Option(
             envvar=['RELEEZ_GITHUB_TOKEN', 'GITHUB_TOKEN'],
-            help='GitHub token for PR creation (or set GITHUB_TOKEN).',
+            help='GitHub token for PR creation (prefer RELEEZ_GITHUB_TOKEN; falls back to GITHUB_TOKEN).',
             show_default=False,
         ),
     ] = None,
