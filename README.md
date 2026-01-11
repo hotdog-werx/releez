@@ -78,6 +78,19 @@ Generate the unreleased changelog section for the release:
 
 `releez release notes --output release-notes.md` (write markdown to a file)
 
+Regenerate the entire changelog from git history:
+
+`releez changelog regenerate` (regenerates `CHANGELOG.md` using git-cliff)
+
+Common options:
+
+- `--changelog-path CHANGELOG.md` (specify a different changelog file)
+- `--run-changelog-format` (run the configured format hook after regeneration)
+- `--changelog-format-cmd ...` (override the configured format command)
+
+This is useful for fixing changelog formatting issues or rebuilding the
+changelog after repository changes.
+
 ## Configuration
 
 `releez` supports configuration via:
@@ -105,10 +118,13 @@ These are the settings currently loaded from config/env:
 - `git_remote` (`--remote` on `release start` / `release tag`)
 - `pr_labels` (`--labels` on `release start`)
 - `pr_title_prefix` (`--title-prefix` on `release start`)
-- `changelog_path` (`--changelog-path` on `release start`)
+- `changelog_path` (`--changelog-path` on `release start` /
+  `changelog regenerate`)
 - `create_pr` (`--create-pr/--no-create-pr` on `release start`)
-- `run_changelog_format` (`--run-changelog-format` on `release start`)
-- `hooks.changelog_format` (used by `release start` when formatting is enabled)
+- `run_changelog_format` (`--run-changelog-format` on `release start` /
+  `changelog regenerate`)
+- `hooks.changelog_format` (used by `release start` and `changelog regenerate`
+  when formatting is enabled)
 - `alias_versions` (`--alias-versions` on `release tag` / `release preview` /
   `version artifact`)
 
