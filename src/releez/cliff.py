@@ -157,3 +157,30 @@ class GitCliff:
             cwd=self._repo_root,
             capture_stdout=False,
         )
+
+    def regenerate_changelog(
+        self,
+        *,
+        changelog_path: Path,
+    ) -> None:
+        """Regenerate the full changelog file from git history.
+
+        Args:
+            changelog_path: The path to the changelog file.
+
+        Raises:
+            MissingCliError: If `git-cliff` is not available.
+            ExternalCommandError: If git-cliff fails.
+        """
+        run_checked(
+            [
+                *self._cmd,
+                '-v',
+                '--tag-pattern',
+                GIT_CLIFF_TAG_PATTERN,
+                '--output',
+                str(changelog_path),
+            ],
+            cwd=self._repo_root,
+            capture_stdout=False,
+        )
