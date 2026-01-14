@@ -96,6 +96,7 @@ def _maintenance_major(
             reason=str(exc),
         ) from exc
 
+    # Expect a named "major" capture group from the branch regex.
     match = pattern.match(branch)
     if not match:
         return None
@@ -135,6 +136,7 @@ class MaintenanceContext:
 
     @property
     def is_maintenance(self) -> bool:
+        """Return True if the branch matches the maintenance pattern."""
         return self.major is not None
 
     def ensure_version_matches(self, version: VersionInfo) -> None:
@@ -301,7 +303,12 @@ def _build_release_start_context(
         regex=maintenance_branch_regex,
     )
     # Maintenance releases use the current branch as their base.
-    resolved_base = info.active_branch if maintenance.is_maintenance else base_branch
+    active_branch = info.active_branch
+    # Maintenance releases should target the current branch; fall back if detached.
+    if maintenance.is_maintenance and active_branch is not None:
+        resolved_base = active_branch
+    else:
+        resolved_base = base_branch
 
     version_for_check: VersionInfo | None = None
     # Compute a version whenever we need to validate or confirm.

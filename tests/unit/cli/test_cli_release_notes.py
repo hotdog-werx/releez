@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
 from semver import VersionInfo
 from typer.testing import CliRunner
 
@@ -29,7 +30,7 @@ def test_cli_release_notes_stdout(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
     mocker.patch(
         'releez.cli._resolve_release_version',
@@ -61,7 +62,7 @@ def test_cli_release_notes_writes_file(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
     mocker.patch(
         'releez.cli._resolve_release_version',

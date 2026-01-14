@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from git import Repo
 from typer.testing import CliRunner
 
 from releez import cli
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
     runner = CliRunner()
 
-    repo = object()
+    repo = mocker.Mock(spec=Repo)
     repo_info = RepoInfo(
         root=Path.cwd(),
         remote_url='',
@@ -70,7 +71,7 @@ def test_cli_release_tag_defaults_to_git_cliff(
 ) -> None:
     runner = CliRunner()
 
-    repo = object()
+    repo = mocker.Mock(spec=Repo)
     repo_info = RepoInfo(
         root=tmp_path,
         remote_url='',

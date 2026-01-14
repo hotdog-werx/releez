@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
 from typer.testing import CliRunner
 
 from releez import cli
@@ -29,7 +30,7 @@ def test_cli_release_preview_writes_markdown(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     cliff = mocker.Mock()
@@ -71,7 +72,7 @@ def test_cli_release_preview_stdout(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     cliff = mocker.Mock()

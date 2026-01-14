@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
 from typer.testing import CliRunner
 
 from releez import cli
@@ -87,7 +88,7 @@ def test_cli_release_start_run_changelog_format_uses_configured_command(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     start_release = mocker.patch(
@@ -130,7 +131,7 @@ def test_cli_release_start_run_changelog_format_requires_command(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=RepoContext(repo=object(), info=repo_info),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     mocker.patch(

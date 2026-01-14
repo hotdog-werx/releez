@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
+
 import releez.release
 from releez.git_repo import RepoContext, RepoInfo
 
@@ -18,7 +20,7 @@ def test_start_release_runs_changelog_format_command(
     changelog = tmp_path / 'CHANGELOG.md'
     changelog.write_text('# Changelog\n', encoding='utf-8')
 
-    repo = mocker.Mock()
+    repo = mocker.Mock(spec=Repo)
     info = RepoInfo(root=tmp_path, remote_url='', active_branch='feature/test')
     mocker.patch(
         'releez.release.open_repo',
