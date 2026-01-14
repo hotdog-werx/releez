@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.git_repo import RepoContext, RepoInfo
 from releez.version_tags import VersionTags
 
 if TYPE_CHECKING:
@@ -16,9 +17,14 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
     runner = CliRunner()
 
     repo = object()
+    repo_info = RepoInfo(
+        root=Path.cwd(),
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(repo, mocker.Mock(root=Path.cwd())),
+        return_value=RepoContext(repo=repo, info=repo_info),
     )
     mocker.patch('releez.cli.fetch')
     mocker.patch(
@@ -65,9 +71,14 @@ def test_cli_release_tag_defaults_to_git_cliff(
     runner = CliRunner()
 
     repo = object()
+    repo_info = RepoInfo(
+        root=tmp_path,
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(repo, mocker.Mock(root=tmp_path)),
+        return_value=RepoContext(repo=repo, info=repo_info),
     )
     mocker.patch('releez.cli.fetch')
 
@@ -86,7 +97,10 @@ def test_cli_release_tag_defaults_to_git_cliff(
     result = runner.invoke(cli.app, ['release', 'tag'])
 
     assert result.exit_code == 0
-    cliff.compute_next_version.assert_called_once_with(bump='auto')
+    cliff.compute_next_version.assert_called_once_with(
+        bump='auto',
+        tag_pattern=None,
+    )
     create_tags.assert_called_once_with(repo, tags=['2.3.4'], force=False)
     push_tags.assert_called_once_with(
         repo,

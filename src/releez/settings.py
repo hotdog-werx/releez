@@ -74,6 +74,7 @@ class ReleezSettings(BaseSettings):
     changelog_path: str = 'CHANGELOG.md'
     create_pr: bool = False
     run_changelog_format: bool = False
+    maintenance_branch_regex: str = r'^support/(?P<major>\d+)\.x$'
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
 

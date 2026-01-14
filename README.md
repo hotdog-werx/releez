@@ -28,6 +28,7 @@ Common options:
 - `--github-token ...` (or set `RELEEZ_GITHUB_TOKEN`, falling back to
   `GITHUB_TOKEN`)
 - `--dry-run`
+- `--non-interactive` (skip confirmation prompts; useful in CI)
 
 Compute an artifact version for CI:
 
@@ -147,6 +148,7 @@ base-branch = "master"
 git-remote = "origin"
 alias-versions = "minor"
 run-changelog-format = true
+maintenance-branch-regex = "^support/(?P<major>\\d+)\\.x$"
 
 [tool.releez.hooks]
 changelog-format = ["poe", "format-dprint", "{changelog}"]
@@ -159,6 +161,7 @@ base_branch = "main"
 git_remote = "origin"
 alias_versions = "minor"
 run_changelog_format = true
+maintenance_branch_regex = "^support/(?P<major>\\d+)\\.x$"
 
 [hooks]
 changelog_format = ["poe", "format-dprint", "{changelog}"]
@@ -169,6 +172,7 @@ Environment variables:
 ```bash
 export RELEEZ_GIT_REMOTE=origin
 export RELEEZ_ALIAS_VERSIONS=major
+export RELEEZ_MAINTENANCE_BRANCH_REGEX="^support/(?P<major>\\d+)\\.x$"
 export RELEEZ_HOOKS__CHANGELOG_FORMAT='["poe","format-dprint","{changelog}"]'
 ```
 

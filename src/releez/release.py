@@ -8,11 +8,14 @@ if TYPE_CHECKING:
 
     from git import Repo
 
+from semver import VersionInfo
+
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
     ChangelogFormatCommandRequiredError,
     GitHubTokenRequiredError,
     GitRemoteUrlRequiredError,
+    InvalidReleaseVersionError,
 )
 from releez.git_repo import (
     checkout_remote_branch,
@@ -61,6 +64,7 @@ class StartReleaseInput:
         create_pr: If true, create a GitHub pull request.
         github_token: GitHub token for PR creation.
         dry_run: If true, do not modify the repo; just output version and notes.
+        tag_pattern: Optional git-cliff tag regex to constrain versioning on maintenance branches.
     """
 
     bump: GitCliffBump
@@ -75,6 +79,7 @@ class StartReleaseInput:
     create_pr: bool
     github_token: str | None
     dry_run: bool
+    tag_pattern: str | None
 
 
 @dataclass(frozen=True)
@@ -133,10 +138,18 @@ def _resolve_release_version(
     *,
     cliff: GitCliff,
     release_input: StartReleaseInput,
-) -> str:
+) -> VersionInfo:
     if release_input.version_override is not None:
-        return release_input.version_override
-    return cliff.compute_next_version(bump=release_input.bump)
+        version = release_input.version_override
+    else:
+        version = cliff.compute_next_version(
+            bump=release_input.bump,
+            tag_pattern=release_input.tag_pattern,
+        )
+    try:
+        return VersionInfo.parse(version)
+    except ValueError as exc:
+        raise InvalidReleaseVersionError(version) from exc
 
 
 def _format_changelog_if_requested(
@@ -170,7 +183,9 @@ def start_release(
     Raises:
         ReleezError: If a release step fails (git, git-cliff, or GitHub).
     """
-    repo, info = open_repo()
+    repo_context = open_repo()
+    repo = repo_context.repo
+    info = repo_context.info
     ensure_clean(repo)
     fetch(repo, remote_name=release_input.remote_name)
 
@@ -183,24 +198,32 @@ def start_release(
         )
 
     version = _resolve_release_version(cliff=cliff, release_input=release_input)
-    notes = cliff.generate_unreleased_notes(version=version)
+    version_str = str(version)
+    notes = cliff.generate_unreleased_notes(
+        version=version_str,
+        tag_pattern=release_input.tag_pattern,
+    )
 
     if release_input.dry_run:
         return StartReleaseResult(
-            version=version,
+            version=version_str,
             release_notes_markdown=notes,
             release_branch=None,
             pr_url=None,
         )
 
-    release_branch = f'release/{version}'
+    release_branch = f'release/{version_str}'
     create_and_checkout_branch(repo, name=release_branch)
 
     changelog = resolve_changelog_path(
         changelog_path=release_input.changelog_path,
         repo_root=info.root,
     )
-    cliff.prepend_to_changelog(version=version, changelog_path=changelog)
+    cliff.prepend_to_changelog(
+        version=version_str,
+        changelog_path=changelog,
+        tag_pattern=release_input.tag_pattern,
+    )
     _format_changelog_if_requested(
         repo_root=info.root,
         changelog_path=changelog,
@@ -210,7 +233,7 @@ def start_release(
     commit_file(
         repo,
         path=changelog,
-        message=f'{release_input.title_prefix}{version}',
+        message=f'{release_input.title_prefix}{version_str}',
     )
 
     push_set_upstream(
@@ -227,14 +250,14 @@ def start_release(
             remote_name=release_input.remote_name,
             base_branch=release_input.base_branch,
             head_branch=release_branch,
-            title=f'{release_input.title_prefix}{version}',
+            title=f'{release_input.title_prefix}{version_str}',
             body=notes,
             labels=release_input.labels,
         ),
     )
 
     return StartReleaseResult(
-        version=version,
+        version=version_str,
         release_notes_markdown=notes,
         release_branch=release_branch,
         pr_url=pr_url,
