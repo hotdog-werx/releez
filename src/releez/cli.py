@@ -125,27 +125,20 @@ class MaintenanceContext:
     """Context derived from branch naming for maintenance releases.
 
     Attributes:
-        branch: Branch name used for detection (None if detached).
-        major: Maintenance line major version, or None if not on a maintenance branch.
+        branch: Branch name used for detection.
+        major: Maintenance line major version.
         tag_pattern: git-cliff tag regex for scoping versions on maintenance branches.
     """
 
-    branch: str | None
-    major: int | None
-    tag_pattern: str | None
-
-    @property
-    def is_maintenance(self) -> bool:
-        """Return True if the branch matches the maintenance pattern."""
-        return self.major is not None
+    branch: str
+    major: int
+    tag_pattern: str
 
     def ensure_version_matches(self, version: VersionInfo) -> None:
         """Ensure a computed version does not escape the maintenance major."""
-        if self.major is None:
-            return
         if version.major != self.major:
             raise MaintenanceBranchMajorMismatchError(
-                branch=self.branch or '<detached>',
+                branch=self.branch,
                 major=self.major,
                 version=str(version),
             )
@@ -155,13 +148,16 @@ def _maintenance_context(
     *,
     branch: str | None,
     regex: str,
-) -> MaintenanceContext:
+) -> MaintenanceContext | None:
+    if branch is None:
+        return None
     major = _maintenance_major(branch=branch, regex=regex)
-    tag_pattern = _maintenance_tag_pattern(major) if major is not None else None
+    if major is None:
+        return None
     return MaintenanceContext(
         branch=branch,
         major=major,
-        tag_pattern=tag_pattern,
+        tag_pattern=_maintenance_tag_pattern(major),
     )
 
 
@@ -185,14 +181,14 @@ class _ReleaseStartContext:
         repo_root: Root directory of the repository.
         active_branch: Current branch name (None if detached).
         base_branch: Target base branch for the release PR.
-        maintenance: Maintenance branch context for scoping versions.
+        maintenance: Maintenance branch context for scoping versions, if any.
         version_for_check: Precomputed version used for validation/confirmation.
     """
 
     repo_root: Path
     active_branch: str | None
     base_branch: str
-    maintenance: MaintenanceContext
+    maintenance: MaintenanceContext | None
     version_for_check: VersionInfo | None
 
 
@@ -302,22 +298,20 @@ def _build_release_start_context(
         branch=info.active_branch,
         regex=maintenance_branch_regex,
     )
-    # Maintenance releases use the current branch as their base.
-    active_branch = info.active_branch
-    # Maintenance releases should target the current branch; fall back if detached.
-    resolved_base = active_branch if maintenance.is_maintenance and active_branch is not None else base_branch
+    # Maintenance releases should target the current branch.
+    resolved_base = maintenance.branch if maintenance is not None else base_branch
 
     version_for_check: VersionInfo | None = None
     # Compute a version whenever we need to validate or confirm.
-    if maintenance.is_maintenance or not dry_run:
+    if maintenance is not None or not dry_run:
         version_for_check = _resolve_release_version(
             repo_root=info.root,
             version_override=version_override,
             bump=bump,
-            tag_pattern=maintenance.tag_pattern,
+            tag_pattern=maintenance.tag_pattern if maintenance is not None else None,
         )
 
-    if version_for_check is not None:
+    if maintenance is not None and version_for_check is not None:
         maintenance.ensure_version_matches(version_for_check)
 
     return _ReleaseStartContext(
@@ -392,7 +386,7 @@ def _prepare_release_start_input(
         create_pr=args.create_pr,
         github_token=args.github_token,
         dry_run=args.dry_run,
-        tag_pattern=context.maintenance.tag_pattern,
+        tag_pattern=context.maintenance.tag_pattern if context.maintenance is not None else None,
     )
 
 
@@ -692,9 +686,10 @@ def release_tag(
         version = _resolve_release_version(
             repo_root=info.root,
             version_override=version_override,
-            tag_pattern=maintenance.tag_pattern,
+            tag_pattern=maintenance.tag_pattern if maintenance is not None else None,
         )
-        maintenance.ensure_version_matches(version)
+        if maintenance is not None:
+            maintenance.ensure_version_matches(version)
         tags = compute_version_tags(version=str(version))
         selected = select_tags(tags=tags, aliases=alias_versions)
         exact_tags = selected[:1]
@@ -761,9 +756,10 @@ def release_preview(
         version = _resolve_release_version(
             repo_root=info.root,
             version_override=version_override,
-            tag_pattern=maintenance.tag_pattern,
+            tag_pattern=maintenance.tag_pattern if maintenance is not None else None,
         )
-        maintenance.ensure_version_matches(version)
+        if maintenance is not None:
+            maintenance.ensure_version_matches(version)
 
         computed = compute_version_tags(version=str(version))
         tags = select_tags(tags=computed, aliases=alias_versions)
@@ -822,13 +818,14 @@ def release_notes(
         version = _resolve_release_version(
             repo_root=info.root,
             version_override=version_override,
-            tag_pattern=maintenance.tag_pattern,
+            tag_pattern=maintenance.tag_pattern if maintenance is not None else None,
         )
-        maintenance.ensure_version_matches(version)
+        if maintenance is not None:
+            maintenance.ensure_version_matches(version)
         cliff = GitCliff(repo_root=info.root)
         notes = cliff.generate_unreleased_notes(
             version=str(version),
-            tag_pattern=maintenance.tag_pattern,
+            tag_pattern=maintenance.tag_pattern if maintenance is not None else None,
         )
 
         if output is not None:
