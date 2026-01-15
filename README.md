@@ -62,6 +62,27 @@ See the
 [Monorepo Setup Guide](https://hotdog-werx.github.io/releez/monorepo/setup/) for
 full configuration, change detection, uv workspace integration, and CI patterns.
 
+## Support branches
+
+Support branches are long-lived maintenance lines for shipping hotfixes or
+backported features on older majors (for example, `support/1.x` for the `1.x`
+line). Run `releez release start` from the support branch to cut a release that
+stays on that line.
+
+By default, `releez` treats branches matching `^support/(?P<major>\\d+)\\.x$` as
+maintenance branches. When on a support branch it will:
+
+- Scope git-cliff versioning to tags in the same major line.
+- Use the current support branch as the PR base.
+- Reject versions that would jump to a different major.
+
+Each support branch maintains its own changelog history; releases stay within
+that branch.
+
+If your repo uses a different naming scheme, set `maintenance_branch_regex` in
+config or via `RELEEZ_MAINTENANCE_BRANCH_REGEX`. The regex must include a named
+`major` capture group.
+
 ## Configuration
 
 Precedence (highest first): CLI flags → `RELEEZ_*` env vars → `releez.toml` →
