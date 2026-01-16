@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
 
 import pytest
 from typer.testing import CliRunner
@@ -9,41 +10,74 @@ from releez import cli
 from releez.errors import MissingCliError
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
+
+
+class ChangelogSetupCallable(Protocol):
+    """Protocol for the changelog setup fixture callable."""
+
+    def __call__(
+        self,
+        changelog_paths: list[str] | None = None,
+    ) -> tuple[Path, Mock]: ...
 
 
 @pytest.fixture
 def mock_changelog_setup(
     mocker: MockerFixture,
     tmp_path: Path,
-) -> tuple[Path, Mock]:
+) -> ChangelogSetupCallable:
     """Set up common mocks for changelog tests.
 
     Returns:
-        Tuple of (repo_root, mocked_cliff)
+        A callable that accepts optional changelog paths and returns (repo_root, mocked_cliff).
+        If changelog_paths is None, creates the default CHANGELOG.md.
+        If changelog_paths is an empty list, no changelog files are created.
     """
-    repo_root = tmp_path / 'repo'
-    repo_root.mkdir()
 
-    mocker.patch(
-        'releez.typer_app.changelog.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
-    )
+    def _setup(changelog_paths: list[str] | None = None) -> tuple[Path, Mock]:
+        repo_root = tmp_path / 'repo'
+        repo_root.mkdir()
 
-    cliff = mocker.Mock()
-    mocker.patch('releez.typer_app.changelog.GitCliff', return_value=cliff)
+        # Create changelog files if requested
+        if changelog_paths is None:
+            # Default behavior: create CHANGELOG.md
+            changelog_file = repo_root / 'CHANGELOG.md'
+            changelog_file.write_text('# Changelog\n')
+        else:
+            # Create specified changelog files (can be empty list for none)
+            for path_str in changelog_paths:
+                changelog_path = Path(path_str)
+                if changelog_path.is_absolute():
+                    # For absolute paths, create in the specified location
+                    changelog_path.parent.mkdir(parents=True, exist_ok=True)
+                    changelog_path.write_text('# Changelog\n')
+                else:
+                    # For relative paths, create under repo_root
+                    changelog_file = repo_root / path_str
+                    changelog_file.parent.mkdir(parents=True, exist_ok=True)
+                    changelog_file.write_text('# Changelog\n')
 
-    return repo_root, cliff
+        mocker.patch(
+            'releez.subapps.changelog.open_repo',
+            return_value=(object(), mocker.Mock(root=repo_root)),
+        )
+
+        cliff = mocker.Mock()
+        mocker.patch('releez.subapps.changelog.GitCliff', return_value=cliff)
+
+        return repo_root, cliff
+
+    return _setup
 
 
 def test_changelog_regenerate_basic(
-    mock_changelog_setup: tuple[Path, Mock],
+    mock_changelog_setup: ChangelogSetupCallable,
 ) -> None:
     """Test basic changelog regeneration without formatting."""
-    repo_root, cliff = mock_changelog_setup
+    repo_root, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
     runner = CliRunner()
 
     result = runner.invoke(
@@ -58,10 +92,10 @@ def test_changelog_regenerate_basic(
 
 
 def test_changelog_regenerate_custom_path(
-    mock_changelog_setup: tuple[Path, Mock],
+    mock_changelog_setup: ChangelogSetupCallable,
 ) -> None:
     """Test changelog regeneration with custom path."""
-    repo_root, cliff = mock_changelog_setup
+    repo_root, cliff = mock_changelog_setup(['HISTORY.md'])
     runner = CliRunner()
 
     result = runner.invoke(
@@ -76,13 +110,13 @@ def test_changelog_regenerate_custom_path(
 
 
 def test_changelog_regenerate_absolute_path(
-    mock_changelog_setup: tuple[Path, Mock],
+    mock_changelog_setup: ChangelogSetupCallable,
     tmp_path: Path,
 ) -> None:
     """Test changelog regeneration with absolute path."""
-    _, cliff = mock_changelog_setup
-    runner = CliRunner()
     changelog_path = tmp_path / 'custom' / 'CHANGELOG.md'
+    _, cliff = mock_changelog_setup([str(changelog_path)])
+    runner = CliRunner()
 
     result = runner.invoke(
         cli.app,
@@ -96,14 +130,14 @@ def test_changelog_regenerate_absolute_path(
 
 
 def test_changelog_regenerate_with_format(
-    mock_changelog_setup: tuple[Path, Mock],
+    mock_changelog_setup: ChangelogSetupCallable,
     mocker: MockerFixture,
 ) -> None:
     """Test changelog regeneration with formatting enabled."""
-    repo_root, cliff = mock_changelog_setup
+    repo_root, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
     runner = CliRunner()
 
-    run_checked = mocker.patch('releez.typer_app.changelog.run_checked')
+    run_checked = mocker.patch('releez.utils.run_checked')
 
     result = runner.invoke(
         cli.app,
@@ -131,12 +165,12 @@ def test_changelog_regenerate_with_format(
 
 
 def test_changelog_regenerate_format_without_cmd_raises_error(
-    mock_changelog_setup: tuple[Path, Mock],
+    mock_changelog_setup: ChangelogSetupCallable,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that enabling format without providing cmd raises error."""
-    _, cliff = mock_changelog_setup
+    _, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
     runner = CliRunner()
     monkeypatch.chdir(tmp_path)
 
@@ -160,15 +194,19 @@ def test_changelog_regenerate_handles_releez_error(
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
+    # Create the changelog file
+    changelog_file = repo_root / 'CHANGELOG.md'
+    changelog_file.write_text('# Changelog\n')
+
     mocker.patch(
-        'releez.typer_app.changelog.open_repo',
+        'releez.subapps.changelog.open_repo',
         return_value=(object(), mocker.Mock(root=repo_root)),
     )
 
     # This test needs to raise an error during GitCliff creation,
     # so we can't use the fixture which mocks it successfully
     mocker.patch(
-        'releez.typer_app.changelog.GitCliff',
+        'releez.subapps.changelog.GitCliff',
         side_effect=MissingCliError('git-cliff'),
     )
 

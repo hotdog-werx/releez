@@ -20,7 +20,7 @@ from releez.errors import (
 from releez.git_repo import create_tags, fetch, open_repo, push_tags
 from releez.release import StartReleaseInput, start_release
 from releez.settings import ReleezSettings
-from releez.typer_app import changelog_app
+from releez.subapps import changelog_app
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
