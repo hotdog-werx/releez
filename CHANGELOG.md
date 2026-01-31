@@ -1,3 +1,11 @@
+## [0.2.0] - 2026-01-31
+
+### 🚀 Features
+
+- _(cli)_ Add changelog regenerate command (#7) by
+  [@jmlopez-rod](https://github.com/jmlopez-rod) in
+  [#7](https://github.com/hotdog-werx/releez/pull/7)
+
 ## [0.1.3] - 2026-01-08
 
 ### 🐛 Bug Fixes
