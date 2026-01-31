@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from git import Repo
 
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
     ChangelogFormatCommandRequiredError,
-    ChangelogNotFoundError,
     GitHubTokenRequiredError,
     GitRemoteUrlRequiredError,
 )
@@ -24,7 +24,7 @@ from releez.git_repo import (
     push_set_upstream,
 )
 from releez.github import PullRequestCreateRequest, create_pull_request
-from releez.process import run_checked
+from releez.utils import resolve_changelog_path, run_changelog_formatter
 
 
 @dataclass(frozen=True)
@@ -139,19 +139,6 @@ def _resolve_release_version(
     return cliff.compute_next_version(bump=release_input.bump)
 
 
-def _resolve_changelog_path(
-    *,
-    repo_root: Path,
-    changelog_path: str,
-) -> Path:
-    changelog = Path(changelog_path)
-    if not changelog.is_absolute():
-        changelog = repo_root / changelog
-    if not changelog.exists():
-        raise ChangelogNotFoundError(changelog)
-    return changelog
-
-
 def _format_changelog_if_requested(
     *,
     repo_root: Path,
@@ -162,8 +149,11 @@ def _format_changelog_if_requested(
         return
     if not release_input.changelog_format_cmd:
         raise ChangelogFormatCommandRequiredError
-    cmd = [arg.replace('{changelog}', str(changelog_path)) for arg in release_input.changelog_format_cmd]
-    run_checked(cmd, cwd=repo_root, capture_stdout=False)
+    run_changelog_formatter(
+        changelog_path=changelog_path,
+        repo_root=repo_root,
+        changelog_format_cmd=release_input.changelog_format_cmd,
+    )
 
 
 def start_release(
@@ -206,9 +196,9 @@ def start_release(
     release_branch = f'release/{version}'
     create_and_checkout_branch(repo, name=release_branch)
 
-    changelog = _resolve_changelog_path(
-        repo_root=info.root,
+    changelog = resolve_changelog_path(
         changelog_path=release_input.changelog_path,
+        repo_root=info.root,
     )
     cliff.prepend_to_changelog(version=version, changelog_path=changelog)
     _format_changelog_if_requested(

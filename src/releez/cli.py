@@ -20,6 +20,7 @@ from releez.errors import (
 from releez.git_repo import create_tags, fetch, open_repo, push_tags
 from releez.release import StartReleaseInput, start_release
 from releez.settings import ReleezSettings
+from releez.subapps import changelog_app
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
@@ -55,6 +56,13 @@ def _root(ctx: typer.Context) -> None:
     default_map['version'] = {
         'artifact': {
             'alias_versions': settings.alias_versions,
+        },
+    }
+    default_map['changelog'] = {
+        'regenerate': {
+            'changelog_path': settings.changelog_path,
+            'run_changelog_format': settings.run_changelog_format,
+            'changelog_format_cmd': settings.hooks.changelog_format,
         },
     }
 
@@ -543,6 +551,7 @@ def release_notes(
 
 app.add_typer(release_app, name='release')
 app.add_typer(version_app, name='version')
+app.add_typer(changelog_app, name='changelog')
 
 
 def main() -> None:

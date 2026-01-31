@@ -33,7 +33,7 @@ def test_start_release_runs_changelog_format_command(
     cliff.generate_unreleased_notes.return_value = 'notes'
     mocker.patch('releez.release.GitCliff', return_value=cliff)
 
-    run_checked = mocker.patch('releez.release.run_checked', return_value='')
+    run_checked = mocker.patch('releez.utils.run_checked', return_value='')
 
     result = releez.release.start_release(
         releez.release.StartReleaseInput(
