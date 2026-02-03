@@ -1,3 +1,10 @@
+## [0.2.1] - 2026-02-03
+
+### ⚙️ Miscellaneous Tasks
+
+- Add publish to finalize workflow by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.2.0] - 2026-01-31
 
 ### 🚀 Features
