@@ -38,7 +38,7 @@ jobs:
 
       - name: Publish to PyPI
         env:
-          UV_PUBLISH_URL: ${{ secrets.TEST_PYPI_PUBLISH_URL }}
+          UV_PUBLISH_URL: ${{ vars.TEST_PYPI_PUBLISH_URL }}
           UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_PUBLISH_TOKEN }}
         run: uv publish dist/*
 
