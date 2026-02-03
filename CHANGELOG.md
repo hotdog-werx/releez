@@ -1,3 +1,9 @@
+## [0.2.2] - 2026-02-03
+
+### ⚙️ Miscellaneous Tasks
+
+- Publish to prod pypi by [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.2.1] - 2026-02-03
 
 ### ⚙️ Miscellaneous Tasks
