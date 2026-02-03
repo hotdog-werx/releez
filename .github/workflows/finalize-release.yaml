@@ -30,6 +30,18 @@ jobs:
         with:
           is-full-release: 'true'
 
+      - name: Set build version
+        run: uv version ${{ steps.releez.outputs.pep440-version }} --frozen
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        env:
+          UV_PUBLISH_URL: ${{ secrets.TEST_PYPI_PUBLISH_URL }}
+          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_PUBLISH_TOKEN }}
+        run: uv publish dist/*
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
