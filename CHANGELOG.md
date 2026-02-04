@@ -1,3 +1,10 @@
+## [0.2.4] - 2026-02-04
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix project classifiers by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.2.3] - 2026-02-04
 
 ### ⚙️ Miscellaneous Tasks
