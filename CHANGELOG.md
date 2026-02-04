@@ -1,3 +1,10 @@
+## [0.2.3] - 2026-02-04
+
+### ⚙️ Miscellaneous Tasks
+
+- Add license, metadata, etc by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.2.2] - 2026-02-03
 
 ### ⚙️ Miscellaneous Tasks
