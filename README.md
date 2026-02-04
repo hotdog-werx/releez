@@ -1,5 +1,10 @@
 # `releez`
 
+[![CI](https://img.shields.io/github/actions/workflow/status/hotdog-werx/releez/ci-checks.yaml)](https://github.com/hotdog-werx/releez/actions/workflows/ci-checks.yaml)
+[![PyPI version](https://badge.fury.io/py/releez.svg)](https://pypi.org/project/releez/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 `releez` is a CLI tool for managing semantic versioned releases.
 
 `releez` uses [`git-cliff`](https://git-cliff.org/) for versioning logic and

@@ -4,6 +4,29 @@ description = "CLI tool for helping to manage release processes."
 readme = "README.md"
 requires-python = ">=3.11"
 version = "0.0.0"
+license = "MIT"
+authors = [{ name = "James Trousdale" }]
+keywords = [
+  "release",
+  "versioning",
+  "changelog",
+  "git",
+  "cli",
+  "semver",
+  "ci",
+  "cd",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Libraries",
+  "Topic :: Software Development :: Version Control",
+]
 
 dependencies = [
   "typer ==0.20.0",
@@ -21,6 +44,12 @@ dev = [
   "pytest-cov >=7.0.0, <8",
   "pytest-mock >=3.15.1, <4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/hotdog-werx/releez"
+Repository = "https://github.com/hotdog-werx/releez"
+"Bug Tracker" = "https://github.com/hotdog-werx/releez/issues"
+Changelog = "https://github.com/hotdog-werx/releez/blob/master/CHANGELOG.md"
 
 [project.scripts]
 releez = "releez.cli:main"
