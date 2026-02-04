@@ -40,3 +40,11 @@ jobs:
 
       - name: Run coverage check
         run: poe check-coverage
+
+      - name: Generate coverage XML report
+        run: uv run coverage xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

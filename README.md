@@ -4,13 +4,14 @@
 [![PyPI version](https://badge.fury.io/py/releez.svg)](https://pypi.org/project/releez/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Coverage](https://codecov.io/gh/hotdog-werx/releez/branch/master/graph/badge.svg)](https://codecov.io/gh/hotdog-werx/releez)
 
 `releez` is a CLI tool for managing semantic versioned releases.
 
 `releez` uses [`git-cliff`](https://git-cliff.org/) for versioning logic and
 changelog generation under the hood. You should host a `cliff.toml` or other
 compatible `git-cliff` configuration in your repo. Review the `git-cliff`
-documentation for deatils.
+documentation for details.
 
 ## Usage
 
