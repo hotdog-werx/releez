@@ -1,3 +1,10 @@
+## [0.2.5] - 2026-02-04
+
+### ⚙️ Miscellaneous Tasks
+
+- Add codecov (#18) by [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#18](https://github.com/hotdog-werx/releez/pull/18)
+
 ## [0.2.4] - 2026-02-04
 
 ### ⚙️ Miscellaneous Tasks
