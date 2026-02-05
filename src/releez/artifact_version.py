@@ -95,8 +95,8 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
 
 
 def _compute_next_version() -> str:
-    _, info = open_repo()
-    cliff = GitCliff(repo_root=info.root)
+    repo_context = open_repo()
+    cliff = GitCliff(repo_root=repo_context.info.root)
     return cliff.compute_next_version(bump='auto')
 
 
