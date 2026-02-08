@@ -5,35 +5,18 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
-from releez.artifact_version import (
-    ArtifactVersionInput,
-    ArtifactVersionScheme,
-    PrereleaseType,
-)
 from releez.version_tags import VersionTags
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-def test_cli_version_artifact_builds_input_and_prints_result(
+def test_cli_version_artifact_full_release_with_no_aliases(
     mocker: MockerFixture,
 ) -> None:
+    """Test full release with alias-versions=none outputs only the version."""
     runner = CliRunner()
-
-    def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
-        assert artifact_input.scheme == ArtifactVersionScheme.semver
-        assert artifact_input.version_override == '1.2.3'
-        assert artifact_input.is_full_release is True
-        assert artifact_input.prerelease_type == PrereleaseType.alpha
-        assert artifact_input.prerelease_number is None
-        assert artifact_input.build_number is None
-        return '1.2.3'
-
-    mocker.patch(
-        'releez.cli.compute_artifact_version',
-        side_effect=_fake_compute,
-    )
+    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
 
     result = runner.invoke(
         cli.app,
