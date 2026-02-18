@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.git_repo import RepoContext, RepoInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,9 +23,14 @@ def test_cli_release_preview_writes_markdown(
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
+    repo_info = RepoInfo(
+        root=repo_root,
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     cliff = mocker.Mock()
@@ -58,9 +65,14 @@ def test_cli_release_preview_stdout(
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
+    repo_info = RepoInfo(
+        root=repo_root,
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
 
     cliff = mocker.Mock()

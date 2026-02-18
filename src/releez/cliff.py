@@ -60,11 +60,17 @@ class GitCliff:
         self._repo_root = repo_root
         self._cmd = _git_cliff_base_cmd()
 
-    def compute_next_version(self, *, bump: GitCliffBump) -> str:
+    def compute_next_version(
+        self,
+        *,
+        bump: GitCliffBump,
+        tag_pattern: str | None = None,
+    ) -> str:
         """Compute the next version using git-cliff.
 
         Args:
             bump: The bump mode for git-cliff.
+            tag_pattern: Optional tag regex to constrain the version range.
 
         Returns:
             The computed next version.
@@ -80,7 +86,7 @@ class GitCliff:
                 '--unreleased',
                 '--bumped-version',
                 '--tag-pattern',
-                GIT_CLIFF_TAG_PATTERN,
+                tag_pattern or GIT_CLIFF_TAG_PATTERN,
                 *_bump_args(bump),
             ],
             cwd=self._repo_root,
@@ -93,11 +99,13 @@ class GitCliff:
         self,
         *,
         version: str,
+        tag_pattern: str | None = None,
     ) -> str:
         """Generate the unreleased section as markdown.
 
         Args:
             version: The version to tag the release notes.
+            tag_pattern: Optional tag regex to constrain the changelog range.
 
         Returns:
             The generated markdown content.
@@ -117,7 +125,7 @@ class GitCliff:
                     '--tag',
                     version,
                     '--tag-pattern',
-                    GIT_CLIFF_TAG_PATTERN,
+                    tag_pattern or GIT_CLIFF_TAG_PATTERN,
                     '--output',
                     str(out_path),
                 ],
@@ -131,12 +139,14 @@ class GitCliff:
         *,
         version: str,
         changelog_path: Path,
+        tag_pattern: str | None = None,
     ) -> None:
         """Prepend the unreleased section to the changelog file.
 
         Args:
             version: The version to tag the release notes.
             changelog_path: The path to the changelog file.
+            tag_pattern: Optional tag regex to constrain the changelog range.
 
         Raises:
             MissingCliError: If `git-cliff` is not available.
@@ -150,7 +160,7 @@ class GitCliff:
                 '--tag',
                 version,
                 '--tag-pattern',
-                GIT_CLIFF_TAG_PATTERN,
+                tag_pattern or GIT_CLIFF_TAG_PATTERN,
                 '--prepend',
                 str(changelog_path),
             ],

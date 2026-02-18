@@ -36,14 +36,27 @@ class RepoInfo:
     active_branch: str | None
 
 
-def open_repo(*, cwd: Path | None = None) -> tuple[Repo, RepoInfo]:
+@dataclass(frozen=True)
+class RepoContext:
+    """Bundle a repository with its derived metadata.
+
+    Attributes:
+        repo: The GitPython repository instance.
+        info: Derived repository metadata (root, remote, active branch).
+    """
+
+    repo: Repo
+    info: RepoInfo
+
+
+def open_repo(*, cwd: Path | None = None) -> RepoContext:
     """Open a Git repository and gather information about it.
 
     Args:
         cwd: The working directory to start searching for the repository.
 
     Returns:
-        A tuple of the Repo object and RepoInfo dataclass.
+        A RepoContext containing the Repo object and RepoInfo dataclass.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -59,6 +72,7 @@ def open_repo(*, cwd: Path | None = None) -> tuple[Repo, RepoInfo]:
     except GitCommandError as exc:  # pragma: no cover
         raise GitRepoRootResolveError from exc
 
+    # Not all repos have an origin remote; default to empty string.
     remote_url = ''
     with suppress(AttributeError, IndexError):
         remote_url = repo.remotes.origin.url
@@ -69,11 +83,12 @@ def open_repo(*, cwd: Path | None = None) -> tuple[Repo, RepoInfo]:
     except TypeError:
         active_branch = None  # detached HEAD
 
-    return repo, RepoInfo(
+    info = RepoInfo(
         root=root,
         remote_url=remote_url,
         active_branch=active_branch,
     )
+    return RepoContext(repo=repo, info=info)
 
 
 def ensure_clean(repo: Repo) -> None:

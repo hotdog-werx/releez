@@ -205,6 +205,35 @@ class InvalidReleaseVersionError(ReleezError):
         )
 
 
+class InvalidMaintenanceBranchRegexError(ReleezError):
+    """Raised when the maintenance branch regex is invalid or missing the major capture."""
+
+    pattern: str
+
+    def __init__(self, pattern: str, *, reason: str | None = None) -> None:
+        self.pattern = pattern
+        message = f'Invalid maintenance branch regex: {pattern!r}'
+        if reason:
+            message = f'{message} ({reason})'
+        super().__init__(message)
+
+
+class MaintenanceBranchMajorMismatchError(ReleezError):
+    """Raised when a release version does not match a maintenance branch major."""
+
+    branch: str
+    major: int
+    version: str
+
+    def __init__(self, *, branch: str, major: int, version: str) -> None:
+        self.branch = branch
+        self.major = major
+        self.version = version
+        super().__init__(
+            f'Release version {version!r} does not match maintenance branch {branch!r} (expected major {major}).',
+        )
+
+
 class GitTagExistsError(ReleezError):
     """Raised when attempting to create a tag that already exists."""
 

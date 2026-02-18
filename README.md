@@ -28,6 +28,7 @@ Common options:
 - `--github-token ...` (or set `RELEEZ_GITHUB_TOKEN`, falling back to
   `GITHUB_TOKEN`)
 - `--dry-run`
+- `--non-interactive` (skip confirmation prompts; useful in CI)
 
 Compute an artifact version for CI:
 
@@ -97,6 +98,27 @@ Common options:
 This is useful for fixing changelog formatting issues or rebuilding the
 changelog after repository changes.
 
+## Support branches
+
+Support branches are long-lived maintenance lines for shipping hotfixes or
+backported features on older majors (for example, `support/1.x` for the `1.x`
+line). Run `releez release start` from the support branch to cut a release that
+stays on that line.
+
+By default, `releez` treats branches matching `^support/(?P<major>\\d+)\\.x$` as
+maintenance branches. When on a support branch it will:
+
+- Scope git-cliff versioning to tags in the same major line.
+- Use the current support branch as the PR base.
+- Reject versions that would jump to a different major.
+
+Each support branch maintains its own changelog history; releases stay within
+that branch.
+
+If your repo uses a different naming scheme, set `maintenance_branch_regex` in
+config or via `RELEEZ_MAINTENANCE_BRANCH_REGEX`. The regex must include a named
+`major` capture group.
+
 ## Configuration
 
 `releez` supports configuration via:
@@ -147,6 +169,7 @@ base-branch = "master"
 git-remote = "origin"
 alias-versions = "minor"
 run-changelog-format = true
+maintenance-branch-regex = "^support/(?P<major>\\d+)\\.x$"
 
 [tool.releez.hooks]
 changelog-format = ["poe", "format-dprint", "{changelog}"]
@@ -159,6 +182,7 @@ base_branch = "main"
 git_remote = "origin"
 alias_versions = "minor"
 run_changelog_format = true
+maintenance_branch_regex = "^support/(?P<major>\\d+)\\.x$"
 
 [hooks]
 changelog_format = ["poe", "format-dprint", "{changelog}"]
@@ -169,6 +193,7 @@ Environment variables:
 ```bash
 export RELEEZ_GIT_REMOTE=origin
 export RELEEZ_ALIAS_VERSIONS=major
+export RELEEZ_MAINTENANCE_BRANCH_REGEX="^support/(?P<major>\\d+)\\.x$"
 export RELEEZ_HOOKS__CHANGELOG_FORMAT='["poe","format-dprint","{changelog}"]'
 ```
 

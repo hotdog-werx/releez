@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from git import Repo
+from semver import VersionInfo
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.git_repo import RepoContext, RepoInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,11 +23,19 @@ def test_cli_release_notes_stdout(
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
+    repo_info = RepoInfo(
+        root=repo_root,
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
-    mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
+    mocker.patch(
+        'releez.cli._resolve_release_version',
+        return_value=VersionInfo.parse('2.3.4'),
+    )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n\n- Change\n'
@@ -44,11 +55,19 @@ def test_cli_release_notes_writes_file(
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
+    repo_info = RepoInfo(
+        root=repo_root,
+        remote_url='',
+        active_branch='feature/test',
+    )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=RepoContext(repo=mocker.Mock(spec=Repo), info=repo_info),
     )
-    mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
+    mocker.patch(
+        'releez.cli._resolve_release_version',
+        return_value=VersionInfo.parse('2.3.4'),
+    )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n'
