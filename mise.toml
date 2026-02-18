@@ -12,6 +12,7 @@ shellcheck = "0.11.0"
 "pipx:tbelt" = { version = "0.0.3" }
 "pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = { version = "0.0.5" }
+"pipx:zensical" = { version = "0.0.19" }
 
 [hooks]
 postinstall = ["pkglink sync", "poe setup-hook", "lefthook install"]

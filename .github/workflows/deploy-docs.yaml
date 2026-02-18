@@ -1,0 +1,51 @@
+name: deploy-docs
+
+on:
+  # once docs are live lets switch to only deploying on a release
+  # this is done so that docs reflect the latest release and not the latest
+  # commit to master which may be a work in progress
+  push:
+    branches: [master]
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  deploy-docs:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup-uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/pyproject.toml'
+      - name: mise
+        uses: jdx/mise-action@v3
+
+      - name: build-docs
+        run: poe build-docs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        with:
+          # In case github pages is not configured for actions
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
