@@ -1,3 +1,11 @@
+## [0.2.6] - 2026-02-18
+
+### 🐛 Bug Fixes
+
+- Implement --version option and export **version** const (#20) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#20](https://github.com/hotdog-werx/releez/pull/20)
+
 ## [0.2.5] - 2026-02-04
 
 ### ⚙️ Miscellaneous Tasks
