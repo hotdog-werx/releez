@@ -9,6 +9,7 @@ dprint = "0.50.1"
 "pipx:tbelt" = { version = "0.0.3" }
 "pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = { version = "0.0.5" }
+"pipx:zensical" = { version = "0.0.19" }
 
 [hooks]
 # Note: Postinstall hooks do not run in CI, this is intentional.
