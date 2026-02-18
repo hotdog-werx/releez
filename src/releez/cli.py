@@ -6,6 +6,7 @@ from typing import Annotated
 
 import typer
 
+from releez import __version__
 from releez.artifact_version import (
     ArtifactVersionInput,
     ArtifactVersionScheme,
@@ -28,8 +29,26 @@ release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
 version_app = typer.Typer(help='Version utilities for CI/artifacts.')
 
 
+def _version_callback(value: bool) -> None:  # noqa: FBT001
+    if value:
+        typer.echo(f'releez {__version__}')
+        raise typer.Exit(0)
+
+
 @app.callback()
-def _root(ctx: typer.Context) -> None:
+def _root(
+    ctx: typer.Context,
+    *,
+    _version: Annotated[
+        bool,
+        typer.Option(
+            '--version',
+            help="Show the application's version and exit.",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
     settings = ReleezSettings()
     ctx.obj = settings
 
