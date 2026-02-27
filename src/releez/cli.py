@@ -61,6 +61,7 @@ def _root(
             'title_prefix': settings.pr_title_prefix,
             'changelog_path': settings.changelog_path,
             'create_pr': settings.create_pr,
+            'run_post_changelog_hooks': bool(settings.hooks.post_changelog),
             'run_changelog_format': settings.run_changelog_format,
             'changelog_format_cmd': settings.hooks.changelog_format,
         },
@@ -173,6 +174,7 @@ def _raise_changelog_format_command_required() -> None:
 
 @release_app.command('start')
 def release_start(  # noqa: PLR0913
+    ctx: typer.Context,
     *,
     bump: Annotated[
         GitCliffBump,
@@ -190,11 +192,19 @@ def release_start(  # noqa: PLR0913
             show_default=False,
         ),
     ] = None,
+    run_post_changelog_hooks: Annotated[
+        bool,
+        typer.Option(
+            '--run-post-changelog-hooks',
+            help='Run configured post-changelog hooks before committing.',
+            show_default=True,
+        ),
+    ] = False,
     run_changelog_format: Annotated[
         bool,
         typer.Option(
             '--run-changelog-format',
-            help='Run the configured changelog formatter before committing.',
+            help='(DEPRECATED: use --run-post-changelog-hooks)',
             show_default=True,
         ),
     ] = False,
@@ -202,7 +212,7 @@ def release_start(  # noqa: PLR0913
         list[str] | None,
         typer.Option(
             '--changelog-format-cmd',
-            help='Override changelog format command argv (repeatable).',
+            help='(DEPRECATED: use --post-changelog-hook) Override changelog format command argv (repeatable).',
             show_default=False,
         ),
     ] = None,
@@ -272,10 +282,12 @@ def release_start(  # noqa: PLR0913
     `release/<version>` branch, and optionally opens a GitHub PR.
 
     Args:
+        ctx: Typer context (injected automatically).
         bump: Bump mode for git-cliff.
         version_override: Override the computed next version.
-        run_changelog_format: If true, run the configured changelog formatter before commit.
-        changelog_format_cmd: Override the configured changelog formatter argv.
+        run_post_changelog_hooks: If true, run configured post-changelog hooks.
+        run_changelog_format: (DEPRECATED) If true, run changelog formatter.
+        changelog_format_cmd: (DEPRECATED) Override changelog formatter argv.
         create_pr: If true, create a GitHub pull request.
         dry_run: If true, do not modify the repo; just output version and notes.
         base: Base branch for the release PR.
@@ -292,6 +304,10 @@ def release_start(  # noqa: PLR0913
         if run_changelog_format and not changelog_format_cmd:
             _raise_changelog_format_command_required()
 
+        # Get configured hooks from settings
+        settings: ReleezSettings = ctx.obj
+        post_changelog_hooks = settings.hooks.post_changelog or None
+
         release_input = StartReleaseInput(
             bump=bump,
             version_override=version_override,
@@ -300,6 +316,8 @@ def release_start(  # noqa: PLR0913
             labels=labels.split(',') if labels else [],
             title_prefix=title_prefix,
             changelog_path=changelog_path,
+            run_post_changelog_hooks=run_post_changelog_hooks,
+            post_changelog_hooks=post_changelog_hooks,
             run_changelog_format=run_changelog_format,
             changelog_format_cmd=changelog_format_cmd,
             create_pr=create_pr,

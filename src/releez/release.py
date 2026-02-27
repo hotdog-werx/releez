@@ -13,10 +13,10 @@ from releez.errors import (
     ChangelogFormatCommandRequiredError,
     GitHubTokenRequiredError,
     GitRemoteUrlRequiredError,
+    PostChangelogHooksRequiredError,
 )
 from releez.git_repo import (
     checkout_remote_branch,
-    commit_file,
     create_and_checkout_branch,
     ensure_clean,
     fetch,
@@ -24,7 +24,11 @@ from releez.git_repo import (
     push_set_upstream,
 )
 from releez.github import PullRequestCreateRequest, create_pull_request
-from releez.utils import resolve_changelog_path, run_changelog_formatter
+from releez.utils import (
+    resolve_changelog_path,
+    run_changelog_formatter,
+    run_post_changelog_hooks,
+)
 
 
 @dataclass(frozen=True)
@@ -56,8 +60,10 @@ class StartReleaseInput:
         labels: Labels to add to the PR.
         title_prefix: Prefix for PR title / commit message.
         changelog_path: Changelog file to prepend to.
-        run_changelog_format: If true, run the configured changelog formatter before commit.
-        changelog_format_cmd: Optional argv list to run for formatting (overrides config).
+        run_post_changelog_hooks: If true, run configured post-changelog hooks.
+        post_changelog_hooks: Optional list of hooks to run (overrides config).
+        run_changelog_format: (DEPRECATED) Use run_post_changelog_hooks instead.
+        changelog_format_cmd: (DEPRECATED) Use post_changelog_hooks instead.
         create_pr: If true, create a GitHub pull request.
         github_token: GitHub token for PR creation.
         dry_run: If true, do not modify the repo; just output version and notes.
@@ -70,6 +76,8 @@ class StartReleaseInput:
     labels: list[str]
     title_prefix: str
     changelog_path: str
+    run_post_changelog_hooks: bool
+    post_changelog_hooks: list[list[str]] | None
     run_changelog_format: bool
     changelog_format_cmd: list[str] | None
     create_pr: bool
@@ -145,6 +153,7 @@ def _format_changelog_if_requested(
     changelog_path: Path,
     release_input: StartReleaseInput,
 ) -> None:
+    """DEPRECATED: Use _run_post_changelog_hooks_if_requested instead."""
     if not release_input.run_changelog_format:
         return
     if not release_input.changelog_format_cmd:
@@ -154,6 +163,41 @@ def _format_changelog_if_requested(
         repo_root=repo_root,
         changelog_format_cmd=release_input.changelog_format_cmd,
     )
+
+
+def _run_post_changelog_hooks_if_requested(
+    *,
+    repo_root: Path,
+    changelog_path: Path,
+    version: str,
+    release_input: StartReleaseInput,
+) -> None:
+    """Run post-changelog hooks if requested.
+
+    Supports both new post_changelog_hooks and legacy changelog_format_cmd.
+    """
+    # New hooks take precedence
+    if release_input.run_post_changelog_hooks:
+        if not release_input.post_changelog_hooks:
+            raise PostChangelogHooksRequiredError
+        template_vars = {
+            'version': version,
+            'changelog': str(changelog_path),
+        }
+        run_post_changelog_hooks(
+            hooks=release_input.post_changelog_hooks,
+            repo_root=repo_root,
+            template_vars=template_vars,
+        )
+        return
+
+    # Legacy fallback
+    if release_input.run_changelog_format:
+        _format_changelog_if_requested(
+            repo_root=repo_root,
+            changelog_path=changelog_path,
+            release_input=release_input,
+        )
 
 
 def start_release(
@@ -201,17 +245,16 @@ def start_release(
         repo_root=info.root,
     )
     cliff.prepend_to_changelog(version=version, changelog_path=changelog)
-    _format_changelog_if_requested(
+    _run_post_changelog_hooks_if_requested(
         repo_root=info.root,
         changelog_path=changelog,
+        version=version,
         release_input=release_input,
     )
 
-    commit_file(
-        repo,
-        path=changelog,
-        message=f'{release_input.title_prefix}{version}',
-    )
+    # Stage all modified/new files (changelog + any files modified by hooks)
+    repo.git.add('-A')
+    repo.index.commit(message=f'{release_input.title_prefix}{version}')
 
     push_set_upstream(
         repo,

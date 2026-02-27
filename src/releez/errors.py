@@ -115,7 +115,10 @@ class ChangelogNotFoundError(ReleezError):
 
 
 class ChangelogFormatCommandRequiredError(ReleezError):
-    """Raised when changelog formatting is requested but not configured."""
+    """Raised when changelog formatting is requested but not configured.
+
+    DEPRECATED: Use PostChangelogHooksRequiredError instead.
+    """
 
     def __init__(self) -> None:
         super().__init__(
@@ -127,6 +130,28 @@ class ChangelogFormatCommandRequiredError(ReleezError):
             '  [tool.releez.hooks]\n'
             '  changelog_format = ["dprint", "fmt", "{changelog}"]\n'
             'Or pass `--changelog-format-cmd` (repeatable) on the CLI.',
+        )
+
+
+class PostChangelogHooksRequiredError(ReleezError):
+    """Raised when post-changelog hooks are requested but not configured."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            'Post-changelog hooks were requested, but no hooks are configured.\n'
+            'Configure hooks via `releez.toml`:\n'
+            '  [hooks]\n'
+            '  post-changelog = [\n'
+            '    ["prettier", "--write", "{changelog}"],\n'
+            '    ["uv", "version", "{version}"],\n'
+            '  ]\n'
+            'Or via `pyproject.toml`:\n'
+            '  [tool.releez.hooks]\n'
+            '  post-changelog = [\n'
+            '    ["prettier", "--write", "{changelog}"],\n'
+            '    ["uv", "version", "{version}"],\n'
+            '  ]\n'
+            'Or pass `--post-changelog-hook` (repeatable) on the CLI.',
         )
 
 
