@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 from releez.settings import ReleezSettings
@@ -73,8 +74,6 @@ def test_settings_warns_deprecated_run_changelog_format(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import warnings
-
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'pyproject.toml').write_text(
         '[tool.releez]\nrun-changelog-format = true\n',
@@ -97,8 +96,6 @@ def test_settings_warns_deprecated_changelog_format_hook(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import warnings
-
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'pyproject.toml').write_text(
         '[tool.releez.hooks]\nchangelog-format = ["prettier", "--write", "{changelog}"]\n',
