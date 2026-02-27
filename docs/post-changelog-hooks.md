@@ -56,31 +56,28 @@ Hooks are executed in order:
 4. All modified files are staged (not just the changelog)
 5. Changes are committed
 
-## CLI Usage
+## Automatic Execution
 
-Enable hooks via CLI flag:
+Hooks run automatically when configured - no CLI flag needed:
 
 ```bash
-releez release start --run-post-changelog-hooks
-```
-
-Or configure to auto-enable in your config:
-
-```toml
-[tool.releez]
-run-post-changelog-hooks = true # Default from config
+# Hooks from config will run automatically
+releez release start
 ```
 
 ## Migration from `changelog-format`
 
-The old `changelog-format` hook is deprecated. It will continue to work with a
-deprecation warning and auto-migrate to `post-changelog`.
+The old `changelog-format` hook and `run-changelog-format` setting are
+deprecated. They will continue to work with deprecation warnings.
 
 **Old format:**
 
 ```toml
+[tool.releez]
+run-changelog-format = true # DEPRECATED - remove this
+
 [tool.releez.hooks]
-changelog-format = ["prettier", "--write", "{changelog}"]
+changelog-format = ["prettier", "--write", "{changelog}"] # DEPRECATED
 ```
 
 **New format:**
@@ -90,9 +87,14 @@ changelog-format = ["prettier", "--write", "{changelog}"]
 post-changelog = [
   ["prettier", "--write", "{changelog}"],
 ]
+# Runs automatically - no run-post-changelog-hooks flag needed!
 ```
 
-Note the extra array wrapper - each hook is now a separate command.
+Key changes:
+
+- Each hook is now an array (note the extra wrapper)
+- Hooks run automatically when configured
+- Remove `run-changelog-format` setting from config
 
 ## Common Use Cases
 

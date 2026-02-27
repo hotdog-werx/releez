@@ -121,7 +121,7 @@ class ChangelogFormatCommandRequiredError(ReleezError):
     """
 
     def __init__(self) -> None:
-        super().__init__(
+        super().__init__(  # pragma: no cover
             'Changelog formatting was requested, but no format command is configured.\n'
             'Configure it via `releez.toml`:\n'
             '  [hooks]\n'

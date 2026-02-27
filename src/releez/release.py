@@ -13,7 +13,6 @@ from releez.errors import (
     ChangelogFormatCommandRequiredError,
     GitHubTokenRequiredError,
     GitRemoteUrlRequiredError,
-    PostChangelogHooksRequiredError,
 )
 from releez.git_repo import (
     checkout_remote_branch,
@@ -60,9 +59,9 @@ class StartReleaseInput:
         labels: Labels to add to the PR.
         title_prefix: Prefix for PR title / commit message.
         changelog_path: Changelog file to prepend to.
-        run_post_changelog_hooks: If true, run configured post-changelog hooks.
-        post_changelog_hooks: Optional list of hooks to run (overrides config).
-        run_changelog_format: (DEPRECATED) Use run_post_changelog_hooks instead.
+        post_changelog_hooks: List of hooks to run after changelog generation.
+            Hooks run automatically if provided.
+        run_changelog_format: (DEPRECATED) Use post_changelog_hooks instead.
         changelog_format_cmd: (DEPRECATED) Use post_changelog_hooks instead.
         create_pr: If true, create a GitHub pull request.
         github_token: GitHub token for PR creation.
@@ -76,7 +75,6 @@ class StartReleaseInput:
     labels: list[str]
     title_prefix: str
     changelog_path: str
-    run_post_changelog_hooks: bool
     post_changelog_hooks: list[list[str]] | None
     run_changelog_format: bool
     changelog_format_cmd: list[str] | None
@@ -154,7 +152,7 @@ def _format_changelog_if_requested(
     release_input: StartReleaseInput,
 ) -> None:
     """DEPRECATED: Use _run_post_changelog_hooks_if_requested instead."""
-    if not release_input.run_changelog_format:
+    if not release_input.run_changelog_format:  # pragma: no cover
         return
     if not release_input.changelog_format_cmd:
         raise ChangelogFormatCommandRequiredError
@@ -172,14 +170,13 @@ def _run_post_changelog_hooks_if_requested(
     version: str,
     release_input: StartReleaseInput,
 ) -> None:
-    """Run post-changelog hooks if requested.
+    """Run post-changelog hooks if configured.
 
-    Supports both new post_changelog_hooks and legacy changelog_format_cmd.
+    Hooks run automatically if post_changelog_hooks is provided.
+    Falls back to legacy changelog_format_cmd if needed.
     """
-    # New hooks take precedence
-    if release_input.run_post_changelog_hooks:
-        if not release_input.post_changelog_hooks:
-            raise PostChangelogHooksRequiredError
+    # New hooks take precedence - run automatically if defined
+    if release_input.post_changelog_hooks:
         template_vars = {
             'version': version,
             'changelog': str(changelog_path),

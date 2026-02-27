@@ -43,7 +43,6 @@ def test_start_release_runs_changelog_format_command(
             labels=[],
             title_prefix='chore(release): ',
             changelog_path='CHANGELOG.md',
-            run_post_changelog_hooks=False,
             post_changelog_hooks=None,
             run_changelog_format=True,
             changelog_format_cmd=['dprint', 'fmt', '{changelog}'],
@@ -98,7 +97,6 @@ def test_start_release_runs_post_changelog_hooks(
             labels=[],
             title_prefix='chore(release): ',
             changelog_path='CHANGELOG.md',
-            run_post_changelog_hooks=True,
             post_changelog_hooks=[
                 ['uv', 'version', '{version}'],
                 ['prettier', '--write', '{changelog}'],

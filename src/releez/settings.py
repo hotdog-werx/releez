@@ -109,6 +109,23 @@ class ReleezSettings(BaseSettings):
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
 
+    @model_validator(mode='after')
+    def _warn_deprecated_settings(self) -> ReleezSettings:
+        """Warn about deprecated settings."""
+        if self.run_changelog_format:
+            warnings.warn(
+                'The `run_changelog_format` setting is deprecated. '
+                'Remove it from your config and use `post_changelog` hooks instead:\n'
+                '  [tool.releez.hooks]\n'
+                '  post-changelog = [\n'
+                '    ["prettier", "--write", "{changelog}"],\n'
+                '  ]\n'
+                'Hooks will run automatically when configured.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self
+
     @classmethod
     def settings_customise_sources(
         cls,
