@@ -67,3 +67,55 @@ def test_settings_env_vars_override_pyproject_config(
 
     settings = ReleezSettings()
     assert settings.hooks.changelog_format == ['dprint', 'fmt', '{changelog}']
+
+
+def test_settings_warns_deprecated_run_changelog_format(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import warnings
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'pyproject.toml').write_text(
+        '[tool.releez]\nrun-changelog-format = true\n',
+        encoding='utf-8',
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        settings = ReleezSettings()
+        assert settings.run_changelog_format is True
+
+        # Check deprecation warning was raised
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert 'run_changelog_format' in str(w[0].message)
+        assert 'post_changelog' in str(w[0].message)
+
+
+def test_settings_warns_deprecated_changelog_format_hook(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import warnings
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'pyproject.toml').write_text(
+        '[tool.releez.hooks]\nchangelog-format = ["prettier", "--write", "{changelog}"]\n',
+        encoding='utf-8',
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        settings = ReleezSettings()
+
+        # Check deprecation warning was raised
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert 'changelog_format' in str(w[0].message)
+        assert 'post-changelog' in str(w[0].message)
+
+        # Check auto-migration happened
+        assert settings.hooks.post_changelog == [
+            ['prettier', '--write', '{changelog}'],
+        ]
