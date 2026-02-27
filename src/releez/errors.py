@@ -133,28 +133,6 @@ class ChangelogFormatCommandRequiredError(ReleezError):
         )
 
 
-class PostChangelogHooksRequiredError(ReleezError):
-    """Raised when post-changelog hooks are requested but not configured."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            'Post-changelog hooks were requested, but no hooks are configured.\n'
-            'Configure hooks via `releez.toml`:\n'
-            '  [hooks]\n'
-            '  post-changelog = [\n'
-            '    ["prettier", "--write", "{changelog}"],\n'
-            '    ["uv", "version", "{version}"],\n'
-            '  ]\n'
-            'Or via `pyproject.toml`:\n'
-            '  [tool.releez.hooks]\n'
-            '  post-changelog = [\n'
-            '    ["prettier", "--write", "{changelog}"],\n'
-            '    ["uv", "version", "{version}"],\n'
-            '  ]\n'
-            'Or pass `--post-changelog-hook` (repeatable) on the CLI.',
-        )
-
-
 class GitHubTokenRequiredError(ReleezError):
     """Raised when a GitHub token is required but not provided."""
 
