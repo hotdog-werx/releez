@@ -1,0 +1,19 @@
+# Example configuration for post-changelog hooks
+# These hooks run after the changelog is generated but before committing
+
+[tool.releez.hooks]
+# Each hook is an array of command arguments
+# Template variables available: {version}, {changelog}
+post-changelog = [
+  # Update version in pyproject.toml
+  ["uv", "version", "{version}"],
+
+  # Format the changelog with prettier
+  ["prettier", "--write", "{changelog}"],
+
+  # Or any other commands you need
+  # ["ruff", "format", "."],
+]
+
+# Legacy format (deprecated, will be auto-migrated)
+# changelog-format = ["prettier", "--write", "{changelog}"]

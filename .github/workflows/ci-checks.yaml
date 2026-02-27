@@ -2,6 +2,7 @@ name: CI checks
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
   push:
     branches:
       - master
@@ -27,24 +28,33 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run dprint check
+        if: always() && !cancelled()
         run: poe check-dprint
 
       - name: Run Python checks
+        if: always() && !cancelled()
         run: poe check-python
 
       - name: Run complexity check
+        if: always() && !cancelled()
         run: poe check-complexity
 
       - name: Run type check
+        if: always() && !cancelled()
         run: poe check-basedpyright
 
       - name: Run coverage check
+        if: always() && !cancelled()
         run: poe check-coverage
 
       - name: Generate coverage XML report
         run: uv run coverage xml
+        if: always() && !cancelled()
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
+        if: always() && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from releez.errors import ChangelogNotFoundError
 from releez.process import run_checked
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def resolve_changelog_path(changelog_path: str, repo_root: Path) -> Path:
@@ -42,3 +46,25 @@ def run_changelog_formatter(
     """
     cmd = [arg.replace('{changelog}', str(changelog_path)) for arg in changelog_format_cmd]
     run_checked(cmd, cwd=repo_root, capture_stdout=False)
+
+
+def run_post_changelog_hooks(
+    *,
+    hooks: list[list[str]],
+    repo_root: Path,
+    template_vars: Mapping[str, str],
+) -> None:
+    """Run post-changelog hooks with template variable substitution.
+
+    Args:
+        hooks: List of command argv lists to run in order.
+        repo_root: Root directory to run commands from.
+        template_vars: Template variables to substitute (e.g. {"version": "1.2.3"}).
+
+    Raises:
+        ExternalCommandError: If any hook command fails.
+    """
+    for hook_cmd in hooks:
+        # Substitute template variables in each argument
+        cmd = [arg.format(**template_vars) if '{' in arg else arg for arg in hook_cmd]
+        run_checked(cmd, cwd=repo_root, capture_stdout=False)

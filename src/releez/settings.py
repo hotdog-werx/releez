@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from pydantic import AliasChoices, AliasGenerator, BaseModel, ConfigDict, Field
+import warnings
+
+from pydantic import (
+    AliasChoices,
+    AliasGenerator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -36,8 +45,11 @@ class ReleezHooks(BaseModel):
     """Hook-related configuration.
 
     Attributes:
-        changelog_format: Optional argv list used to format the changelog (e.g.
-            ["dprint", "fmt", "{changelog}"]).
+        post_changelog: List of commands to run after changelog generation. Each
+            command is an argv list (e.g. [["uv", "version", "{version}"]]).
+            Supports template variables: {version}, {changelog}.
+        changelog_format: (DEPRECATED) Use post_changelog instead. Optional argv
+            list used to format the changelog.
     """
 
     model_config = ConfigDict(
@@ -45,7 +57,27 @@ class ReleezHooks(BaseModel):
         populate_by_name=True,
     )
 
+    post_changelog: list[list[str]] = Field(default_factory=list)
     changelog_format: list[str] | None = None
+
+    @model_validator(mode='after')
+    def _migrate_changelog_format(self) -> ReleezHooks:
+        """Migrate deprecated changelog_format to post_changelog."""
+        if self.changelog_format is not None:
+            warnings.warn(
+                'The `changelog_format` hook is deprecated. '
+                'Use `post_changelog` instead:\n'
+                '  [tool.releez.hooks]\n'
+                '  post-changelog = [\n'
+                '    ["prettier", "--write", "{changelog}"],\n'
+                '  ]',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if not self.post_changelog:
+                # Auto-migrate: wrap single command in list
+                self.post_changelog = [self.changelog_format]
+        return self
 
 
 class ReleezSettings(BaseSettings):
@@ -76,6 +108,23 @@ class ReleezSettings(BaseSettings):
     run_changelog_format: bool = False
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
+
+    @model_validator(mode='after')
+    def _warn_deprecated_settings(self) -> ReleezSettings:
+        """Warn about deprecated settings."""
+        if self.run_changelog_format:
+            warnings.warn(
+                'The `run_changelog_format` setting is deprecated. '
+                'Remove it from your config and use `post_changelog` hooks instead:\n'
+                '  [tool.releez.hooks]\n'
+                '  post-changelog = [\n'
+                '    ["prettier", "--write", "{changelog}"],\n'
+                '  ]\n'
+                'Hooks will run automatically when configured.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self
 
     @classmethod
     def settings_customise_sources(
