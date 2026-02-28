@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.errors import DirtyWorkingTreeError
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -263,6 +264,39 @@ def test_projects_changed_with_custom_base(mocker: MockerFixture) -> None:
     mock_detect.assert_called_once()
     call_kwargs = mock_detect.call_args.kwargs
     assert call_kwargs['base_branch'] == 'develop'
+
+
+def test_projects_changed_handles_releez_error(mocker: MockerFixture) -> None:
+    """Test `projects changed` exits with error when internal call fails."""
+    runner = CliRunner()
+
+    mock_info = mocker.MagicMock()
+    mock_info.root = mocker.MagicMock()
+
+    mocker.patch(
+        'releez.cli.ReleezSettings',
+        return_value=mocker.MagicMock(
+            projects=[mocker.MagicMock()],
+            base_branch='main',
+        ),
+    )
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mock_info),
+    )
+    mocker.patch(
+        'releez.cli.SubProject.from_config',
+        return_value=mocker.MagicMock(),
+    )
+    mocker.patch(
+        'releez.cli.detect_changed_projects',
+        side_effect=DirtyWorkingTreeError,
+    )
+
+    result = runner.invoke(cli.app, ['projects', 'changed'])
+
+    assert result.exit_code == 1
+    assert 'Working tree is not clean' in result.output
 
 
 def test_projects_info_no_projects_configured(mocker: MockerFixture) -> None:

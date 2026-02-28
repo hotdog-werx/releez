@@ -11,6 +11,8 @@ project.
 - **Always** run `mise exec -- ty check` for type checking
 - **Always** run `mise exec -- ruff check` for linting
 - **Always** run `mise exec -- pytest` for tests
+- **Always** ensure PR changes have 100% coverage on modified lines and modified
+  branches (Codecov patch standard)
 - Use auto-fix when available: `mise exec -- ruff check --fix`
 
 ### ❌ DON'T
@@ -44,6 +46,20 @@ mise exec -- pytest tests/unit/core/test_git_repo.py::test_detect_release_from_b
 ```bash
 mise exec -- pytest --cov=releez --cov-report=term-missing
 ```
+
+### Match Codecov Locally (Required for PRs)
+
+Run the same coverage flow CI uses before pushing:
+
+```bash
+# Generate .coverage data the same way CI does
+mise exec -- poe check-coverage
+
+# Generate the XML uploaded to Codecov
+mise exec -- uv run coverage xml
+```
+
+`coverage.xml` is the artifact Codecov evaluates for patch coverage.
 
 ### Run Integration Tests Only
 
@@ -239,13 +255,17 @@ Before considering work complete, always run:
 # 1. Run tests
 mise exec -- pytest
 
-# 2. Type check
+# 2. Run coverage (must satisfy modified lines + modified branches)
+mise exec -- poe check-coverage
+mise exec -- uv run coverage xml
+
+# 3. Type check
 mise exec -- ty check
 
-# 3. Lint and auto-fix
+# 4. Lint and auto-fix
 mise exec -- ruff check --fix
 
-# 4. Format code
+# 5. Format code
 mise exec -- ruff format
 ```
 

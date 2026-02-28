@@ -319,12 +319,32 @@ tests/integration/
 - Overall: >90%
 - New code: 100%
 - Critical paths (release, versioning): 100%
+- Modified lines in a PR: 100%
+- Modified branches in a PR: 100%
 
 ### Running Coverage
 
 ```bash
 mise exec -- pytest --cov=releez --cov-report=term-missing
 ```
+
+### Codecov Patch Standard (Required)
+
+For every PR, tests must cover all changed lines and changed branches in touched
+files. Do not consider work complete until patch coverage is clean.
+
+Run this before pushing:
+
+```bash
+# Same coverage command CI runs
+mise exec -- poe check-coverage
+
+# Generate Codecov upload artifact
+mise exec -- uv run coverage xml
+```
+
+Inspect `coverage.xml` when Codecov reports misses to see exact `hits="0"`
+lines.
 
 ### Checking Uncovered Lines
 

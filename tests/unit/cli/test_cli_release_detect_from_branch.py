@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.errors import DirtyWorkingTreeError
 from releez.git_repo import DetectedRelease
 
 if TYPE_CHECKING:
@@ -188,3 +189,27 @@ def test_cli_release_detect_from_branch_detached_head_error(
 
     assert result.exit_code == 1
     assert 'detached HEAD' in result.output
+
+
+def test_cli_release_detect_from_branch_handles_releez_error(
+    mocker: MockerFixture,
+) -> None:
+    """Test release detect-from-branch handles ReleezError from internals."""
+    runner = CliRunner()
+
+    mocker.patch(
+        'releez.cli.ReleezSettings',
+        return_value=mocker.MagicMock(projects=[]),
+    )
+    mocker.patch(
+        'releez.cli.detect_release_from_branch',
+        side_effect=DirtyWorkingTreeError,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ['release', 'detect-from-branch', '--branch', 'release/1.2.3'],
+    )
+
+    assert result.exit_code == 1
+    assert 'Working tree is not clean' in result.output

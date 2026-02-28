@@ -26,11 +26,14 @@ single-repo and monorepo workflows.
 1. **Before making changes**: Read the relevant subsections above
 2. **Run tests**: `mise exec -- pytest` (see
    [Linting & Testing](./.claude-docs/linting-testing.md))
-3. **Check types**: `mise exec -- ty check` (see
+3. **Match Codecov patch coverage**:
+   `mise exec -- poe check-coverage && mise exec -- uv run coverage xml` (all
+   modified lines + modified branches must be covered)
+4. **Check types**: `mise exec -- ty check` (see
    [Linting & Testing](./.claude-docs/linting-testing.md))
-4. **Check linting**: `mise exec -- ruff check` (see
+5. **Check linting**: `mise exec -- ruff check` (see
    [Linting & Testing](./.claude-docs/linting-testing.md))
-5. **Fix issues**: `mise exec -- ruff check --fix`
+6. **Fix issues**: `mise exec -- ruff check --fix`
 
 ## Key Technologies
 

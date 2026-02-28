@@ -4,9 +4,11 @@ import re
 from typing import TYPE_CHECKING
 
 from git import Repo
+from git.exc import GitCommandError
 
 from releez.git_repo import (
     _build_commit_to_tags_map,
+    _collect_changed_files,
     _find_tag_by_date,
     _find_tag_by_topology,
     _has_commits_for_path,
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import pytest
+    from pytest_mock import MockerFixture
 
 
 def test_find_latest_tag_matching_pattern_no_tags(tmp_path: Path) -> None:
@@ -533,3 +536,42 @@ def test_find_tag_by_topology_returns_none_when_no_commit_matches(
     )
 
     assert result is None
+
+
+def test_find_tag_by_topology_returns_none_on_iteration_error(
+    mocker: MockerFixture,
+) -> None:
+    """Test topology lookup falls back to None when commit iteration raises."""
+    repo = mocker.MagicMock(spec=Repo)
+    repo.iter_commits.side_effect = RuntimeError('boom')
+
+    result = _find_tag_by_topology(
+        repo,
+        {'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef': ['core-1.0.0']},
+    )
+
+    assert result is None
+
+
+def test_collect_changed_files_ignores_git_command_errors(
+    mocker: MockerFixture,
+) -> None:
+    """Test changed file collection continues when one path raises GitCommandError."""
+    repo = mocker.MagicMock(spec=Repo)
+    git_error = GitCommandError('git diff', 1, stderr='boom')
+
+    def _fake_diff(_range_spec: str, *_args: str) -> str:
+        path = _args[-1]
+        if path == 'broken-path':
+            raise git_error
+        return 'packages/core/main.py'
+
+    repo.git.diff.side_effect = _fake_diff
+
+    result = _collect_changed_files(
+        repo,
+        'HEAD',
+        ['broken-path', 'packages/core'],
+    )
+
+    assert result == {'packages/core/main.py'}
