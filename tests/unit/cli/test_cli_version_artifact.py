@@ -11,6 +11,7 @@ from releez.artifact_version import (
     ArtifactVersionScheme,
     PrereleaseType,
 )
+from releez.errors import ReleezError
 from releez.version_tags import VersionTags
 
 if TYPE_CHECKING:
@@ -133,6 +134,34 @@ def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     assert result.exit_code == 0
     assert result.stdout == '1.2.3\n'
     compute_tags.assert_not_called()
+
+
+def test_cli_version_artifact_pep440_without_aliases(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: pep440 output with no aliases should emit plain version only."""
+    runner = CliRunner()
+    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
+    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+    secho = mocker.patch('releez.cli.typer.secho')
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--scheme',
+            'pep440',
+            '--version-override',
+            '1.2.3',
+            '--is-full-release',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == '1.2.3\n'
+    compute_tags.assert_not_called()
+    secho.assert_not_called()
 
 
 def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
@@ -284,3 +313,29 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
         'docker': ['1.2.3'],
         'pep440': ['1.2.3'],
     }
+
+
+def test_cli_version_artifact_handles_releez_error(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: version-artifact command must surface ReleezError as exit code 1."""
+    runner = CliRunner()
+    mocker.patch(
+        'releez.cli.compute_artifact_version',
+        side_effect=ReleezError('broken'),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--scheme',
+            'semver',
+            '--version-override',
+            '1.2.3',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'broken' in result.output

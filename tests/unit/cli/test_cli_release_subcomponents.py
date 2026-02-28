@@ -6,8 +6,11 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 import typer
+from click.core import ParameterSource
 
 from releez import cli
+from releez.errors import ReleezError
+from releez.release import StartReleaseResult
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -28,6 +31,51 @@ def _make_start_options() -> cli._ReleaseStartOptions:
         changelog_path='CHANGELOG.md',
         github_token=None,
     )
+
+
+def test_root_merges_into_existing_default_map(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: root callback must merge, not clobber, an existing default map."""
+    hooks = SimpleNamespace(changelog_format=['fmt'])
+    settings = SimpleNamespace(
+        base_branch='master',
+        git_remote='origin',
+        pr_labels='release',
+        pr_title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        create_pr=False,
+        run_changelog_format=False,
+        alias_versions=cli.AliasVersions.none,
+        hooks=hooks,
+    )
+    mocker.patch('releez.cli.ReleezSettings', return_value=settings)
+
+    ctx = cast(
+        'typer.Context',
+        SimpleNamespace(default_map={'existing': {'keep': True}}, obj=None),
+    )
+    cli._root(ctx=ctx)
+
+    assert ctx.obj is settings
+    default_map = cast('dict[str, object]', ctx.default_map)
+    assert default_map['existing'] == {'keep': True}
+    assert 'release' in default_map
+
+
+def test_selected_projects_from_names_deduplicates_repeated_names(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: repeated --project values should resolve to one target project."""
+    project = mocker.MagicMock(name='core')
+    project.name = 'core'
+
+    selected = cli._selected_projects_from_names(
+        subprojects=[project],
+        project_names=['core', 'core'],
+    )
+
+    assert selected == [project]
 
 
 def test_resolve_target_projects_single_repo_returns_none(
@@ -125,6 +173,94 @@ def test_run_monorepo_release_start_exits_when_any_project_fails(
         )
 
     exit_with_code.assert_called_once()
+
+
+def test_run_monorepo_release_start_no_targets_noops(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: empty project lists should short-circuit without side effects."""
+    run_project = mocker.patch('releez.cli._run_project_release_start')
+    exit_with_code = mocker.patch('releez.cli._exit_with_code')
+
+    cli._run_monorepo_release_start(
+        options=_make_start_options(),
+        target_projects=[],
+        repo_root=Path('/repo'),
+    )
+
+    run_project.assert_not_called()
+    exit_with_code.assert_not_called()
+
+
+def test_run_project_release_start_handles_releez_error(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: per-project release failures must be caught and reported."""
+    project = mocker.MagicMock(name='core')
+    project.name = 'core'
+    mocker.patch(
+        'releez.cli._build_release_start_input_project',
+        return_value=object(),
+    )
+    mocker.patch('releez.cli.start_release', side_effect=ReleezError('boom'))
+    secho = mocker.patch('releez.cli.typer.secho')
+
+    ok = cli._run_project_release_start(
+        options=_make_start_options(),
+        project=project,
+        repo_root=Path('/repo'),
+    )
+
+    assert ok is False
+    secho.assert_called_once_with(
+        '[core] boom',
+        err=True,
+        fg=typer.colors.RED,
+    )
+
+
+def test_emit_release_start_result_prints_pr_url_when_present(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: successful releases with PRs must print the PR URL."""
+    echo = mocker.patch('releez.cli.typer.echo')
+
+    cli._emit_release_start_result(
+        result=StartReleaseResult(
+            version='core-1.2.3',
+            release_notes_markdown='notes',
+            release_branch='release/core-1.2.3',
+            pr_url='https://example.invalid/pr/1',
+        ),
+        dry_run=False,
+        project_name='core',
+    )
+
+    assert echo.call_args_list == [
+        mocker.call('[core] Release branch: release/core-1.2.3'),
+        mocker.call('[core] PR created: https://example.invalid/pr/1'),
+    ]
+
+
+def test_alias_versions_for_project_prefers_cli_flag_source(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: explicit CLI alias flags must override project defaults."""
+    ctx = cast(
+        'typer.Context',
+        SimpleNamespace(
+            get_parameter_source=lambda _name: ParameterSource.COMMANDLINE,
+        ),
+    )
+    project = mocker.MagicMock(alias_versions=cli.AliasVersions.major)
+
+    resolved = cli._alias_versions_for_project(
+        ctx=ctx,
+        cli_alias_versions=cli.AliasVersions.minor,
+        project=project,
+    )
+
+    assert resolved == cli.AliasVersions.minor
 
 
 def test_run_release_preview_command_uses_single_repo_builder(
