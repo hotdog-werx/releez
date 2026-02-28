@@ -13,6 +13,11 @@ project.
 - **Always** run `mise exec -- pytest` for tests
 - **Always** ensure PR changes have 100% coverage on modified lines and modified
   branches (Codecov patch standard)
+- **Always** write assertions against behavior, not internal implementation
+  details
+- **Always** apply that behavior-first rule to both unit and integration tests
+- **Always** stub lower-level subcomponents in unit tests when testing
+  orchestrators
 - Use auto-fix when available: `mise exec -- ruff check --fix`
 
 ### ❌ DON'T

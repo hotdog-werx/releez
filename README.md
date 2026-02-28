@@ -59,6 +59,9 @@ Create git tags for a release:
 `releez release tag` (tags the git-cliff computed release version; pushes tags
 to `origin` by default)
 
+In monorepo mode, select target projects explicitly:
+`releez release tag --project core` (or `--all`).
+
 Override the tagged version if needed:
 
 `releez release tag --version-override 2.3.4`
@@ -78,11 +81,17 @@ Preview what will be published (version and tags):
 
 `releez release preview --output release-preview.md` (write markdown to a file)
 
+In monorepo mode, select target projects explicitly:
+`releez release preview --project core` (or `--all`).
+
 Generate the unreleased changelog section for the release:
 
 `releez release notes` (prints markdown to stdout)
 
 `releez release notes --output release-notes.md` (write markdown to a file)
+
+In monorepo mode, select target projects explicitly:
+`releez release notes --project core` (or `--all`).
 
 Regenerate the entire changelog from git history:
 
@@ -168,6 +177,14 @@ Detect release from branch name (useful in GitHub Actions):
 ```bash
 releez release detect-from-branch --branch release/core-1.2.3
 # Output: {"version": "core-1.2.3", "project": "core", "branch": "release/core-1.2.3"}
+```
+
+Monorepo release helpers with explicit selection:
+
+```bash
+releez release tag --project core
+releez release preview --project core
+releez release notes --project core
 ```
 
 ### How It Works

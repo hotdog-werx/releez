@@ -11,6 +11,41 @@ project.
 4. **One test file per source file** (e.g., `test_git_repo.py` for
    `git_repo.py`)
 5. **Descriptive test names** that explain what is being tested
+6. **Test behavior, not implementation details**
+7. **Keep tests resilient to internal refactors**
+8. **Cover all modified branches** in PR changes (match Codecov patch checks)
+9. **Stub subcomponents in unit tests** to keep each test focused on one unit
+
+### Behavior-First Testing (Unit + Integration)
+
+Tests should verify externally visible outcomes, not internal mechanics. A good
+test should keep passing if internals are refactored but behavior remains
+correct.
+
+Prefer assertions on:
+
+- Exit codes, returned values, created branches/tags/files
+- User-visible output and error behavior
+- Repository state transitions (e.g., branch exists, changelog updated)
+
+Avoid coupling tests to:
+
+- Exact internal call sequences unless call order is part of behavior
+- Private helper function implementation details
+- Incidental output formatting that is not a contract
+
+This applies to unit tests too: mocks are fine, but assert outcomes/contracts,
+not internal wiring.
+
+For orchestration-heavy units (for example CLI commands), stub helper
+subcomponents and assert delegation/contract, then test helpers separately.
+
+Examples:
+
+- ✅ Good: "`projects changed` reports `core` and not `ui`"
+- ❌ Bad: Assert exact internal list construction order from helper internals
+- ✅ Good: "release branch was created and pushed"
+- ❌ Bad: Assert every intermediary local variable value via mocks
 
 ## Mock Framework
 

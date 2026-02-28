@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, NoReturn, cast
 
 import typer
+from click.core import ParameterSource
 
 from releez import __version__
 from releez.artifact_version import (
@@ -28,11 +29,14 @@ from releez.git_repo import (
     open_repo,
     push_tags,
 )
-from releez.release import StartReleaseInput, start_release
+from releez.release import StartReleaseInput, StartReleaseResult, start_release
 from releez.settings import ReleezSettings
 from releez.subapps import changelog_app
 from releez.subproject import SubProject
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
+
+if TYPE_CHECKING:
+    from git import Repo
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
 release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
@@ -252,20 +256,18 @@ def _resolve_release_version(
     *,
     repo_root: Path,
     version_override: str | None,
+    tag_pattern: str | None = None,
+    include_paths: list[str] | None = None,
 ) -> str:
-    """Resolve release version from override or git-cliff.
-
-    Args:
-        repo_root: Repository root directory.
-        version_override: Explicit version to use, or None to compute.
-
-    Returns:
-        Version string to use for the release.
-    """
+    """Resolve release version from override or git-cliff."""
     if version_override is not None:
         return version_override
     cliff = GitCliff(repo_root=repo_root)
-    return cliff.compute_next_version(bump='auto')
+    return cliff.compute_next_version(
+        bump='auto',
+        tag_pattern=tag_pattern,
+        include_paths=include_paths,
+    )
 
 
 def _raise_changelog_format_command_required() -> None:
@@ -274,6 +276,490 @@ def _raise_changelog_format_command_required() -> None:
     Extracted to reduce cyclomatic complexity in callers.
     """
     raise ChangelogFormatCommandRequiredError
+
+
+def _exit_with_message(message: str) -> NoReturn:
+    typer.secho(message, err=True, fg=typer.colors.RED)
+    raise typer.Exit(code=1)
+
+
+def _exit_with_code() -> NoReturn:
+    raise typer.Exit(code=1)
+
+
+def _project_relative_glob(*, project: SubProject, repo_root: Path) -> str:
+    rel_path = project.path.relative_to(repo_root)
+    return f'{rel_path}/**'
+
+
+def _project_include_paths(
+    *,
+    project: SubProject,
+    repo_root: Path,
+) -> list[str]:
+    return [
+        _project_relative_glob(project=project, repo_root=repo_root),
+        *project.include_paths,
+    ]
+
+
+def _project_changelog_path(
+    *,
+    project: SubProject,
+    repo_root: Path,
+) -> str:
+    return str(project.changelog_path.relative_to(repo_root))
+
+
+def _project_names_csv(projects: list[SubProject]) -> str:
+    return ', '.join(project.name for project in projects)
+
+
+def _selected_projects_from_names(
+    *,
+    subprojects: list[SubProject],
+    project_names: list[str],
+) -> list[SubProject]:
+    projects_by_name = {project.name: project for project in subprojects}
+    selected: list[SubProject] = []
+
+    for name in project_names:
+        project = projects_by_name.get(name)
+        if project is None:
+            available = ', '.join(sorted(projects_by_name))
+            _exit_with_message(
+                f'Unknown project "{name}". Available projects: {available}',
+            )
+        if project not in selected:
+            selected.append(cast('SubProject', project))
+
+    return selected
+
+
+def _validate_project_selection_flags(
+    *,
+    project_names: list[str],
+    all_projects: bool,
+) -> None:
+    if project_names and all_projects:
+        _exit_with_message('Cannot use --project and --all together.')
+
+
+def _resolve_single_repo_targets(
+    *,
+    project_names: list[str],
+    all_projects: bool,
+) -> list[SubProject] | None:
+    if project_names or all_projects:
+        _exit_with_message(
+            'No projects are configured. Remove --project/--all or configure [tool.releez.projects].',
+        )
+    return None
+
+
+def _resolve_explicit_project_targets(
+    *,
+    subprojects: list[SubProject],
+    project_names: list[str],
+    all_projects: bool,
+) -> list[SubProject] | None:
+    if project_names:
+        return _selected_projects_from_names(
+            subprojects=subprojects,
+            project_names=project_names,
+        )
+    if all_projects:
+        return subprojects
+    return None
+
+
+def _detect_changed_project_targets(
+    *,
+    repo: Repo,
+    base_branch: str,
+    subprojects: list[SubProject],
+) -> list[SubProject]:
+    changed = detect_changed_projects(
+        repo=repo,
+        base_branch=base_branch,
+        projects=subprojects,
+    )
+
+    if not changed:
+        typer.secho(
+            'No projects with unreleased changes were detected.',
+            fg=typer.colors.GREEN,
+        )
+        return []
+
+    typer.secho(
+        f'Detected changed projects: {_project_names_csv(changed)}',
+        fg=typer.colors.BLUE,
+    )
+    return changed
+
+
+def _resolve_target_projects(  # noqa: PLR0913
+    *,
+    repo: Repo,
+    repo_root: Path,
+    settings: ReleezSettings,
+    project_names: list[str],
+    all_projects: bool,
+    base_branch: str,
+    require_explicit_selection: bool,
+) -> list[SubProject] | None:
+    """Resolve project targets for monorepo-aware commands.
+
+    Returns None for single-repo mode, or a concrete project list in monorepo mode.
+    """
+    subprojects = _build_subprojects_list(settings, repo_root=repo_root)
+
+    if not subprojects:
+        return _resolve_single_repo_targets(
+            project_names=project_names,
+            all_projects=all_projects,
+        )
+
+    _validate_project_selection_flags(
+        project_names=project_names,
+        all_projects=all_projects,
+    )
+    explicit_targets = _resolve_explicit_project_targets(
+        subprojects=subprojects,
+        project_names=project_names,
+        all_projects=all_projects,
+    )
+    if explicit_targets is not None:
+        return explicit_targets
+
+    if require_explicit_selection:
+        _exit_with_message(
+            'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
+        )
+
+    return _detect_changed_project_targets(
+        repo=repo,
+        base_branch=base_branch,
+        subprojects=subprojects,
+    )
+
+
+@dataclass(frozen=True)
+class _ResolvedProjectTargets:
+    settings: ReleezSettings
+    repo: Repo
+    repo_root: Path
+    target_projects: list[SubProject] | None
+
+
+@dataclass(frozen=True)
+class _ReleaseStartOptions:
+    bump: GitCliffBump
+    version_override: str | None
+    run_changelog_format: bool
+    changelog_format_cmd: list[str] | None
+    create_pr: bool
+    dry_run: bool
+    base: str
+    remote: str
+    labels: list[str]
+    title_prefix: str
+    changelog_path: str
+    github_token: str | None
+
+
+@dataclass(frozen=True)
+class _ReleaseTagOptions:
+    version_override: str | None
+    alias_versions: AliasVersions
+    remote: str
+
+
+@dataclass(frozen=True)
+class _ReleasePreviewOptions:
+    version_override: str | None
+    alias_versions: AliasVersions
+    output: Path | None
+
+
+@dataclass(frozen=True)
+class _ReleaseNotesOptions:
+    version_override: str | None
+    output: Path | None
+
+
+def _resolve_project_targets_for_command(
+    *,
+    ctx: typer.Context,
+    project_names: list[str],
+    all_projects: bool,
+    base_branch: str,
+    require_explicit_selection: bool,
+) -> _ResolvedProjectTargets:
+    settings: ReleezSettings = ctx.obj
+    repo, info = open_repo()
+    target_projects = _resolve_target_projects(
+        repo=repo,
+        repo_root=info.root,
+        settings=settings,
+        project_names=project_names,
+        all_projects=all_projects,
+        base_branch=base_branch,
+        require_explicit_selection=require_explicit_selection,
+    )
+    return _ResolvedProjectTargets(
+        settings=settings,
+        repo=repo,
+        repo_root=info.root,
+        target_projects=target_projects,
+    )
+
+
+def _require_single_project_override_scope(
+    *,
+    version_override: str | None,
+    target_projects: list[SubProject] | None,
+    action_label: str,
+) -> None:
+    if version_override is None or target_projects is None:
+        return
+    if len(target_projects) <= 1:
+        return
+    _exit_with_message(
+        f'--version-override can only be used when {action_label} a single project.',
+    )
+
+
+def _normalize_project_names(project_names: list[str] | None) -> list[str]:
+    return project_names or []
+
+
+def _comma_separated_labels(labels: str) -> list[str]:
+    return labels.split(',') if labels else []
+
+
+def _resolve_project_release_version(
+    *,
+    repo_root: Path,
+    version_override: str | None,
+    project: SubProject,
+) -> str:
+    return _resolve_release_version(
+        repo_root=repo_root,
+        version_override=version_override,
+        tag_pattern=project.tag_pattern,
+        include_paths=_project_include_paths(
+            project=project,
+            repo_root=repo_root,
+        ),
+    )
+
+
+def _project_semver_version(
+    *,
+    project: SubProject,
+    version: str,
+) -> str:
+    if project.tag_prefix and version.startswith(project.tag_prefix):
+        return version.removeprefix(project.tag_prefix)
+    return version
+
+
+def _build_release_start_input_single_repo(
+    *,
+    options: _ReleaseStartOptions,
+    settings: ReleezSettings,
+) -> StartReleaseInput:
+    return StartReleaseInput(
+        bump=options.bump,
+        version_override=options.version_override,
+        base_branch=options.base,
+        remote_name=options.remote,
+        labels=options.labels,
+        title_prefix=options.title_prefix,
+        changelog_path=options.changelog_path,
+        post_changelog_hooks=settings.hooks.post_changelog or None,
+        run_changelog_format=options.run_changelog_format,
+        changelog_format_cmd=options.changelog_format_cmd,
+        create_pr=options.create_pr,
+        github_token=options.github_token,
+        dry_run=options.dry_run,
+    )
+
+
+def _build_release_start_input_project(
+    *,
+    options: _ReleaseStartOptions,
+    project: SubProject,
+    repo_root: Path,
+) -> StartReleaseInput:
+    return StartReleaseInput(
+        bump=options.bump,
+        version_override=options.version_override,
+        base_branch=options.base,
+        remote_name=options.remote,
+        labels=options.labels,
+        title_prefix=options.title_prefix,
+        changelog_path=_project_changelog_path(
+            project=project,
+            repo_root=repo_root,
+        ),
+        post_changelog_hooks=project.hooks.post_changelog or None,
+        run_changelog_format=options.run_changelog_format,
+        changelog_format_cmd=options.changelog_format_cmd,
+        create_pr=options.create_pr,
+        github_token=options.github_token,
+        dry_run=options.dry_run,
+        project_name=project.name,
+        tag_pattern=project.tag_pattern,
+        include_paths=_project_include_paths(
+            project=project,
+            repo_root=repo_root,
+        ),
+        project_path=project.path,
+    )
+
+
+def _emit_release_start_result(
+    *,
+    result: StartReleaseResult,
+    dry_run: bool,
+    project_name: str | None = None,
+) -> None:
+    prefix = f'[{project_name}] ' if project_name else ''
+    typer.secho(
+        f'{prefix}Next version: {result.version}',
+        fg=typer.colors.GREEN,
+    )
+    if dry_run:
+        typer.echo(result.release_notes_markdown)
+        return
+    typer.echo(f'{prefix}Release branch: {result.release_branch}')
+    if result.pr_url:
+        typer.echo(f'{prefix}PR created: {result.pr_url}')
+
+
+def _run_single_repo_release_start(
+    *,
+    options: _ReleaseStartOptions,
+    settings: ReleezSettings,
+) -> None:
+    release_input = _build_release_start_input_single_repo(
+        options=options,
+        settings=settings,
+    )
+    result = start_release(release_input)
+    _emit_release_start_result(
+        result=result,
+        dry_run=options.dry_run,
+    )
+
+
+def _run_project_release_start(
+    *,
+    options: _ReleaseStartOptions,
+    project: SubProject,
+    repo_root: Path,
+) -> bool:
+    release_input = _build_release_start_input_project(
+        options=options,
+        project=project,
+        repo_root=repo_root,
+    )
+    try:
+        result = start_release(release_input)
+    except ReleezError as exc:
+        typer.secho(
+            f'[{project.name}] {exc}',
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return False
+
+    _emit_release_start_result(
+        result=result,
+        dry_run=options.dry_run,
+        project_name=project.name,
+    )
+    return True
+
+
+def _run_monorepo_release_start(
+    *,
+    options: _ReleaseStartOptions,
+    target_projects: list[SubProject],
+    repo_root: Path,
+) -> None:
+    _require_single_project_override_scope(
+        version_override=options.version_override,
+        target_projects=target_projects,
+        action_label='releasing',
+    )
+    if not target_projects:
+        return
+
+    succeeded = 0
+    for project in target_projects:
+        if _run_project_release_start(
+            options=options,
+            project=project,
+            repo_root=repo_root,
+        ):
+            succeeded += 1
+
+    failed = len(target_projects) - succeeded
+    typer.secho(
+        f'Release summary: {succeeded} succeeded, {failed} failed.',
+        fg=typer.colors.BLUE,
+    )
+    if failed:
+        _exit_with_code()
+
+
+def _run_release_start_command(
+    *,
+    ctx: typer.Context,
+    options: _ReleaseStartOptions,
+    project_names: list[str],
+    all_projects: bool,
+) -> None:
+    if options.run_changelog_format and not options.changelog_format_cmd:
+        _raise_changelog_format_command_required()
+
+    resolved = _resolve_project_targets_for_command(
+        ctx=ctx,
+        project_names=project_names,
+        all_projects=all_projects,
+        base_branch=options.base,
+        require_explicit_selection=False,
+    )
+    if resolved.target_projects is None:
+        _run_single_repo_release_start(
+            options=options,
+            settings=resolved.settings,
+        )
+        return
+    if not resolved.target_projects:
+        _exit_with_code()
+
+    _run_monorepo_release_start(
+        options=options,
+        target_projects=resolved.target_projects,
+        repo_root=resolved.repo_root,
+    )
+
+
+def _alias_versions_for_project(
+    *,
+    ctx: typer.Context,
+    cli_alias_versions: AliasVersions,
+    project: SubProject,
+) -> AliasVersions:
+    source = ctx.get_parameter_source('alias_versions')
+    if source == ParameterSource.COMMANDLINE:
+        return cli_alias_versions
+    return project.alias_versions
 
 
 @release_app.command('start')
@@ -363,6 +849,22 @@ def release_start(  # noqa: PLR0913
             show_default=True,
         ),
     ] = 'CHANGELOG.md',
+    project_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--project',
+            help='Project name to release (repeatable, monorepo only).',
+            show_default=False,
+        ),
+    ] = None,
+    all_projects: Annotated[
+        bool,
+        typer.Option(
+            '--all',
+            help='Release all configured projects (monorepo only).',
+            show_default=True,
+        ),
+    ] = False,
     github_token: Annotated[
         str | None,
         typer.Option(
@@ -372,70 +874,35 @@ def release_start(  # noqa: PLR0913
         ),
     ] = None,
 ) -> None:
-    """Start a release branch and update the changelog.
+    """Start release branch workflows for single-repo or monorepo projects."""
+    options = _ReleaseStartOptions(
+        bump=bump,
+        version_override=version_override,
+        run_changelog_format=run_changelog_format,
+        changelog_format_cmd=changelog_format_cmd,
+        create_pr=create_pr,
+        dry_run=dry_run,
+        base=base,
+        remote=remote,
+        labels=_comma_separated_labels(labels),
+        title_prefix=title_prefix,
+        changelog_path=changelog_path,
+        github_token=github_token,
+    )
 
-    Computes the next version using git-cliff, prepends the changelog, commits and pushes a
-    `release/<version>` branch, and optionally opens a GitHub PR.
-
-    Post-changelog hooks from config are automatically run if configured.
-
-    Args:
-        ctx: Typer context (injected automatically).
-        bump: Bump mode for git-cliff.
-        version_override: Override the computed next version.
-        run_changelog_format: (DEPRECATED) If true, run changelog formatter.
-        changelog_format_cmd: (DEPRECATED) Override changelog formatter argv.
-        create_pr: If true, create a GitHub pull request.
-        dry_run: If true, do not modify the repo; just output version and notes.
-        base: Base branch for the release PR.
-        remote: Remote name to use.
-        labels: Comma-separated labels to add to the PR.
-        title_prefix: Prefix for PR title.
-        changelog_path: Changelog file to prepend to.
-        github_token: GitHub token for PR creation.
-
-    Raises:
-        typer.Exit: If an error occurs during release processing.
-    """
     try:
-        if run_changelog_format and not changelog_format_cmd:
-            _raise_changelog_format_command_required()
-
-        # Get configured hooks from settings
-        settings: ReleezSettings = ctx.obj
-        post_changelog_hooks = settings.hooks.post_changelog or None
-
-        release_input = StartReleaseInput(
-            bump=bump,
-            version_override=version_override,
-            base_branch=base,
-            remote_name=remote,
-            labels=labels.split(',') if labels else [],
-            title_prefix=title_prefix,
-            changelog_path=changelog_path,
-            post_changelog_hooks=post_changelog_hooks,
-            run_changelog_format=run_changelog_format,
-            changelog_format_cmd=changelog_format_cmd,
-            create_pr=create_pr,
-            github_token=github_token,
-            dry_run=dry_run,
+        _run_release_start_command(
+            ctx=ctx,
+            options=options,
+            project_names=_normalize_project_names(project_names),
+            all_projects=all_projects,
         )
-        result = start_release(release_input)
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
     except Exception as exc:  # pragma: no cover
         typer.secho(f'Unexpected error: {exc}', err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
-
-    typer.secho(f'Next version: {result.version}', fg=typer.colors.GREEN)
-    if dry_run:
-        typer.echo(result.release_notes_markdown)
-        return
-
-    typer.echo(f'Release branch: {result.release_branch}')
-    if result.pr_url:
-        typer.echo(f'PR created: {result.pr_url}')
 
 
 @version_app.command('artifact')
@@ -533,8 +1000,359 @@ def version_artifact(  # noqa: PLR0913
         raise typer.Exit(code=1) from exc
 
 
+def _create_and_push_selected_tags(
+    *,
+    repo: Repo,
+    remote: str,
+    selected_tags: list[str],
+) -> None:
+    exact_tags = selected_tags[:1]
+    alias_only_tags = selected_tags[1:]
+
+    create_tags(repo, tags=exact_tags, force=False)
+    push_tags(repo, remote_name=remote, tags=exact_tags, force=False)
+
+    if not alias_only_tags:
+        return
+
+    create_tags(repo, tags=alias_only_tags, force=True)
+    push_tags(
+        repo,
+        remote_name=remote,
+        tags=alias_only_tags,
+        force=True,
+    )
+
+
+def _selected_tags_for_single_repo(
+    *,
+    repo_root: Path,
+    options: _ReleaseTagOptions,
+) -> list[str]:
+    version = _resolve_release_version(
+        repo_root=repo_root,
+        version_override=options.version_override,
+    )
+    tags = compute_version_tags(version=version)
+    return select_tags(tags=tags, aliases=options.alias_versions)
+
+
+def _selected_tags_for_project(
+    *,
+    repo_root: Path,
+    options: _ReleaseTagOptions,
+    project: SubProject,
+    ctx: typer.Context,
+) -> list[str]:
+    version = _resolve_project_release_version(
+        repo_root=repo_root,
+        version_override=options.version_override,
+        project=project,
+    )
+    semver_version = _project_semver_version(project=project, version=version)
+    tags = compute_version_tags(
+        version=semver_version,
+        tag_prefix=project.tag_prefix,
+    )
+    aliases = _alias_versions_for_project(
+        ctx=ctx,
+        cli_alias_versions=options.alias_versions,
+        project=project,
+    )
+    return select_tags(tags=tags, aliases=aliases)
+
+
+def _emit_tags(
+    *,
+    selected_tags: list[str],
+    project_name: str | None = None,
+) -> None:
+    prefix = f'[{project_name}] ' if project_name else ''
+    for tag in selected_tags:
+        typer.echo(f'{prefix}{tag}')
+
+
+def _run_release_tag_command(
+    *,
+    ctx: typer.Context,
+    options: _ReleaseTagOptions,
+    project_names: list[str],
+    all_projects: bool,
+) -> None:
+    settings: ReleezSettings = ctx.obj
+    resolved = _resolve_project_targets_for_command(
+        ctx=ctx,
+        project_names=project_names,
+        all_projects=all_projects,
+        base_branch=settings.base_branch,
+        require_explicit_selection=True,
+    )
+    _require_single_project_override_scope(
+        version_override=options.version_override,
+        target_projects=resolved.target_projects,
+        action_label='tagging',
+    )
+
+    fetch(resolved.repo, remote_name=options.remote)
+    if resolved.target_projects is None:
+        selected = _selected_tags_for_single_repo(
+            repo_root=resolved.repo_root,
+            options=options,
+        )
+        _create_and_push_selected_tags(
+            repo=resolved.repo,
+            remote=options.remote,
+            selected_tags=selected,
+        )
+        _emit_tags(selected_tags=selected)
+        return
+
+    for project in resolved.target_projects:
+        selected = _selected_tags_for_project(
+            repo_root=resolved.repo_root,
+            options=options,
+            project=project,
+            ctx=ctx,
+        )
+        _create_and_push_selected_tags(
+            repo=resolved.repo,
+            remote=options.remote,
+            selected_tags=selected,
+        )
+        _emit_tags(selected_tags=selected, project_name=project.name)
+
+
+def _render_preview_section(
+    *,
+    title: str | None,
+    version: str,
+    tags: list[str],
+) -> list[str]:
+    heading = [f'### `{title}`', ''] if title else []
+    return [
+        *heading,
+        f'- Version: `{version}`',
+        '- Tags:',
+        *[f'  - `{tag}`' for tag in tags],
+        '',
+    ]
+
+
+def _build_release_preview_markdown_single_repo(
+    *,
+    options: _ReleasePreviewOptions,
+    repo_root: Path,
+) -> str:
+    version = _resolve_release_version(
+        repo_root=repo_root,
+        version_override=options.version_override,
+    )
+    tags = select_tags(
+        tags=compute_version_tags(version=version),
+        aliases=options.alias_versions,
+    )
+    lines = ['## `releez` release preview', '']
+    lines.extend(
+        _render_preview_section(
+            title=None,
+            version=version,
+            tags=tags,
+        ),
+    )
+    return '\n'.join(lines)
+
+
+def _build_release_preview_markdown_monorepo(
+    *,
+    ctx: typer.Context,
+    options: _ReleasePreviewOptions,
+    repo_root: Path,
+    projects: list[SubProject],
+) -> str:
+    lines = ['## `releez` release preview', '']
+    for project in projects:
+        version = _resolve_project_release_version(
+            repo_root=repo_root,
+            version_override=options.version_override,
+            project=project,
+        )
+        semver_version = _project_semver_version(
+            project=project,
+            version=version,
+        )
+        tags = select_tags(
+            tags=compute_version_tags(
+                version=semver_version,
+                tag_prefix=project.tag_prefix,
+            ),
+            aliases=_alias_versions_for_project(
+                ctx=ctx,
+                cli_alias_versions=options.alias_versions,
+                project=project,
+            ),
+        )
+        lines.extend(
+            _render_preview_section(
+                title=project.name,
+                version=tags[0],
+                tags=tags,
+            ),
+        )
+    return '\n'.join(lines)
+
+
+def _emit_or_write_output(
+    *,
+    output: Path | None,
+    content: str,
+) -> None:
+    if output is None:
+        typer.echo(content)
+        return
+    output_path = Path(output)
+    output_path.write_text(content, encoding='utf-8')
+
+
+def _run_release_preview_command(
+    *,
+    ctx: typer.Context,
+    options: _ReleasePreviewOptions,
+    project_names: list[str],
+    all_projects: bool,
+) -> None:
+    settings: ReleezSettings = ctx.obj
+    resolved = _resolve_project_targets_for_command(
+        ctx=ctx,
+        project_names=project_names,
+        all_projects=all_projects,
+        base_branch=settings.base_branch,
+        require_explicit_selection=True,
+    )
+    _require_single_project_override_scope(
+        version_override=options.version_override,
+        target_projects=resolved.target_projects,
+        action_label='previewing',
+    )
+
+    if resolved.target_projects is None:
+        markdown = _build_release_preview_markdown_single_repo(
+            options=options,
+            repo_root=resolved.repo_root,
+        )
+    else:
+        markdown = _build_release_preview_markdown_monorepo(
+            ctx=ctx,
+            options=options,
+            repo_root=resolved.repo_root,
+            projects=resolved.target_projects,
+        )
+
+    _emit_or_write_output(
+        output=options.output,
+        content=markdown,
+    )
+
+
+def _generate_release_notes_single_repo(
+    *,
+    cliff: GitCliff,
+    repo_root: Path,
+    version_override: str | None,
+) -> str:
+    version = _resolve_release_version(
+        repo_root=repo_root,
+        version_override=version_override,
+    )
+    compute_version_tags(version=version)
+    return cliff.generate_unreleased_notes(version=version)
+
+
+def _generate_release_notes_monorepo(
+    *,
+    cliff: GitCliff,
+    repo_root: Path,
+    version_override: str | None,
+    projects: list[SubProject],
+) -> str:
+    sections: list[str] = []
+    for project in projects:
+        version = _resolve_project_release_version(
+            repo_root=repo_root,
+            version_override=version_override,
+            project=project,
+        )
+        semver_version = _project_semver_version(
+            project=project,
+            version=version,
+        )
+        compute_version_tags(
+            version=semver_version,
+            tag_prefix=project.tag_prefix,
+        )
+        project_notes = cliff.generate_unreleased_notes(
+            version=version,
+            tag_pattern=project.tag_pattern,
+            include_paths=_project_include_paths(
+                project=project,
+                repo_root=repo_root,
+            ),
+        )
+        sections.extend(
+            [
+                f'## `{project.name}`',
+                '',
+                project_notes.strip(),
+                '',
+            ],
+        )
+    return '\n'.join(sections).rstrip() + '\n'
+
+
+def _run_release_notes_command(
+    *,
+    ctx: typer.Context,
+    options: _ReleaseNotesOptions,
+    project_names: list[str],
+    all_projects: bool,
+) -> None:
+    settings: ReleezSettings = ctx.obj
+    resolved = _resolve_project_targets_for_command(
+        ctx=ctx,
+        project_names=project_names,
+        all_projects=all_projects,
+        base_branch=settings.base_branch,
+        require_explicit_selection=True,
+    )
+    _require_single_project_override_scope(
+        version_override=options.version_override,
+        target_projects=resolved.target_projects,
+        action_label='generating notes for',
+    )
+
+    cliff = GitCliff(repo_root=resolved.repo_root)
+    if resolved.target_projects is None:
+        notes = _generate_release_notes_single_repo(
+            cliff=cliff,
+            repo_root=resolved.repo_root,
+            version_override=options.version_override,
+        )
+    else:
+        notes = _generate_release_notes_monorepo(
+            cliff=cliff,
+            repo_root=resolved.repo_root,
+            version_override=options.version_override,
+            projects=resolved.target_projects,
+        )
+
+    _emit_or_write_output(
+        output=options.output,
+        content=notes,
+    )
+
+
 @release_app.command('tag')
-def release_tag(
+def release_tag(  # noqa: PLR0913
+    ctx: typer.Context,
     *,
     version_override: Annotated[
         str | None,
@@ -561,41 +1379,44 @@ def release_tag(
             show_default=True,
         ),
     ] = 'origin',
+    project_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--project',
+            help='Project name to tag (repeatable, monorepo only).',
+            show_default=False,
+        ),
+    ] = None,
+    all_projects: Annotated[
+        bool,
+        typer.Option(
+            '--all',
+            help='Tag all configured projects (monorepo only).',
+            show_default=True,
+        ),
+    ] = False,
 ) -> None:
     """Create git tag(s) for a release and push them."""
+    options = _ReleaseTagOptions(
+        version_override=version_override,
+        alias_versions=alias_versions,
+        remote=remote,
+    )
     try:
-        repo, _info = open_repo()
-        fetch(repo, remote_name=remote)
-        version = _resolve_release_version(
-            repo_root=_info.root,
-            version_override=version_override,
+        _run_release_tag_command(
+            ctx=ctx,
+            options=options,
+            project_names=_normalize_project_names(project_names),
+            all_projects=all_projects,
         )
-        tags = compute_version_tags(version=version)
-        selected = select_tags(tags=tags, aliases=alias_versions)
-        exact_tags = selected[:1]
-        alias_only_tags = selected[1:]
-
-        create_tags(repo, tags=exact_tags, force=False)
-        push_tags(repo, remote_name=remote, tags=exact_tags, force=False)
-
-        if alias_only_tags:
-            create_tags(repo, tags=alias_only_tags, force=True)
-            push_tags(
-                repo,
-                remote_name=remote,
-                tags=alias_only_tags,
-                force=True,
-            )
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
 
-    for tag in selected:
-        typer.echo(tag)
-
 
 @release_app.command('preview')
-def release_preview(
+def release_preview(  # noqa: PLR0913
+    ctx: typer.Context,
     *,
     version_override: Annotated[
         str | None,
@@ -622,34 +1443,36 @@ def release_preview(
             show_default=False,
         ),
     ] = None,
+    project_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--project',
+            help='Project name to preview (repeatable, monorepo only).',
+            show_default=False,
+        ),
+    ] = None,
+    all_projects: Annotated[
+        bool,
+        typer.Option(
+            '--all',
+            help='Preview all configured projects (monorepo only).',
+            show_default=True,
+        ),
+    ] = False,
 ) -> None:
     """Preview the version and tags that would be published."""
+    options = _ReleasePreviewOptions(
+        version_override=version_override,
+        alias_versions=alias_versions,
+        output=output,
+    )
     try:
-        _repo, info = open_repo()
-        version = _resolve_release_version(
-            repo_root=info.root,
-            version_override=version_override,
+        _run_release_preview_command(
+            ctx=ctx,
+            options=options,
+            project_names=_normalize_project_names(project_names),
+            all_projects=all_projects,
         )
-
-        computed = compute_version_tags(version=version)
-        tags = select_tags(tags=computed, aliases=alias_versions)
-
-        markdown = '\n'.join(
-            [
-                '## `releez` release preview',
-                '',
-                f'- Version: `{version}`',
-                '- Tags:',
-                *[f'  - `{tag}`' for tag in tags],
-                '',
-            ],
-        )
-
-        if output is not None:
-            output_path = Path(output)
-            output_path.write_text(markdown, encoding='utf-8')
-        else:
-            typer.echo(markdown)
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
@@ -681,23 +1504,19 @@ def _get_branch_name(branch: str | None) -> str:
     return info.active_branch
 
 
-def _build_subprojects_list(settings: ReleezSettings) -> list[SubProject]:
-    """Build list of SubProjects from settings.
-
-    Args:
-        settings: Releez settings with optional projects configuration.
-
-    Returns:
-        SubProject instances, or empty list for single-repo.
-    """
+def _build_subprojects_list(
+    settings: ReleezSettings,
+    *,
+    repo_root: Path,
+) -> list[SubProject]:
+    """Build SubProject instances from settings."""
     if not settings.projects:
         return []
 
-    _, repo_info = open_repo()
     return [
         SubProject.from_config(
             config,
-            repo_root=repo_info.root,
+            repo_root=repo_root,
             global_settings=settings,
         )
         for config in settings.projects
@@ -745,7 +1564,8 @@ def release_detect_from_branch(
     try:
         settings = ReleezSettings()
         branch_name = _get_branch_name(branch)
-        subprojects = _build_subprojects_list(settings)
+        _, info = open_repo()
+        subprojects = _build_subprojects_list(settings, repo_root=info.root)
 
         detected = detect_release_from_branch(
             branch_name=branch_name,
@@ -769,6 +1589,7 @@ def release_detect_from_branch(
 
 @release_app.command('notes')
 def release_notes(
+    ctx: typer.Context,
     *,
     version_override: Annotated[
         str | None,
@@ -786,22 +1607,35 @@ def release_notes(
             show_default=False,
         ),
     ] = None,
+    project_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--project',
+            help='Project name to render notes for (repeatable, monorepo only).',
+            show_default=False,
+        ),
+    ] = None,
+    all_projects: Annotated[
+        bool,
+        typer.Option(
+            '--all',
+            help='Generate notes for all configured projects (monorepo only).',
+            show_default=True,
+        ),
+    ] = False,
 ) -> None:
     """Generate the new changelog section for the release."""
+    options = _ReleaseNotesOptions(
+        version_override=version_override,
+        output=output,
+    )
     try:
-        _, info = open_repo()
-        version = _resolve_release_version(
-            repo_root=info.root,
-            version_override=version_override,
+        _run_release_notes_command(
+            ctx=ctx,
+            options=options,
+            project_names=_normalize_project_names(project_names),
+            all_projects=all_projects,
         )
-        cliff = GitCliff(repo_root=info.root)
-        notes = cliff.generate_unreleased_notes(version=version)
-
-        if output is not None:
-            output_path = Path(output)
-            output_path.write_text(notes, encoding='utf-8')
-        else:
-            typer.echo(notes)
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
@@ -809,11 +1643,7 @@ def release_notes(
 
 @projects_app.command('list')
 def projects_list(ctx: typer.Context) -> None:
-    """List all configured projects in the monorepo.
-
-    Args:
-        ctx: Typer context (injected automatically).
-    """
+    """List configured monorepo projects."""
     settings: ReleezSettings = ctx.obj
 
     if not settings.projects:
@@ -893,18 +1723,7 @@ def projects_changed(
         ),
     ] = None,
 ) -> None:
-    """Detect which projects have unreleased changes.
-
-    Useful for CI/CD pipelines to determine which projects need releasing.
-
-    Args:
-        ctx: Typer context (injected automatically).
-        format_output: Output format (text or json).
-        base: Base branch to compare against.
-
-    Raises:
-        typer.Exit: If an error occurs.
-    """
+    """Detect projects that have unreleased changes."""
     try:
         settings: ReleezSettings = ctx.obj
 
@@ -945,15 +1764,7 @@ def projects_info(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help='Project name')],
 ) -> None:
-    """Show detailed information about a specific project.
-
-    Args:
-        ctx: Typer context (injected automatically).
-        name: The project name.
-
-    Raises:
-        typer.Exit: If the project is not found.
-    """
+    """Show configuration details for one project."""
     settings: ReleezSettings = ctx.obj
 
     if not settings.projects:

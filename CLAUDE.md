@@ -71,6 +71,7 @@ tests/
 - Always use `mise exec --` for running development tools (pytest, ruff, ty)
 - Never run `basedpyright` directly - use `mise exec -- ty check` instead
 - Use `pytest_mock` (the mocker fixture) instead of `unittest.mock` directly
+- Test behavior/outcomes, not internal implementation details
 - Keep cyclomatic complexity ≤10 (enforced by ruff)
 - All functions should have type hints
 - Use `Read` tool before editing files

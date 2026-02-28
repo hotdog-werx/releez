@@ -454,12 +454,19 @@ releez release start
 releez release start --project core
 releez release start --all
 
-# Preview release notes
-releez release notes preview --project core
+# Preview version/tags for a project
+releez release preview --project core
+
+# Generate release notes for a project
+releez release notes --project core
 
 # Tag releases
 releez release tag --project core
 ```
+
+For `release tag`, `release preview`, and `release notes`, monorepo mode
+requires explicit project selection: use `--project <name>` (repeatable) or
+`--all`.
 
 ### Detect Release from Branch
 
