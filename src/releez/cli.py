@@ -289,7 +289,7 @@ def _exit_with_code() -> NoReturn:
 
 def _project_relative_glob(*, project: SubProject, repo_root: Path) -> str:
     rel_path = project.path.relative_to(repo_root)
-    return f'{rel_path}/**'
+    return f'{rel_path.as_posix()}/**'
 
 
 def _project_include_paths(
@@ -308,7 +308,7 @@ def _project_changelog_path(
     project: SubProject,
     repo_root: Path,
 ) -> str:
-    return str(project.changelog_path.relative_to(repo_root))
+    return project.changelog_path.relative_to(repo_root).as_posix()
 
 
 def _project_names_csv(projects: list[SubProject]) -> str:

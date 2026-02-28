@@ -12,6 +12,9 @@ permissions:
   pull-requests: write
   contents: read
 
+env:
+  MISE_NO_HOOKS: '1'
+
 jobs:
   validate:
     name: Validate release PR

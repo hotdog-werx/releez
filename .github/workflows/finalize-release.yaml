@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  MISE_NO_HOOKS: '1'
+
 jobs:
   finalize:
     name: Finalize release

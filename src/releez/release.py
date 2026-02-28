@@ -306,7 +306,7 @@ def start_release(
     if release_input.project_path:
         # Monorepo: selective staging - only project directory
         rel_project_path = release_input.project_path.relative_to(info.root)
-        repo.git.add(str(rel_project_path))
+        repo.git.add(rel_project_path.as_posix())
     else:
         # Single repo: stage all modified/new files
         repo.git.add('-A')
