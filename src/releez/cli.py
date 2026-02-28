@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -18,18 +19,33 @@ from releez.errors import (
     ChangelogFormatCommandRequiredError,
     ReleezError,
 )
-from releez.git_repo import create_tags, fetch, open_repo, push_tags
+from releez.git_repo import (
+    DetectedRelease,
+    create_tags,
+    detect_changed_projects,
+    detect_release_from_branch,
+    fetch,
+    open_repo,
+    push_tags,
+)
 from releez.release import StartReleaseInput, start_release
 from releez.settings import ReleezSettings
 from releez.subapps import changelog_app
+from releez.subproject import SubProject
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
 release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
 version_app = typer.Typer(help='Version utilities for CI/artifacts.')
+projects_app = typer.Typer(help='Monorepo project utilities.')
 
 
-def _version_callback(value: bool) -> None:  # noqa: FBT001
+def _version_callback(*, value: bool) -> None:
+    """Print version and exit when --version flag is passed.
+
+    Args:
+        value: True if --version was passed.
+    """
     if value:
         typer.echo(f'releez {__version__}')
         raise typer.Exit(0)
@@ -110,6 +126,14 @@ def _build_artifact_version_input(
     *,
     args: _VersionArtifactArgs,
 ) -> ArtifactVersionInput:
+    """Convert CLI args dataclass to ArtifactVersionInput.
+
+    Args:
+        args: CLI arguments for the version artifact command.
+
+    Returns:
+        Input dataclass for compute_artifact_version.
+    """
     return ArtifactVersionInput(
         scheme=args.scheme,
         version_override=args.version_override,
@@ -120,6 +144,64 @@ def _build_artifact_version_input(
     )
 
 
+def _emit_all_artifact_versions_json(  # noqa: PLR0913
+    *,
+    version_override: str | None,
+    is_full_release: bool,
+    prerelease_type: PrereleaseType,
+    prerelease_number: int | None,
+    build_number: int | None,
+    alias_versions: AliasVersions,
+) -> None:
+    """Emit all artifact version schemes as JSON.
+
+    Outputs JSON with keys for each scheme (semver, docker, pep440)
+    and values as arrays of version strings including aliases.
+
+    For each scheme, computes the version string and any alias versions
+    (if full release). PEP440 never includes aliases. Prerelease builds
+    never include aliases regardless of scheme.
+
+    Args:
+        version_override: Version to use instead of computing from git-cliff.
+        is_full_release: Whether this is a full release (no prerelease markers).
+        prerelease_type: Prerelease label (alpha, beta, rc).
+        prerelease_number: Prerelease number.
+        build_number: Build identifier for prereleases.
+        alias_versions: Alias version strategy (none, major, minor).
+    """
+    result: dict[str, list[str]] = {}
+
+    for scheme_value in ArtifactVersionScheme:
+        artifact_args = _VersionArtifactArgs(
+            scheme=scheme_value,
+            version_override=version_override,
+            is_full_release=is_full_release,
+            prerelease_type=prerelease_type,
+            prerelease_number=prerelease_number,
+            build_number=build_number,
+        )
+        artifact_input = _build_artifact_version_input(args=artifact_args)
+        artifact_version = compute_artifact_version(artifact_input)
+
+        # Get the list of versions for this scheme
+        if scheme_value == ArtifactVersionScheme.pep440:
+            # PEP440 doesn't support alias versions
+            result[scheme_value.value] = [artifact_version]
+        elif alias_versions == AliasVersions.none or not is_full_release:
+            # No aliases requested or not a full release
+            result[scheme_value.value] = [artifact_version]
+        else:
+            # Full release with alias versions (semver/docker)
+            tags = compute_version_tags(version=artifact_version)
+            result[scheme_value.value] = select_tags(
+                tags=tags,
+                aliases=alias_versions,
+            )
+
+    typer.echo(json.dumps(result, indent=2))
+
+
 def _emit_artifact_version_output(
     *,
     artifact_version: str,
@@ -127,6 +209,17 @@ def _emit_artifact_version_output(
     is_full_release: bool,
     alias_versions: AliasVersions,
 ) -> None:
+    """Emit artifact version(s) to stdout with warnings for invalid combinations.
+
+    Prints one version per line. For alias versions, prints each alias
+    on a separate line. Warns to stderr if alias options are inapplicable.
+
+    Args:
+        artifact_version: Computed version string.
+        scheme: Output scheme (semver, docker, pep440).
+        is_full_release: Whether this is a full release.
+        alias_versions: Alias version strategy.
+    """
     if scheme == ArtifactVersionScheme.pep440:
         if alias_versions != AliasVersions.none:
             typer.secho(
@@ -160,7 +253,15 @@ def _resolve_release_version(
     repo_root: Path,
     version_override: str | None,
 ) -> str:
-    """Resolve the release version, defaulting to git-cliff."""
+    """Resolve release version from override or git-cliff.
+
+    Args:
+        repo_root: Repository root directory.
+        version_override: Explicit version to use, or None to compute.
+
+    Returns:
+        Version string to use for the release.
+    """
     if version_override is not None:
         return version_override
     cliff = GitCliff(repo_root=repo_root)
@@ -168,6 +269,10 @@ def _resolve_release_version(
 
 
 def _raise_changelog_format_command_required() -> None:
+    """Raise ChangelogFormatCommandRequiredError.
+
+    Extracted to reduce cyclomatic complexity in callers.
+    """
     raise ChangelogFormatCommandRequiredError
 
 
@@ -337,14 +442,14 @@ def release_start(  # noqa: PLR0913
 def version_artifact(  # noqa: PLR0913
     *,
     scheme: Annotated[
-        ArtifactVersionScheme,
+        ArtifactVersionScheme | None,
         typer.Option(
             '--scheme',
-            help='Output scheme for the artifact version.',
-            show_default=True,
+            help='Output scheme for the artifact version. If not specified, outputs all schemes as JSON.',
+            show_default=False,
             case_sensitive=False,
         ),
-    ] = ArtifactVersionScheme.semver,
+    ] = None,
     is_full_release: Annotated[
         bool,
         typer.Option(
@@ -394,6 +499,19 @@ def version_artifact(  # noqa: PLR0913
 ) -> None:
     """Compute an artifact version string."""
     try:
+        if scheme is None:
+            # Output all schemes as JSON
+            _emit_all_artifact_versions_json(
+                version_override=version_override,
+                is_full_release=is_full_release,
+                prerelease_type=prerelease_type,
+                prerelease_number=prerelease_number,
+                build_number=build_number,
+                alias_versions=alias_versions,
+            )
+            return
+
+        # Output single scheme (scheme is guaranteed non-None here)
         artifact_args = _VersionArtifactArgs(
             scheme=scheme,
             version_override=version_override,
@@ -537,6 +655,118 @@ def release_preview(
         raise typer.Exit(code=1) from exc
 
 
+def _get_branch_name(branch: str | None) -> str:
+    """Get branch name from parameter or detect current branch.
+
+    Args:
+        branch: Branch name from user, or None to auto-detect.
+
+    Returns:
+        Branch name to parse.
+
+    Raises:
+        typer.Exit: If in detached HEAD state without --branch.
+    """
+    if branch is not None:
+        return branch
+
+    _, info = open_repo()
+    if info.active_branch is None:
+        typer.secho(
+            'Error: Not on a branch (detached HEAD). Use --branch to specify branch name.',
+            err=True,
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    return info.active_branch
+
+
+def _build_subprojects_list(settings: ReleezSettings) -> list[SubProject]:
+    """Build list of SubProjects from settings.
+
+    Args:
+        settings: Releez settings with optional projects configuration.
+
+    Returns:
+        SubProject instances, or empty list for single-repo.
+    """
+    if not settings.projects:
+        return []
+
+    _, repo_info = open_repo()
+    return [
+        SubProject.from_config(
+            config,
+            repo_root=repo_info.root,
+            global_settings=settings,
+        )
+        for config in settings.projects
+    ]
+
+
+def _format_detected_release_json(detected: DetectedRelease) -> str:
+    """Format DetectedRelease as JSON string.
+
+    Args:
+        detected: Detected release information.
+
+    Returns:
+        JSON string with version, branch, and optional project.
+    """
+    output = {
+        'version': detected.version,
+        'branch': detected.branch_name,
+    }
+    if detected.project_name:
+        output['project'] = detected.project_name
+    return json.dumps(output, indent=2)
+
+
+@release_app.command('detect-from-branch')
+def release_detect_from_branch(
+    *,
+    branch: Annotated[
+        str | None,
+        typer.Option(
+            '--branch',
+            help='Branch name to parse. If not specified, uses current branch.',
+            show_default=False,
+        ),
+    ] = None,
+) -> None:
+    """Detect release information from a branch name.
+
+    Parses release branch names to extract version and project information.
+    Useful for GitHub Actions workflows to detect which project is being released.
+
+    Single repo format: release/1.2.3
+    Monorepo format: release/core-1.2.3
+    """
+    try:
+        settings = ReleezSettings()
+        branch_name = _get_branch_name(branch)
+        subprojects = _build_subprojects_list(settings)
+
+        detected = detect_release_from_branch(
+            branch_name=branch_name,
+            projects=subprojects,
+        )
+
+        if detected is None:
+            typer.secho(
+                f'Error: Branch "{branch_name}" is not a release branch.',
+                err=True,
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
+        typer.echo(_format_detected_release_json(detected))
+
+    except ReleezError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+
+
 @release_app.command('notes')
 def release_notes(
     *,
@@ -577,9 +807,206 @@ def release_notes(
         raise typer.Exit(code=1) from exc
 
 
+@projects_app.command('list')
+def projects_list(ctx: typer.Context) -> None:
+    """List all configured projects in the monorepo.
+
+    Args:
+        ctx: Typer context (injected automatically).
+    """
+    settings: ReleezSettings = ctx.obj
+
+    if not settings.projects:
+        typer.secho(
+            'No projects configured. This is a single-repo setup.',
+            fg=typer.colors.YELLOW,
+        )
+        return
+
+    typer.secho(
+        f'Configured projects ({len(settings.projects)}):',
+        fg=typer.colors.BLUE,
+        bold=True,
+    )
+    for project_config in settings.projects:
+        typer.echo(f'  • {project_config.name}')
+        typer.echo(f'    Path: {project_config.path}')
+        typer.echo(f'    Tag prefix: {project_config.tag_prefix or "(none)"}')
+        typer.echo(f'    Changelog: {project_config.changelog_path}')
+        if project_config.include_paths:
+            typer.echo(
+                f'    Include paths: {", ".join(project_config.include_paths)}',
+            )
+        typer.echo()
+
+
+def _output_changed_projects(
+    changed: list[SubProject],
+    format_output: str,
+) -> None:
+    """Output changed projects in the requested format.
+
+    Args:
+        changed: Projects with unreleased changes.
+        format_output: Output format, "json" or "text".
+    """
+    if format_output == 'json':
+        # include key matches GitHub Actions matrix strategy format
+        output = {
+            'projects': [p.name for p in changed],
+            'include': [{'project': p.name} for p in changed],
+        }
+        typer.echo(json.dumps(output, indent=2))
+    elif not changed:
+        typer.secho(
+            'No projects have unreleased changes.',
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            f'Projects with unreleased changes ({len(changed)}):',
+            fg=typer.colors.BLUE,
+            bold=True,
+        )
+        for project in changed:
+            typer.echo(f'  • {project.name}')
+
+
+@projects_app.command('changed')
+def projects_changed(
+    ctx: typer.Context,
+    *,
+    format_output: Annotated[
+        str,
+        typer.Option(
+            '--format',
+            help='Output format: text or json',
+            show_default=True,
+        ),
+    ] = 'text',
+    base: Annotated[
+        str | None,
+        typer.Option(
+            '--base',
+            help='Base branch to compare against (defaults to configured base-branch)',
+            show_default=False,
+        ),
+    ] = None,
+) -> None:
+    """Detect which projects have unreleased changes.
+
+    Useful for CI/CD pipelines to determine which projects need releasing.
+
+    Args:
+        ctx: Typer context (injected automatically).
+        format_output: Output format (text or json).
+        base: Base branch to compare against.
+
+    Raises:
+        typer.Exit: If an error occurs.
+    """
+    try:
+        settings: ReleezSettings = ctx.obj
+
+        if not settings.projects:
+            typer.secho(
+                'No projects configured. This is a single-repo setup.',
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
+            raise typer.Exit(code=1)
+
+        repo, info = open_repo()
+        base_branch = base or settings.base_branch
+
+        subprojects = [
+            SubProject.from_config(
+                config,
+                repo_root=info.root,
+                global_settings=settings,
+            )
+            for config in settings.projects
+        ]
+
+        changed = detect_changed_projects(
+            repo=repo,
+            base_branch=base_branch,
+            projects=subprojects,
+        )
+        _output_changed_projects(changed, format_output)
+
+    except ReleezError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+
+
+@projects_app.command('info')
+def projects_info(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help='Project name')],
+) -> None:
+    """Show detailed information about a specific project.
+
+    Args:
+        ctx: Typer context (injected automatically).
+        name: The project name.
+
+    Raises:
+        typer.Exit: If the project is not found.
+    """
+    settings: ReleezSettings = ctx.obj
+
+    if not settings.projects:
+        typer.secho(
+            'No projects configured. This is a single-repo setup.',
+            err=True,
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=1)
+
+    # Find the project
+    project_config = next(
+        (p for p in settings.projects if p.name == name),
+        None,
+    )
+    if not project_config:
+        typer.secho(
+            f'Project "{name}" not found.',
+            err=True,
+            fg=typer.colors.RED,
+        )
+        available = ', '.join(p.name for p in settings.projects)
+        typer.secho(f'Available projects: {available}', err=True)
+        raise typer.Exit(code=1)
+
+    # Display detailed info
+    typer.secho(
+        f'Project: {project_config.name}',
+        fg=typer.colors.BLUE,
+        bold=True,
+    )
+    typer.echo(f'  Path: {project_config.path}')
+    typer.echo(f'  Tag prefix: {project_config.tag_prefix or "(none)"}')
+    typer.echo(f'  Changelog: {project_config.changelog_path}')
+    typer.echo(
+        f'  Alias versions: {project_config.alias_versions or settings.alias_versions}',
+    )
+
+    if project_config.include_paths:
+        typer.echo('  Include paths:')
+        for path in project_config.include_paths:
+            typer.echo(f'    - {path}')
+
+    if project_config.hooks.post_changelog:
+        typer.echo('  Post-changelog hooks:')
+        for hook in project_config.hooks.post_changelog:
+            typer.echo(f'    - {" ".join(hook)}')
+
+
 app.add_typer(release_app, name='release')
 app.add_typer(version_app, name='version')
 app.add_typer(changelog_app, name='changelog')
+app.add_typer(projects_app, name='projects')
 
 
 def main() -> None:

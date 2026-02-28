@@ -66,6 +66,10 @@ class StartReleaseInput:
         create_pr: If true, create a GitHub pull request.
         github_token: GitHub token for PR creation.
         dry_run: If true, do not modify the repo; just output version and notes.
+        project_name: Optional project name for monorepo support.
+        tag_pattern: Optional tag pattern for git-cliff (monorepo).
+        include_paths: Optional path filters for git-cliff (monorepo).
+        project_path: Optional project directory path for selective staging (monorepo).
     """
 
     bump: GitCliffBump
@@ -81,6 +85,11 @@ class StartReleaseInput:
     create_pr: bool
     github_token: str | None
     dry_run: bool
+    # Monorepo support
+    project_name: str | None = None
+    tag_pattern: str | None = None
+    include_paths: list[str] | None = None
+    project_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +122,19 @@ def _maybe_create_pull_request(
     repo: Repo,
     pr_input: _MaybeCreatePullRequestInput,
 ) -> str | None:
+    """Create pull request if requested.
+
+    Args:
+        repo: Git repository.
+        pr_input: Pull request configuration.
+
+    Returns:
+        Pull request URL if created, None otherwise.
+
+    Raises:
+        GitHubTokenRequiredError: If PR creation requested but no token provided.
+        GitRemoteUrlRequiredError: If remote URL cannot be determined.
+    """
     if not pr_input.create_pr:
         return None
     if not pr_input.github_token:
@@ -140,9 +162,22 @@ def _resolve_release_version(
     cliff: GitCliff,
     release_input: StartReleaseInput,
 ) -> str:
+    """Resolve release version from override or git-cliff computation.
+
+    Args:
+        cliff: git-cliff wrapper instance.
+        release_input: Release configuration.
+
+    Returns:
+        Version string to use for the release.
+    """
     if release_input.version_override is not None:
         return release_input.version_override
-    return cliff.compute_next_version(bump=release_input.bump)
+    return cliff.compute_next_version(
+        bump=release_input.bump,
+        tag_pattern=release_input.tag_pattern,
+        include_paths=release_input.include_paths,
+    )
 
 
 def _format_changelog_if_requested(
@@ -174,6 +209,15 @@ def _run_post_changelog_hooks_if_requested(
 
     Hooks run automatically if post_changelog_hooks is provided.
     Falls back to legacy changelog_format_cmd if needed.
+
+    Provides template variables {version} and {changelog} to hooks
+    for use in commands like ["prettier", "--write", "{changelog}"].
+
+    Args:
+        repo_root: Repository root directory.
+        changelog_path: Path to changelog file.
+        version: Release version string.
+        release_input: Release configuration.
     """
     # New hooks take precedence - run automatically if defined
     if release_input.post_changelog_hooks:
@@ -224,7 +268,11 @@ def start_release(
         )
 
     version = _resolve_release_version(cliff=cliff, release_input=release_input)
-    notes = cliff.generate_unreleased_notes(version=version)
+    notes = cliff.generate_unreleased_notes(
+        version=version,
+        tag_pattern=release_input.tag_pattern,
+        include_paths=release_input.include_paths,
+    )
 
     if release_input.dry_run:
         return StartReleaseResult(
@@ -241,7 +289,12 @@ def start_release(
         changelog_path=release_input.changelog_path,
         repo_root=info.root,
     )
-    cliff.prepend_to_changelog(version=version, changelog_path=changelog)
+    cliff.prepend_to_changelog(
+        version=version,
+        changelog_path=changelog,
+        tag_pattern=release_input.tag_pattern,
+        include_paths=release_input.include_paths,
+    )
     _run_post_changelog_hooks_if_requested(
         repo_root=info.root,
         changelog_path=changelog,
@@ -249,8 +302,14 @@ def start_release(
         release_input=release_input,
     )
 
-    # Stage all modified/new files (changelog + any files modified by hooks)
-    repo.git.add('-A')
+    # Stage files: for monorepo, only stage project files; otherwise stage all
+    if release_input.project_path:
+        # Monorepo: selective staging - only project directory
+        rel_project_path = release_input.project_path.relative_to(info.root)
+        repo.git.add(str(rel_project_path))
+    else:
+        # Single repo: stage all modified/new files
+        repo.git.add('-A')
     repo.index.commit(message=f'{release_input.title_prefix}{version}')
 
     push_set_upstream(
@@ -258,6 +317,11 @@ def start_release(
         remote_name=release_input.remote_name,
         branch=release_branch,
     )
+
+    # Add project-specific label for monorepo releases
+    pr_labels = list(release_input.labels)
+    if release_input.project_name:
+        pr_labels.append(f'release:{release_input.project_name}')
 
     pr_url = _maybe_create_pull_request(
         repo=repo,
@@ -269,7 +333,7 @@ def start_release(
             head_branch=release_branch,
             title=f'{release_input.title_prefix}{version}',
             body=notes,
-            labels=release_input.labels,
+            labels=pr_labels,
         ),
     )
 

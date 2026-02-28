@@ -55,6 +55,8 @@ def test_start_release_runs_changelog_format_command(
     cliff.prepend_to_changelog.assert_called_once_with(
         version='1.2.3',
         changelog_path=changelog,
+        tag_pattern=None,
+        include_paths=None,
     )
     run_checked.assert_called_once_with(
         ['dprint', 'fmt', str(changelog)],
@@ -112,6 +114,8 @@ def test_start_release_runs_post_changelog_hooks(
     cliff.prepend_to_changelog.assert_called_once_with(
         version='1.2.3',
         changelog_path=changelog,
+        tag_pattern=None,
+        include_paths=None,
     )
     # Should run both hooks in order
     assert run_checked.call_count == 2

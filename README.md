@@ -97,6 +97,121 @@ Common options:
 This is useful for fixing changelog formatting issues or rebuilding the
 changelog after repository changes.
 
+## Monorepo Support
+
+`releez` supports monorepos with multiple independently-versioned projects. Each
+project can have its own:
+
+- Version number (e.g., `core-1.2.3`, `ui-4.5.6`)
+- Changelog file
+- Git tags with unique prefixes
+- Release branches and PRs
+- Custom hooks and settings
+
+### Quick Start
+
+Configure projects in your root `pyproject.toml` or `releez.toml`:
+
+```toml
+[tool.releez]
+base-branch = "main"
+
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "core-"
+
+[[tool.releez.projects]]
+name = "ui"
+path = "packages/ui"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "ui-"
+```
+
+Start releases for changed projects:
+
+```bash
+# Auto-detect which projects have unreleased changes
+releez release start
+
+# Release specific projects
+releez release start --project core --project ui
+
+# Release all projects
+releez release start --all
+```
+
+### Monorepo Commands
+
+List configured projects:
+
+```bash
+releez projects list
+```
+
+Detect which projects have unreleased changes:
+
+```bash
+releez projects changed
+releez projects changed --format json  # For CI/CD
+```
+
+Get project information:
+
+```bash
+releez projects info core
+```
+
+Detect release from branch name (useful in GitHub Actions):
+
+```bash
+releez release detect-from-branch --branch release/core-1.2.3
+# Output: {"version": "core-1.2.3", "project": "core", "branch": "release/core-1.2.3"}
+```
+
+### How It Works
+
+`releez` uses path-based change detection:
+
+1. For each project, find the latest git tag matching its `tag-prefix`
+2. Check for commits since that tag touching the project's paths
+3. If commits exist, mark the project as changed
+
+Projects can monitor additional paths beyond their main directory:
+
+```toml
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+tag-prefix = "core-"
+include-paths = [
+  "pyproject.toml", # Root dependencies affect core
+  "uv.lock", # Lock file changes
+]
+```
+
+### Tags and Versioning
+
+Each project gets its own prefixed tags:
+
+- Core: `core-1.2.3`, `core-v1`, `core-v1.2`
+- UI: `ui-4.5.6`, `ui-v4`, `ui-v4.5`
+
+This prevents tag collisions and allows independent versioning.
+
+### Complete Documentation
+
+For detailed monorepo configuration, including:
+
+- Change detection strategies
+- Dependency management between projects
+- GitHub Actions integration
+- Migration from single-repo setup
+
+See the [Monorepo Setup Guide](./docs/monorepo-setup.md) and
+[example configuration](./examples/monorepo-config.toml).
+
 ## Configuration
 
 `releez` supports configuration via:
@@ -181,17 +296,41 @@ Notes:
 
 ## GitHub actions
 
-We've built two GitHub reusable actions which use `releez` to streamline
-integration with CI pipelines. Review the documentation for each action for more
-details.
+We've built GitHub reusable actions which use `releez` to streamline integration
+with CI pipelines.
 
-### [`releez-version-artifact-action`](https://github.com/hotdog-werx/releez-version-artifact-action)
+### [`releez-action`](https://github.com/truss-security/releez-action) (Recommended)
+
+A unified action supporting multiple modes:
+
+- `version-artifact` - Generate artifact versions for CI builds
+- `validate` - Validate release branches before merge
+- `finalize` - Tag releases and create GitHub Releases
+
+Supports both single-repo and monorepo workflows with automatic project
+detection.
+
+Example usage:
+
+```yaml
+- uses: truss-security/releez-action@v2
+  with:
+    mode: version-artifact
+    project: core # Optional for monorepo
+```
+
+### Legacy Actions (v1)
+
+These actions are still supported but will be superseded by the unified
+`releez-action` v2:
+
+#### [`releez-version-artifact-action`](https://github.com/hotdog-werx/releez-version-artifact-action)
 
 This action can be used during CI to generate artifact versions with versions
 corresponding to the versions suggested by `releez` (and implicitly,
 `git-cliff`).
 
-### [`releez-finalize-action`](https://github.com/hotdog-werx/releez-finalize-action)
+#### [`releez-finalize-action`](https://github.com/hotdog-werx/releez-finalize-action)
 
 This action can be run to finalize a release. You can see
 [this workflow](./.github/workflows/finalize-release.yaml) for an example a
