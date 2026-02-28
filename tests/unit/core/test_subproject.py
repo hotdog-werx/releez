@@ -434,6 +434,50 @@ def test_validate_projects_overlapping_paths(
         validate_projects(projects)
 
 
+def test_validate_projects_overlapping_paths_reverse_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test validation fails when child path is listed before parent path.
+
+    Exercises the reverse overlap check (path1.relative_to(path2)).
+
+    Args:
+        tmp_path: pytest fixture for temporary directory.
+        monkeypatch: pytest fixture for patching.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'packages').mkdir()
+    (tmp_path / 'packages' / 'core').mkdir()
+
+    # Child listed first, parent second — triggers the reverse check
+    projects = [
+        SubProject(
+            name='child',
+            path=tmp_path / 'packages' / 'core',
+            changelog_path=tmp_path / 'packages' / 'core' / 'CHANGELOG.md',
+            tag_prefix='child-',
+            tag_pattern=r'^child-([0-9]+\.[0-9]+\.[0-9]+)$',
+            alias_versions=AliasVersions.none,
+            hooks=ReleezSettings().hooks,
+            include_paths=[],
+        ),
+        SubProject(
+            name='parent',
+            path=tmp_path / 'packages',
+            changelog_path=tmp_path / 'packages' / 'CHANGELOG.md',
+            tag_prefix='parent-',
+            tag_pattern=r'^parent-([0-9]+\.[0-9]+\.[0-9]+)$',
+            alias_versions=AliasVersions.none,
+            hooks=ReleezSettings().hooks,
+            include_paths=[],
+        ),
+    ]
+
+    with pytest.raises(MonorepoValidationError, match='Project paths overlap'):
+        validate_projects(projects)
+
+
 def test_validate_projects_empty_list(tmp_path: Path) -> None:
     """Test validation passes with empty project list."""
     # Should not raise

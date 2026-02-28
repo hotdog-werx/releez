@@ -195,3 +195,81 @@ def test_prepend_to_changelog_with_include_paths(
     changelog_content = changelog_path.read_text()
     assert 'core-1.1.0' in changelog_content or '1.1.0' in changelog_content
     assert 'Update core' in changelog_content or 'update core' in changelog_content
+
+
+def test_generate_unreleased_notes_with_include_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test generating release notes with path filtering."""
+    monkeypatch.chdir(tmp_path)
+    repo = Repo.init(tmp_path)
+
+    # Setup two project directories
+    core_dir = tmp_path / 'packages' / 'core'
+    ui_dir = tmp_path / 'packages' / 'ui'
+    core_dir.mkdir(parents=True)
+    ui_dir.mkdir(parents=True)
+
+    # Initial commit and tag
+    (core_dir / 'main.py').write_text('core v1')
+    (ui_dir / 'index.js').write_text('ui v1')
+    repo.index.add(['packages/core/main.py', 'packages/ui/index.js'])
+    repo.index.commit('feat: initial commit')
+    repo.create_tag('core-1.0.0')
+
+    # Change only core
+    (core_dir / 'main.py').write_text('core v2')
+    repo.index.add(['packages/core/main.py'])
+    repo.index.commit('feat(core): update core module')
+
+    # Generate notes with path filtering scoped to core
+    cliff = GitCliff(repo_root=tmp_path)
+    notes = cliff.generate_unreleased_notes(
+        version='core-1.1.0',
+        tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
+        include_paths=['packages/core/**'],
+    )
+
+    # Should include the core commit in notes
+    assert 'core-1.1.0' in notes or '1.1.0' in notes
+
+
+def test_regenerate_changelog_with_include_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test regenerating full changelog with path filtering."""
+    monkeypatch.chdir(tmp_path)
+    repo = Repo.init(tmp_path)
+
+    # Setup project directory
+    core_dir = tmp_path / 'packages' / 'core'
+    core_dir.mkdir(parents=True)
+
+    # Initial commit and tag
+    (core_dir / 'main.py').write_text('core v1')
+    repo.index.add(['packages/core/main.py'])
+    repo.index.commit('feat: initial core commit')
+    repo.create_tag('core-1.0.0')
+
+    # Another commit
+    (core_dir / 'main.py').write_text('core v2')
+    repo.index.add(['packages/core/main.py'])
+    repo.index.commit('feat(core): add feature')
+    repo.create_tag('core-1.1.0')
+
+    # Create changelog path
+    changelog_path = core_dir / 'CHANGELOG.md'
+
+    # Regenerate with path filtering
+    cliff = GitCliff(repo_root=tmp_path)
+    cliff.regenerate_changelog(
+        changelog_path=changelog_path,
+        tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
+        include_paths=['packages/core/**'],
+    )
+
+    changelog_content = changelog_path.read_text()
+    assert 'core-1.0.0' in changelog_content or '1.0.0' in changelog_content
+    assert 'core-1.1.0' in changelog_content or '1.1.0' in changelog_content

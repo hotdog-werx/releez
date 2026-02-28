@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from git import Repo
 
 from releez.git_repo import (
+    _find_tag_by_date,
+    _has_commits_for_path,
     detect_changed_projects,
     find_latest_tag_matching_pattern,
     get_changed_files_per_project,
@@ -419,3 +422,73 @@ def test_get_changed_files_per_project_no_changes(
     )
 
     assert result == {}
+
+
+def test_has_commits_for_path_returns_false_on_git_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that _has_commits_for_path returns False on git command error.
+
+    Args:
+        tmp_path: pytest fixture for temporary directory.
+        monkeypatch: pytest fixture for patching.
+    """
+    monkeypatch.chdir(tmp_path)
+    repo = Repo.init(tmp_path)
+
+    # Create a commit so repo is valid
+    (tmp_path / 'file.txt').write_text('content')
+    repo.index.add(['file.txt'])
+    repo.index.commit('initial')
+
+    # Pass an invalid range spec to trigger a git error
+    result = _has_commits_for_path(repo, 'nonexistent-ref..HEAD', 'file.txt')
+
+    # Should return False instead of propagating the error
+    assert result is False
+
+
+def test_find_latest_tag_matching_pattern_date_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _find_tag_by_date is used as fallback when topology search finds no match.
+
+    Args:
+        tmp_path: pytest fixture for temporary directory.
+        monkeypatch: pytest fixture for patching.
+    """
+    monkeypatch.chdir(tmp_path)
+    repo = Repo.init(tmp_path)
+
+    # Create a commit and tag
+    (tmp_path / 'file.txt').write_text('v1')
+    repo.index.add(['file.txt'])
+    repo.index.commit('initial commit')
+    repo.create_tag('core-1.0.0')
+
+    pattern = re.compile(r'^core-([0-9]+\.[0-9]+\.[0-9]+)$')
+    result = _find_tag_by_date(repo, pattern)
+
+    assert result == 'core-1.0.0'
+
+
+def test_find_tag_by_date_no_matching_tags(tmp_path: Path) -> None:
+    """Test _find_tag_by_date returns None when no tags match.
+
+    Args:
+        tmp_path: pytest fixture for temporary directory.
+    """
+    repo = Repo.init(tmp_path)
+
+    # Create a commit and non-matching tag
+    (tmp_path / 'file.txt').write_text('content')
+    repo.index.add(['file.txt'])
+    repo.index.commit('initial')
+    repo.create_tag('ui-1.0.0')
+
+    pattern = re.compile(r'^core-([0-9]+\.[0-9]+\.[0-9]+)$')
+    result = _find_tag_by_date(repo, pattern)
+
+    assert result is None
