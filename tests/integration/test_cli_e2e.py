@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from typing import TYPE_CHECKING
 
 from git import Repo
@@ -1267,7 +1268,14 @@ def test_start_release_monorepo_selective_staging_behavior(
             title_prefix='chore(release): ',
             changelog_path='packages/core/CHANGELOG.md',
             post_changelog_hooks=[
-                ['/bin/sh', '-c', 'echo hook > release-hook-marker.txt'],
+                [
+                    sys.executable,
+                    '-c',
+                    (
+                        'from pathlib import Path; '
+                        "Path('release-hook-marker.txt').write_text('hook\\n', encoding='utf-8')"
+                    ),
+                ],
             ],
             run_changelog_format=False,
             changelog_format_cmd=None,

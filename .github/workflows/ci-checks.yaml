@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    name: Run checks
+  checks-linux:
+    name: Run checks (Linux)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -58,3 +58,22 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           verbose: true
+
+  tests-windows:
+    name: Run tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Sync with pkglink
+        run: pkglink sync
+
+      - name: Install python dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: uv run pytest
