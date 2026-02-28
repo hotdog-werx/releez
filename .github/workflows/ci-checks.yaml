@@ -14,8 +14,8 @@ env:
   MISE_NO_HOOKS: '1'
 
 jobs:
-  checks-linux:
-    name: Run checks (Linux)
+  checks:
+    name: Run checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -44,27 +44,18 @@ jobs:
 
       - name: Run type check
         if: always() && !cancelled()
-        run: poe check-basedpyright
+        run: mise exec -- ty check .
 
-      - name: Run coverage check
-        if: always() && !cancelled()
-        run: poe check-coverage
-
-      - name: Generate coverage XML report
-        run: uv run coverage xml
-        if: always() && !cancelled()
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        if: always() && !cancelled()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-          verbose: true
-
-  tests-windows:
-    name: Run tests (Windows)
-    runs-on: windows-latest
+  tests:
+    name: Run tests (${{ matrix.os }})
+    needs: checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,5 +69,18 @@ jobs:
       - name: Install python dependencies
         run: uv sync --all-groups
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run coverage check
+        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
+        run: poe check-coverage
+
+      - name: Generate coverage XML report
+        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
+        run: uv run coverage xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
