@@ -48,6 +48,7 @@ jobs:
 
   tests:
     name: Run tests (${{ matrix.os }})
+    needs: checks
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -69,17 +70,20 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run coverage check
-        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
+        if: always() && !cancelled()
         run: poe check-coverage
 
       - name: Generate coverage XML report
-        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
-        run: uv run coverage xml
+        if: always() && !cancelled()
+        run: uv run coverage xml -o coverage-${{ runner.os }}.xml
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && always() && !cancelled()
+        if: always() && !cancelled()
         uses: codecov/codecov-action@v5
         with:
+          files: ./coverage-${{ runner.os }}.xml
+          flags: ${{ runner.os }}
+          name: coverage-${{ runner.os }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           verbose: true
