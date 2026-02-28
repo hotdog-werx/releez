@@ -42,3 +42,70 @@ def test_git_cliff_base_cmd_falls_back_to_path(
     )
 
     assert releez.cliff._git_cliff_base_cmd() == ['git-cliff']
+
+
+def test_prepend_to_changelog_skips_include_paths_when_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured_cmd: list[str] = []
+
+    def _fake_run_checked(
+        cmd: list[str],
+        *,
+        cwd: Path,
+        capture_stdout: bool = True,
+    ) -> str:
+        captured_cmd.extend(cmd)
+        assert cwd == tmp_path
+        assert capture_stdout is False
+        return ''
+
+    monkeypatch.setattr(
+        releez.cliff,
+        '_git_cliff_base_cmd',
+        lambda: ['git-cliff'],
+    )
+    monkeypatch.setattr(releez.cliff, 'run_checked', _fake_run_checked)
+
+    cliff = releez.cliff.GitCliff(repo_root=tmp_path)
+    cliff.prepend_to_changelog(
+        version='1.2.3',
+        changelog_path=tmp_path / 'CHANGELOG.md',
+        include_paths=[],
+    )
+
+    assert '--include-path' not in captured_cmd
+
+
+def test_regenerate_changelog_skips_include_paths_when_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured_cmd: list[str] = []
+
+    def _fake_run_checked(
+        cmd: list[str],
+        *,
+        cwd: Path,
+        capture_stdout: bool = True,
+    ) -> str:
+        captured_cmd.extend(cmd)
+        assert cwd == tmp_path
+        assert capture_stdout is False
+        return ''
+
+    monkeypatch.setattr(
+        releez.cliff,
+        '_git_cliff_base_cmd',
+        lambda: ['git-cliff'],
+    )
+    monkeypatch.setattr(releez.cliff, 'run_checked', _fake_run_checked)
+
+    cliff = releez.cliff.GitCliff(repo_root=tmp_path)
+    cliff.regenerate_changelog(
+        changelog_path=tmp_path / 'CHANGELOG.md',
+        include_paths=[],
+    )
+
+    assert '--include-path' not in captured_cmd

@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 from git import Repo
 
 from releez.git_repo import (
+    _build_commit_to_tags_map,
     _find_tag_by_date,
+    _find_tag_by_topology,
     _has_commits_for_path,
     detect_changed_projects,
     find_latest_tag_matching_pattern,
@@ -490,5 +492,44 @@ def test_find_tag_by_date_no_matching_tags(tmp_path: Path) -> None:
 
     pattern = re.compile(r'^core-([0-9]+\.[0-9]+\.[0-9]+)$')
     result = _find_tag_by_date(repo, pattern)
+
+    assert result is None
+
+
+def test_build_commit_to_tags_map_groups_tags_on_same_commit(
+    tmp_path: Path,
+) -> None:
+    """Test matching tags on the same commit are grouped under one SHA."""
+    repo = Repo.init(tmp_path)
+
+    (tmp_path / 'file.txt').write_text('content')
+    repo.index.add(['file.txt'])
+    repo.index.commit('initial')
+
+    repo.create_tag('core-1.0.0')
+    repo.create_tag('core-v1')
+
+    pattern = re.compile(r'^core-')
+    result = _build_commit_to_tags_map(repo, pattern)
+
+    head_sha = repo.head.commit.hexsha
+    assert head_sha in result
+    assert sorted(result[head_sha]) == ['core-1.0.0', 'core-v1']
+
+
+def test_find_tag_by_topology_returns_none_when_no_commit_matches(
+    tmp_path: Path,
+) -> None:
+    """Test topology lookup returns None when no traversed commit has mapped tags."""
+    repo = Repo.init(tmp_path)
+
+    (tmp_path / 'file.txt').write_text('content')
+    repo.index.add(['file.txt'])
+    repo.index.commit('initial')
+
+    result = _find_tag_by_topology(
+        repo,
+        {'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef': ['core-1.0.0']},
+    )
 
     assert result is None
