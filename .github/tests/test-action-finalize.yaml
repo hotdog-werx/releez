@@ -119,6 +119,8 @@ jobs:
 
   test-finalize-dry-run-monorepo:
     name: finalize dry-run monorepo
+    needs: [test-finalize-dry-run-single-repo]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

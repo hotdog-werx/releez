@@ -44,6 +44,8 @@ jobs:
 
   test-releez-version-local-override:
     name: releez-version local path override
+    needs: [test-invalid-mode-fails]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

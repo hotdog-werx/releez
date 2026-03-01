@@ -110,6 +110,8 @@ jobs:
 
   test-version-artifact-full-release:
     name: version-artifact full release (${{ matrix.case }})
+    needs: [test-version-artifact-prerelease]
+    if: always()
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -200,6 +202,8 @@ jobs:
 
   test-version-artifact-preinstalled-uv:
     name: version-artifact preinstalled uv
+    needs: [test-version-artifact-full-release]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -253,6 +257,8 @@ jobs:
 
   test-version-artifact-git-detection:
     name: version-artifact git detection
+    needs: [test-version-artifact-preinstalled-uv]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -310,6 +316,8 @@ jobs:
 
   test-version-artifact-detect-from-branch:
     name: version-artifact detect-from-branch
+    needs: [test-version-artifact-git-detection]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

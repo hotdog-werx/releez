@@ -117,6 +117,8 @@ jobs:
 
   test-validate-monorepo:
     name: validate monorepo
+    needs: [test-validate-single-repo]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
