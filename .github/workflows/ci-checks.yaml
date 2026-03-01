@@ -105,5 +105,8 @@ jobs:
       - name: Sync with pkglink
         run: pkglink sync
 
+      - name: Create local branch for act (avoids detached HEAD warnings)
+        run: git checkout -b ci-act-ref
+
       - name: Run action tests
         run: poe test-action
