@@ -306,3 +306,122 @@ def test_run_release_preview_command_uses_single_repo_builder(
         repo_root=Path('/repo'),
     )
     emit_output.assert_called_once_with(output=None, content='preview')
+
+
+def test_exit_with_code_raises_exit_1() -> None:
+    """Regression guard: generic command failure helper must exit with code 1."""
+    with pytest.raises(typer.Exit) as exc_info:
+        cli._exit_with_code()
+    assert exc_info.value.exit_code == 1
+
+
+def test_project_names_csv_joins_names_in_order(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: changed-project messages should preserve project name order."""
+    core = mocker.MagicMock()
+    core.name = 'core'
+    ui = mocker.MagicMock()
+    ui.name = 'ui'
+
+    assert cli._project_names_csv([core, ui]) == 'core, ui'
+
+
+def test_detect_changed_project_targets_reports_no_changes(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: no changed projects should emit a green status and return empty."""
+    repo = mocker.MagicMock()
+    detect_changed = mocker.patch(
+        'releez.cli.detect_changed_projects',
+        return_value=[],
+    )
+    secho = mocker.patch('releez.cli.typer.secho')
+
+    changed = cli._detect_changed_project_targets(
+        repo=repo,
+        base_branch='master',
+        subprojects=[],
+    )
+
+    assert changed == []
+    detect_changed.assert_called_once_with(
+        repo=repo,
+        base_branch='master',
+        projects=[],
+    )
+    secho.assert_called_once_with(
+        'No projects with unreleased changes were detected.',
+        fg=typer.colors.GREEN,
+    )
+
+
+def test_detect_changed_project_targets_reports_detected_names(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: autodetect path should announce changed projects and return them."""
+    repo = mocker.MagicMock()
+    core = mocker.MagicMock()
+    core.name = 'core'
+    ui = mocker.MagicMock()
+    ui.name = 'ui'
+    detect_changed = mocker.patch(
+        'releez.cli.detect_changed_projects',
+        return_value=[core, ui],
+    )
+    secho = mocker.patch('releez.cli.typer.secho')
+
+    changed = cli._detect_changed_project_targets(
+        repo=repo,
+        base_branch='master',
+        subprojects=[core, ui],
+    )
+
+    assert changed == [core, ui]
+    detect_changed.assert_called_once_with(
+        repo=repo,
+        base_branch='master',
+        projects=[core, ui],
+    )
+    secho.assert_called_once_with(
+        'Detected changed projects: core, ui',
+        fg=typer.colors.BLUE,
+    )
+
+
+def test_run_release_start_command_exits_when_monorepo_targets_empty(
+    mocker: MockerFixture,
+) -> None:
+    """Regression guard: monorepo start must exit when no changed projects are detected."""
+    ctx = cast(
+        'typer.Context',
+        SimpleNamespace(obj=SimpleNamespace(base_branch='master')),
+    )
+    resolved = cli._ResolvedProjectTargets(
+        settings=mocker.MagicMock(),
+        repo=mocker.MagicMock(),
+        repo_root=Path('/repo'),
+        target_projects=[],
+    )
+    mocker.patch(
+        'releez.cli._resolve_project_targets_for_command',
+        return_value=resolved,
+    )
+    run_single = mocker.patch('releez.cli._run_single_repo_release_start')
+    run_mono = mocker.patch('releez.cli._run_monorepo_release_start')
+    exit_with_code = mocker.patch(
+        'releez.cli._exit_with_code',
+        side_effect=typer.Exit(code=1),
+    )
+
+    with pytest.raises(typer.Exit):
+        cli._run_release_start_command(
+            ctx=ctx,
+            options=_make_start_options(),
+            project_names=[],
+            all_projects=False,
+        )
+
+    exit_with_code.assert_called_once()
+    run_single.assert_not_called()
+    run_mono.assert_not_called()
