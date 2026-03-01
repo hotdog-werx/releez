@@ -47,7 +47,10 @@ class ReleezHooks(BaseModel):
     Attributes:
         post_changelog: List of commands to run after changelog generation. Each
             command is an argv list (e.g. [["uv", "version", "{version}"]]).
-            Supports template variables: {version}, {changelog}.
+            Supports template variables:
+              {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
+              {project_version} Full project version as tagged (e.g. "core-1.2.3").
+              {changelog}       Absolute path to the changelog file.
         changelog_format: (DEPRECATED) Use post_changelog instead. Optional argv
             list used to format the changelog.
     """

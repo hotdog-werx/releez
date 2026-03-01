@@ -34,7 +34,11 @@ post-changelog = [
 
 The following template variables are available in hook commands:
 
-- `{version}` - The release version (e.g., `1.2.3`)
+- `{version}` - Bare semver version (e.g., `1.2.3`). In monorepo projects the
+  tag prefix is stripped, so this is always a plain semver suitable for tools
+  like `uv version`.
+- `{project_version}` - Full project version as it appears in the git tag (e.g.,
+  `core-1.2.3`). Identical to `{version}` for single-repo projects.
 - `{changelog}` - Absolute path to the changelog file
 
 Example:

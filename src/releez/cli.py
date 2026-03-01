@@ -629,6 +629,7 @@ def _build_release_start_input_project(
             repo_root=repo_root,
         ),
         project_path=project.path,
+        tag_prefix=project.tag_prefix,
     )
 
 

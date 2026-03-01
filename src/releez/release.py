@@ -70,6 +70,8 @@ class StartReleaseInput:
         tag_pattern: Optional tag pattern for git-cliff (monorepo).
         include_paths: Optional path filters for git-cliff (monorepo).
         project_path: Optional project directory path for selective staging (monorepo).
+        tag_prefix: Optional tag prefix (e.g. "core-") used to strip the prefix from
+            the hook {version} variable, so hooks always receive bare semver.
     """
 
     bump: GitCliffBump
@@ -90,6 +92,7 @@ class StartReleaseInput:
     tag_pattern: str | None = None
     include_paths: list[str] | None = None
     project_path: Path | None = None
+    tag_prefix: str = ''
 
 
 @dataclass(frozen=True)
@@ -210,19 +213,23 @@ def _run_post_changelog_hooks_if_requested(
     Hooks run automatically if post_changelog_hooks is provided.
     Falls back to legacy changelog_format_cmd if needed.
 
-    Provides template variables {version} and {changelog} to hooks
-    for use in commands like ["prettier", "--write", "{changelog}"].
+    Provides template variables to hooks:
+      {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
+      {project_version} Full project version as tagged (e.g. "core-1.2.3").
+      {changelog}       Absolute path to the changelog file.
 
     Args:
         repo_root: Repository root directory.
         changelog_path: Path to changelog file.
-        version: Release version string.
+        version: Release version string (may include tag prefix, e.g. "core-1.2.3").
         release_input: Release configuration.
     """
     # New hooks take precedence - run automatically if defined
     if release_input.post_changelog_hooks:
+        semver_version = version.removeprefix(release_input.tag_prefix)
         template_vars = {
-            'version': version,
+            'version': semver_version,
+            'project_version': version,
             'changelog': str(changelog_path),
         }
         run_post_changelog_hooks(
