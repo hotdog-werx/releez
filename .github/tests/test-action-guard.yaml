@@ -1,0 +1,82 @@
+name: Test Action — guards and edge cases
+
+# Run manually or via act:
+#   act workflow_dispatch -W .github/tests/test-action-guard.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Invalid mode guard ───────────────────────────────────────────────────────
+  #
+  # Ensures the action fails fast with a clear error when an unknown mode is
+  # supplied, rather than silently producing empty outputs.
+  test-invalid-mode-fails:
+    name: invalid mode fails fast
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run action with invalid mode (expect failure)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: 'not-a-real-mode'
+
+      - name: Assert action failed
+        run: |
+          if [ "${{ steps.bad.outcome }}" = "failure" ]; then
+            echo "OK [invalid-mode]: action correctly rejected unknown mode"
+          else
+            echo "FAIL [invalid-mode]: action should have failed but outcome was ${{ steps.bad.outcome }}"
+            exit 1
+          fi
+        shell: bash
+
+  # ── releez-version local path override ───────────────────────────────────────
+  #
+  # Passes the workspace path as releez-version to exercise the "pass-through
+  # as-is" install branch (non-digit specifier). Verifies releez installs and
+  # produces correct outputs when installed from a local path.
+
+  test-releez-version-local-override:
+    name: releez-version local path override
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run action with local path as releez-version
+        id: releez
+        uses: ./
+        with:
+          mode: version-artifact
+          releez-version: '${{ github.workspace }}'
+          is-full-release: 'true'
+          version-override: '2.3.4'
+
+      - name: Assert outputs (local path override)
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [releez-version-local]: $name"
+            else
+              echo "FAIL [releez-version-local]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "semver-version"  "${{ steps.releez.outputs.semver-version }}"  "2.3.4"
+          assert_eq "docker-version"  "${{ steps.releez.outputs.docker-version }}"  "2.3.4"
+          assert_eq "pep440-version"  "${{ steps.releez.outputs.pep440-version }}"  "2.3.4"
+
+          exit $fail
+        shell: bash

@@ -4,6 +4,9 @@
 uv = "0.9.18"
 lefthook = "2.0.12"
 dprint = "0.50.1"
+act = "0.2.84"
+actionlint = "1.7.11"
+shellcheck = "0.11.0"
 "pipx:pkglink" = { version = "1.0.1" }
 "pipx:poethepoet" = { version = "0.38.0" }
 "pipx:tbelt" = { version = "0.0.3" }

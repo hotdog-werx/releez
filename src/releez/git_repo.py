@@ -485,12 +485,14 @@ class DetectedRelease:
     """Information parsed from a release branch name.
 
     Attributes:
-        version: Release version (e.g., "1.2.3" or "core-1.2.3").
+        version: Full release version string (e.g., "1.2.3" or "core-1.2.3" for monorepo).
+        semver_version: Plain semver without tag prefix (e.g., "1.2.3"). Equal to version for single-repo.
         project_name: Project name for monorepo, None for single-repo.
         branch_name: Original branch name.
     """
 
     version: str
+    semver_version: str
     project_name: str | None
     branch_name: str
 
@@ -541,6 +543,7 @@ def detect_release_from_branch(
     if not projects:
         return DetectedRelease(
             version=version_with_prefix,
+            semver_version=version_with_prefix,
             project_name=None,
             branch_name=branch_name,
         )
@@ -552,6 +555,9 @@ def detect_release_from_branch(
         ):
             return DetectedRelease(
                 version=version_with_prefix,
+                semver_version=version_with_prefix.removeprefix(
+                    project.tag_prefix,
+                ),
                 project_name=project.name,
                 branch_name=branch_name,
             )
@@ -559,6 +565,7 @@ def detect_release_from_branch(
     # No matching project found - could be a single-repo release in a monorepo config
     return DetectedRelease(
         version=version_with_prefix,
+        semver_version=version_with_prefix,
         project_name=None,
         branch_name=branch_name,
     )

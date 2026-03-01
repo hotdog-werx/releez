@@ -311,54 +311,92 @@ Notes:
 - `{changelog}` in `changelog_format` is replaced with the configured changelog
   path before execution.
 
-## GitHub actions
+## GitHub Action
 
-We've built GitHub reusable actions which use `releez` to streamline integration
-with CI pipelines.
-
-### [`releez-action`](https://github.com/truss-security/releez-action) (Recommended)
-
-A unified action supporting multiple modes:
-
-- `version-artifact` - Generate artifact versions for CI builds
-- `validate` - Validate release branches before merge
-- `finalize` - Tag releases and create GitHub Releases
-
-Supports both single-repo and monorepo workflows with automatic project
-detection.
-
-Example usage:
+`releez` ships a composite GitHub Action at the root of this repo. Pin it by tag
+and it installs the exact matching CLI version automatically.
 
 ```yaml
-- uses: truss-security/releez-action@v2
+- uses: hotdog-werx/releez@v0
   with:
-    mode: version-artifact
-    project: core # Optional for monorepo
+    mode: finalize # finalize | validate | version-artifact
 ```
 
-### Legacy Actions (v1)
+### Modes at a glance
 
-These actions are still supported but will be superseded by the unified
-`releez-action` v2:
+| Mode               | When                               | What it does                                      |
+| ------------------ | ---------------------------------- | ------------------------------------------------- |
+| `validate`         | PR opened / updated on `release/*` | Dry-runs the release, posts a preview comment     |
+| `finalize`         | Release PR merged                  | Creates git tags, emits version outputs           |
+| `version-artifact` | Any build                          | Computes semver / docker / pep440 version strings |
 
-#### [`releez-version-artifact-action`](https://github.com/hotdog-werx/releez-version-artifact-action)
+### Key inputs
 
-This action can be used during CI to generate artifact versions with versions
-corresponding to the versions suggested by `releez` (and implicitly,
-`git-cliff`).
+| Input                | Default | Description                                                    |
+| -------------------- | ------- | -------------------------------------------------------------- |
+| `mode`               | —       | **Required.** `finalize`, `validate`, or `version-artifact`    |
+| `alias-versions`     | `none`  | Create `v1` / `v1.2` alias tags (`none`, `major`, `minor`)     |
+| `is-full-release`    | `true`  | `false` emits prerelease versions                              |
+| `dry-run`            | `false` | `[finalize]` Skip tag creation, still emit outputs             |
+| `post-comment`       | `true`  | `[validate]` Post preview as a PR comment                      |
+| `detect-from-branch` | `false` | `[version-artifact]` Read version from `release/*` branch name |
+| `prerelease-type`    | `alpha` | `[version-artifact]` `alpha`, `beta`, or `rc`                  |
+| `prerelease-number`  | —       | `[version-artifact]` PR number (makes version unique per PR)   |
 
-#### [`releez-finalize-action`](https://github.com/hotdog-werx/releez-finalize-action)
+### Key outputs
 
-This action can be run to finalize a release. You can see
-[this workflow](./.github/workflows/finalize-release.yaml) for an example a
-usage.
+| Output            | Description                                                   |
+| ----------------- | ------------------------------------------------------------- |
+| `release-version` | Detected version, e.g. `1.2.3` (or `core-1.2.3` for monorepo) |
+| `semver-version`  | Primary semver string, e.g. `1.2.3`                           |
+| `semver-versions` | Newline-separated semver tags (includes aliases)              |
+| `docker-version`  | Primary Docker-safe version                                   |
+| `docker-versions` | Newline-separated Docker tags                                 |
+| `pep440-version`  | Primary PEP 440 version                                       |
+| `release-notes`   | Markdown release notes (finalize / validate)                  |
+| `release-preview` | Markdown dry-run preview (validate)                           |
+| `project`         | Project name for monorepo releases                            |
 
-It applies tags and outputs artifact versions as well as release notes that can
-be used subsequently to create a GitHub Release.
+### Quick examples
 
-A release should first be started with `releez release start`, usually locally,
-unless you've given your actions permission to create PRs, such as via a GitHub
-App.
+**Validate a release PR:**
+
+```yaml
+- uses: hotdog-werx/releez@v0
+  with:
+    mode: validate
+    post-comment: 'true'
+```
+
+**Finalize and create a GitHub Release:**
+
+```yaml
+- id: releez
+  uses: hotdog-werx/releez@v0
+  with:
+    mode: finalize
+    alias-versions: major
+
+- uses: softprops/action-gh-release@v2
+  with:
+    tag_name: ${{ steps.releez.outputs.release-version }}
+    body: ${{ steps.releez.outputs.release-notes }}
+```
+
+**Artifact versions for a Docker build:**
+
+```yaml
+- id: version
+  uses: hotdog-werx/releez@v0
+  with:
+    mode: version-artifact
+    is-full-release: ${{ github.event_name != 'pull_request' }}
+    prerelease-number: ${{ github.event.pull_request.number }}
+```
+
+For complete workflow recipes see
+[docs/workflow-recipes.md](./docs/workflow-recipes.md). For the full action
+reference see [docs/action.md](./docs/action.md).
 
 ## GitHub recommendations
 

@@ -46,6 +46,10 @@ jobs:
         if: always() && !cancelled()
         run: mise exec -- ty check .
 
+      - name: Run actionlint
+        if: always() && !cancelled()
+        run: poe check-actionlint
+
   tests:
     name: Run tests (${{ matrix.os }})
     needs: checks
@@ -87,3 +91,19 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           verbose: true
+
+  test-action:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Sync with pkglink
+        run: pkglink sync
+
+      - name: Run action tests
+        run: poe test-action

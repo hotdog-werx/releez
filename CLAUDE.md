@@ -14,6 +14,8 @@ codebase.
 - [Monorepo Implementation](./.claude-docs/monorepo-design.md) - Monorepo
   feature design and architecture
 - [Code Style](./.claude-docs/code-style.md) - Python code style and conventions
+- [Action Development](./.claude-docs/action-development.md) - GitHub Action
+  (`action.yaml`) patterns and act testing
 
 ## Overview
 
@@ -48,6 +50,11 @@ single-repo and monorepo workflows.
 ## Project Structure
 
 ```
+action.yaml             # GitHub composite action (finalize/validate/version-artifact)
+.actrc                  # act default flags for local action testing
+.github/tests/
+└── test-action.yaml    # act test workflow for action.yaml
+
 src/releez/
 ├── cli.py              # CLI commands (Typer app)
 ├── settings.py         # Configuration (Pydantic models)

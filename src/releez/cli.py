@@ -1534,6 +1534,7 @@ def _format_detected_release_json(detected: DetectedRelease) -> str:
     """
     output = {
         'version': detected.version,
+        'semver_version': detected.semver_version,
         'branch': detected.branch_name,
     }
     if detected.project_name:

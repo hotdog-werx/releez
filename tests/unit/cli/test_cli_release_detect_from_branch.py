@@ -34,6 +34,7 @@ def test_cli_release_detect_from_branch_single_repo(
         'releez.cli.detect_release_from_branch',
         return_value=DetectedRelease(
             version='1.2.3',
+            semver_version='1.2.3',
             project_name=None,
             branch_name='release/1.2.3',
         ),
@@ -48,6 +49,7 @@ def test_cli_release_detect_from_branch_single_repo(
     output = json.loads(result.stdout)
     assert output == {
         'version': '1.2.3',
+        'semver_version': '1.2.3',
         'branch': 'release/1.2.3',
     }
 
@@ -82,6 +84,7 @@ def test_cli_release_detect_from_branch_monorepo(
         'releez.cli.detect_release_from_branch',
         return_value=DetectedRelease(
             version='core-1.2.3',
+            semver_version='1.2.3',
             project_name='core',
             branch_name='release/core-1.2.3',
         ),
@@ -96,6 +99,7 @@ def test_cli_release_detect_from_branch_monorepo(
     output = json.loads(result.stdout)
     assert output == {
         'version': 'core-1.2.3',
+        'semver_version': '1.2.3',
         'project': 'core',
         'branch': 'release/core-1.2.3',
     }
@@ -152,6 +156,7 @@ def test_cli_release_detect_from_branch_uses_current_branch(
         'releez.cli.detect_release_from_branch',
         return_value=DetectedRelease(
             version='1.2.3',
+            semver_version='1.2.3',
             project_name=None,
             branch_name='release/1.2.3',
         ),

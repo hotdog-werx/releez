@@ -27,6 +27,7 @@ def test_detect_release_from_branch_single_repo(tmp_path: Path) -> None:
 
     assert detected is not None
     assert detected.version == '1.2.3'
+    assert detected.semver_version == '1.2.3'
     assert detected.project_name is None
     assert detected.branch_name == 'release/1.2.3'
 
@@ -94,6 +95,7 @@ def test_detect_release_from_branch_monorepo_with_prefix(
 
     assert detected is not None
     assert detected.version == 'core-1.2.3'
+    assert detected.semver_version == '1.2.3'
     assert detected.project_name == 'core'
     assert detected.branch_name == 'release/core-1.2.3'
 
@@ -144,6 +146,7 @@ def test_detect_release_from_branch_monorepo_multiple_projects(
 
     assert detected is not None
     assert detected.version == 'core-1.2.3'
+    assert detected.semver_version == '1.2.3'
     assert detected.project_name == 'core'
 
     # Test detecting ui release
@@ -154,6 +157,7 @@ def test_detect_release_from_branch_monorepo_multiple_projects(
 
     assert detected is not None
     assert detected.version == 'ui-4.5.6'
+    assert detected.semver_version == '4.5.6'
     assert detected.project_name == 'ui'
 
 
@@ -187,4 +191,5 @@ def test_detect_release_from_branch_monorepo_no_matching_prefix(
 
     assert detected is not None
     assert detected.version == '1.2.3'
+    assert detected.semver_version == '1.2.3'
     assert detected.project_name is None  # No matching project
