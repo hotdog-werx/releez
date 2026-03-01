@@ -156,6 +156,8 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
     prerelease_number: int | None,
     build_number: int | None,
     alias_versions: AliasVersions,
+    project_name: str | None = None,
+    tag_prefix: str = '',
 ) -> None:
     """Emit all artifact version schemes as JSON.
 
@@ -166,6 +168,9 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
     (if full release). PEP440 never includes aliases. Prerelease builds
     never include aliases regardless of scheme.
 
+    When project_name is provided, also emits "release_version" (the full
+    prefixed tag, e.g. "core-0.2.0") and "project" keys in the JSON output.
+
     Args:
         version_override: Version to use instead of computing from git-cliff.
         is_full_release: Whether this is a full release (no prerelease markers).
@@ -173,8 +178,10 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
         prerelease_number: Prerelease number.
         build_number: Build identifier for prereleases.
         alias_versions: Alias version strategy (none, major, minor).
+        project_name: Project name for monorepo releases.
+        tag_prefix: Tag prefix for the project (e.g. "core-").
     """
-    result: dict[str, list[str]] = {}
+    result: dict[str, list[str] | str] = {}
 
     for scheme_value in ArtifactVersionScheme:
         artifact_args = _VersionArtifactArgs(
@@ -202,6 +209,10 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
                 tags=tags,
                 aliases=alias_versions,
             )
+
+    if project_name is not None and version_override is not None:
+        result['release_version'] = f'{tag_prefix}{version_override}'
+        result['project'] = project_name
 
     typer.echo(json.dumps(result, indent=2))
 
@@ -732,7 +743,7 @@ def _run_release_start_command(
         project_names=project_names,
         all_projects=all_projects,
         base_branch=options.base,
-        require_explicit_selection=False,
+        require_explicit_selection=True,
     )
     if resolved.target_projects is None:
         _run_single_repo_release_start(
@@ -905,8 +916,84 @@ def release_start(  # noqa: PLR0913
         raise typer.Exit(code=1) from exc
 
 
+def _find_project_for_artifact(
+    *,
+    subprojects: list[SubProject],
+    project_name: str,
+) -> SubProject:
+    """Find a SubProject by name for version artifact computation.
+
+    Args:
+        subprojects: List of configured subprojects.
+        project_name: Name of the project to find.
+
+    Returns:
+        The matching SubProject.
+
+    Raises:
+        SystemExit: If the project is not found or no projects are configured.
+    """
+    if not subprojects:
+        _exit_with_message(
+            'No projects configured. Remove --project or add [[tool.releez.projects]] to config.',
+        )
+
+    for project in subprojects:
+        if project.name == project_name:
+            return project
+
+    available = ', '.join(sorted(p.name for p in subprojects))
+    _exit_with_message(
+        f'Unknown project "{project_name}". Available: {available}',
+    )
+
+
+def _resolve_artifact_project_context(
+    *,
+    settings: ReleezSettings,
+    project_name: str | None,
+    version_override: str | None,
+) -> tuple[str, str | None]:
+    """Validate monorepo mode and resolve tag prefix and version for version artifact.
+
+    Returns:
+        (tag_prefix, resolved_version_override)
+    """
+    if project_name is None:
+        if settings.projects:
+            _exit_with_message(
+                'Monorepo projects are configured. Use --project <name> to specify which project to version.',
+            )
+        return '', version_override
+
+    _, info = open_repo()
+    subprojects = _build_subprojects_list(settings, repo_root=info.root)
+    project = _find_project_for_artifact(
+        subprojects=subprojects,
+        project_name=project_name,
+    )
+    if version_override is None:
+        raw_version = _resolve_release_version(
+            repo_root=info.root,
+            version_override=None,
+            tag_pattern=project.tag_pattern,
+            include_paths=_project_include_paths(
+                project=project,
+                repo_root=info.root,
+            ),
+        )
+        # git-cliff returns the full tag (e.g., "core-1.1.0") when a tag prefix is used;
+        # strip it so version_override is a bare semver string for compute_artifact_version.
+        version_override = _project_semver_version(
+            project=project,
+            version=raw_version,
+        )
+    return project.tag_prefix, version_override
+
+
 @version_app.command('artifact')
 def version_artifact(  # noqa: PLR0913
+    ctx: typer.Context,
     *,
     scheme: Annotated[
         ArtifactVersionScheme | None,
@@ -963,9 +1050,24 @@ def version_artifact(  # noqa: PLR0913
             case_sensitive=False,
         ),
     ] = AliasVersions.none,
+    project_name: Annotated[
+        str | None,
+        typer.Option(
+            '--project',
+            help='Project name for monorepo version detection (monorepo only).',
+            show_default=False,
+        ),
+    ] = None,
 ) -> None:
     """Compute an artifact version string."""
     try:
+        settings: ReleezSettings = ctx.obj
+        resolved_tag_prefix, version_override = _resolve_artifact_project_context(
+            settings=settings,
+            project_name=project_name,
+            version_override=version_override,
+        )
+
         if scheme is None:
             # Output all schemes as JSON
             _emit_all_artifact_versions_json(
@@ -975,6 +1077,8 @@ def version_artifact(  # noqa: PLR0913
                 prerelease_number=prerelease_number,
                 build_number=build_number,
                 alias_versions=alias_versions,
+                project_name=project_name,
+                tag_prefix=resolved_tag_prefix,
             )
             return
 

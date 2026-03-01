@@ -358,3 +358,120 @@ jobs:
 
           exit $fail
         shell: bash
+
+  # ── Monorepo project-scoped version detection ────────────────────────────────
+  #
+  # Sets up a monorepo with a "core" project (core-1.0.0 tag + feat commit),
+  # then runs version-artifact with project: core. Expects git-cliff to auto-bump
+  # minor → core-1.1.0, with correct project and release-version outputs.
+
+  test-version-artifact-monorepo-project:
+    name: version-artifact monorepo project
+    needs: [test-version-artifact-detect-from-branch]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up git history and monorepo config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/core
+          echo "# core" > packages/core/README.md
+          git add packages/core/README.md
+          git commit -m "chore: add core package"
+
+          git tag core-1.0.0
+          echo "new feature" >> packages/core/README.md
+          git add packages/core/README.md
+          git commit -m "feat(core): new feature for core"
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "core"
+          path = "packages/core"
+          tag-prefix = "core-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (monorepo project)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          project: 'core'
+          prerelease-type: 'rc'
+          prerelease-number: '1'
+          build-number: '42'
+          is-full-release: 'false'
+
+      - name: Assert outputs (monorepo project)
+        env:
+          SEMVER_VERSIONS: ${{ steps.version.outputs.semver-versions }}
+          DOCKER_VERSIONS: ${{ steps.version.outputs.docker-versions }}
+          PEP440_VERSIONS: ${{ steps.version.outputs.pep440-versions }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [monorepo-project]: $name"
+            else
+              echo "FAIL [monorepo-project]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          # feat commit since core-1.0.0 → git-cliff bumps minor → core-1.1.0
+          assert_eq "release-version"  "${{ steps.version.outputs.release-version }}"  "core-1.1.0"
+          assert_eq "project"          "${{ steps.version.outputs.project }}"           "core"
+          assert_eq "semver-versions"  "$SEMVER_VERSIONS"                               "1.1.0-rc1+42"
+          assert_eq "docker-versions"  "$DOCKER_VERSIONS"                               "1.1.0-rc1-42"
+          assert_eq "pep440-versions"  "$PEP440_VERSIONS"                               "1.1.0rc1.dev42"
+
+          exit $fail
+        shell: bash

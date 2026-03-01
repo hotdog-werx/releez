@@ -12,10 +12,29 @@ from releez.artifact_version import (
     PrereleaseType,
 )
 from releez.errors import ReleezError
-from releez.version_tags import VersionTags
+from releez.version_tags import AliasVersions, VersionTags
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+
+
+def _mock_settings(mocker: MockerFixture, *, projects: list[object]) -> None:
+    hooks = mocker.MagicMock(post_changelog=[], changelog_format=None)
+    mocker.patch(
+        'releez.cli.ReleezSettings',
+        return_value=mocker.MagicMock(
+            base_branch='master',
+            git_remote='origin',
+            pr_labels='release',
+            pr_title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            create_pr=False,
+            run_changelog_format=False,
+            alias_versions=AliasVersions.none,
+            hooks=hooks,
+            projects=projects,
+        ),
+    )
 
 
 def test_cli_version_artifact_builds_input_and_prints_result(
@@ -313,6 +332,233 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
         'docker': ['1.2.3'],
         'pep440': ['1.2.3'],
     }
+
+
+def test_cli_version_artifact_with_project_includes_metadata_in_json(
+    mocker: MockerFixture,
+) -> None:
+    """Test --project adds release_version and project keys to JSON output."""
+    runner = CliRunner()
+
+    mock_project = mocker.MagicMock()
+    mock_project.name = 'core'
+    mock_project.tag_prefix = 'core-'
+    mock_project.tag_pattern = '^core-([0-9]+\\.[0-9]+\\.[0-9]+)$'
+    mock_project.include_paths = []
+
+    _mock_settings(mocker, projects=[mocker.MagicMock()])
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mocker.Mock(root='/repo')),
+    )
+    mocker.patch(
+        'releez.cli._build_subprojects_list',
+        return_value=[mock_project],
+    )
+    mocker.patch('releez.cli._resolve_release_version', return_value='0.2.0')
+    mocker.patch(
+        'releez.cli.compute_artifact_version',
+        return_value='0.2.0-beta1+5',
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--project',
+            'core',
+            '--prerelease-type',
+            'beta',
+            '--prerelease-number',
+            '1',
+            '--build-number',
+            '5',
+        ],
+    )
+
+    assert result.exit_code == 0
+    output = json.loads(result.stdout)
+    assert output['project'] == 'core'
+    assert output['release_version'] == 'core-0.2.0'
+    assert 'semver' in output
+    assert 'docker' in output
+    assert 'pep440' in output
+
+
+def test_cli_version_artifact_with_project_uses_project_scoped_version_resolution(
+    mocker: MockerFixture,
+) -> None:
+    """Test --project passes tag_pattern and include_paths to _resolve_release_version."""
+    runner = CliRunner()
+
+    mock_project = mocker.MagicMock()
+    mock_project.name = 'core'
+    mock_project.tag_prefix = 'core-'
+    mock_project.tag_pattern = '^core-([0-9]+\\.[0-9]+\\.[0-9]+)$'
+    mock_project.path = mocker.MagicMock()
+    mock_project.include_paths = ['pyproject.toml']
+
+    _mock_settings(mocker, projects=[mocker.MagicMock()])
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mocker.Mock(root='/repo')),
+    )
+    mocker.patch(
+        'releez.cli._build_subprojects_list',
+        return_value=[mock_project],
+    )
+    resolve = mocker.patch(
+        'releez.cli._resolve_release_version',
+        return_value='0.2.0',
+    )
+    mocker.patch(
+        'releez.cli.compute_artifact_version',
+        return_value='0.2.0-rc1+3',
+    )
+    mocker.patch(
+        'releez.cli._project_include_paths',
+        return_value=['packages/core/**', 'pyproject.toml'],
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--project',
+            'core',
+            '--prerelease-type',
+            'rc',
+            '--prerelease-number',
+            '1',
+            '--build-number',
+            '3',
+        ],
+    )
+
+    assert result.exit_code == 0
+    resolve.assert_called_once_with(
+        repo_root='/repo',
+        version_override=None,
+        tag_pattern='^core-([0-9]+\\.[0-9]+\\.[0-9]+)$',
+        include_paths=['packages/core/**', 'pyproject.toml'],
+    )
+
+
+def test_cli_version_artifact_with_unknown_project_exits_with_error(
+    mocker: MockerFixture,
+) -> None:
+    """Test --project with an unknown name exits with code 1."""
+    runner = CliRunner()
+
+    mock_project = mocker.MagicMock()
+    mock_project.name = 'core'
+
+    _mock_settings(mocker, projects=[mocker.MagicMock()])
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mocker.Mock(root='/repo')),
+    )
+    mocker.patch(
+        'releez.cli._build_subprojects_list',
+        return_value=[mock_project],
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ['version', 'artifact', '--project', 'nonexistent'],
+    )
+
+    assert result.exit_code == 1
+    assert 'nonexistent' in result.output
+
+
+def test_cli_version_artifact_with_project_no_projects_configured_exits_with_error(
+    mocker: MockerFixture,
+) -> None:
+    """Test --project when no projects are configured exits with code 1."""
+    runner = CliRunner()
+
+    _mock_settings(mocker, projects=[])
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mocker.Mock(root='/repo')),
+    )
+    mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+
+    result = runner.invoke(
+        cli.app,
+        ['version', 'artifact', '--project', 'core'],
+    )
+
+    assert result.exit_code == 1
+    assert 'No projects configured' in result.output
+
+
+def test_cli_version_artifact_with_project_version_override_skips_resolution(
+    mocker: MockerFixture,
+) -> None:
+    """Test --project with --version-override skips git-cliff resolution."""
+    runner = CliRunner()
+
+    mock_project = mocker.MagicMock()
+    mock_project.name = 'core'
+    mock_project.tag_prefix = 'core-'
+    mock_project.tag_pattern = '^core-([0-9]+\\.[0-9]+\\.[0-9]+)$'
+    mock_project.include_paths = []
+
+    _mock_settings(mocker, projects=[mocker.MagicMock()])
+    mocker.patch(
+        'releez.cli.open_repo',
+        return_value=(mocker.MagicMock(), mocker.Mock(root='/repo')),
+    )
+    mocker.patch(
+        'releez.cli._build_subprojects_list',
+        return_value=[mock_project],
+    )
+    resolve = mocker.patch('releez.cli._resolve_release_version')
+    mocker.patch('releez.cli.compute_artifact_version', return_value='1.0.0')
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--project',
+            'core',
+            '--version-override',
+            '1.0.0',
+            '--is-full-release',
+        ],
+    )
+
+    assert result.exit_code == 0
+    resolve.assert_not_called()
+    output = json.loads(result.stdout)
+    assert output['release_version'] == 'core-1.0.0'
+
+
+def test_cli_version_artifact_requires_project_in_monorepo_mode(
+    mocker: MockerFixture,
+) -> None:
+    """In monorepo mode, version artifact must fail without --project."""
+    runner = CliRunner()
+    _mock_settings(mocker, projects=[mocker.MagicMock()])
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--version-override',
+            '1.2.3',
+            '--is-full-release',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '--project' in result.output
 
 
 def test_cli_version_artifact_handles_releez_error(

@@ -90,6 +90,11 @@ inputs:
     required: false
     default: 'false'
 
+  project:
+    description: '[version-artifact] Project name for monorepo version detection. Scopes git-cliff to the project path and tag pattern.'
+    required: false
+    default: ''
+
 outputs:
   # ── Release metadata ───────────────────────────────────────────────────────
   release-version:
@@ -239,9 +244,15 @@ runs:
     - name: '[finalize] Compute artifact versions'
       id: finalize-versions
       if: inputs.mode == 'finalize'
+      env:
+        FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
       shell: bash
       run: |
         # Use semver (tag prefix stripped) for artifact version computation
+        PROJECT_FLAG=""
+        if [ -n "$FINALIZE_PROJECT" ]; then
+          PROJECT_FLAG="--project $FINALIZE_PROJECT"
+        fi
         IS_FULL_RELEASE_FLAG="--no-is-full-release"
         if [ "${{ inputs.is-full-release }}" = "true" ]; then
           IS_FULL_RELEASE_FLAG="--is-full-release"
@@ -250,6 +261,7 @@ runs:
         VERSIONS_JSON=$(releez version artifact \
           --version-override "${{ steps.finalize-detect.outputs.semver }}" \
           --alias-versions "${{ inputs.alias-versions }}" \
+          $PROJECT_FLAG \
           $IS_FULL_RELEASE_FLAG)
         {
           echo "json<<EOF"
@@ -363,6 +375,11 @@ runs:
           VERSION_FLAG="--version-override $VERSION"
         fi
 
+        PROJECT_FLAG=""
+        if [ -n "${{ inputs.project }}" ]; then
+          PROJECT_FLAG="--project ${{ inputs.project }}"
+        fi
+
         IS_FULL_RELEASE_FLAG="--no-is-full-release"
         PRERELEASE_FLAGS=""
         if [ "${{ inputs.is-full-release }}" = "true" ]; then
@@ -380,6 +397,7 @@ runs:
         # shellcheck disable=SC2086
         VERSIONS_JSON=$(releez version artifact \
           $VERSION_FLAG \
+          $PROJECT_FLAG \
           --alias-versions "${{ inputs.alias-versions }}" \
           $IS_FULL_RELEASE_FLAG \
           $PRERELEASE_FLAGS)
@@ -430,11 +448,21 @@ runs:
             PREVIEW="$VALIDATE_PREVIEW"
             ;;
           version-artifact)
+            # Primary source: branch detection (if detect-from-branch=true)
             VERSION="$VA_VERSION"
             PROJECT="$VA_PROJECT"
             VERSIONS_JSON="$VA_JSON"
             NOTES=""
             PREVIEW=""
+            # Override with project metadata from JSON when --project was used.
+            # The CLI embeds release_version (e.g. "core-0.2.0") and project
+            # in the JSON output when scoped to a monorepo project.
+            if [ -n "$VERSIONS_JSON" ]; then
+              JSON_RELEASE_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.release_version // empty')
+              JSON_PROJECT=$(printf '%s' "$VERSIONS_JSON" | jq -r '.project // empty')
+              [ -n "$JSON_RELEASE_VERSION" ] && VERSION="$JSON_RELEASE_VERSION"
+              [ -n "$JSON_PROJECT" ] && PROJECT="$JSON_PROJECT"
+            fi
             ;;
         esac
 

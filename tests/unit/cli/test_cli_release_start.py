@@ -204,10 +204,45 @@ def test_cli_release_start_run_changelog_format_requires_command(
     assert 'no format command is configured' in result.output.lower()
 
 
-def test_cli_release_start_monorepo_auto_detects_project_context(
+def test_cli_release_start_monorepo_requires_explicit_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """In monorepo mode, release start must fail without --project or --all."""
+    runner = CliRunner()
+    _mock_repo_context(mocker, repo_root=tmp_path)
+    _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
+
+    project_path = tmp_path / 'packages' / 'core'
+    project_path.mkdir(parents=True)
+    project = mocker.MagicMock(
+        spec=[
+            'name',
+            'path',
+            'changelog_path',
+            'tag_pattern',
+            'include_paths',
+            'tag_prefix',
+            'hooks',
+        ],
+    )
+    project.name = 'core'
+
+    mocker.patch('releez.cli.SubProject.from_config', return_value=project)
+    start_release = mocker.patch('releez.cli.start_release')
+
+    result = runner.invoke(cli.app, ['release', 'start', '--dry-run'])
+
+    assert result.exit_code == 1
+    assert '--project' in result.output or '--all' in result.output
+    start_release.assert_not_called()
+
+
+def test_cli_release_start_monorepo_with_project_flag(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """In monorepo mode, release start succeeds when --project is specified."""
     runner = CliRunner()
     _mock_repo_context(mocker, repo_root=tmp_path)
     _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
@@ -226,7 +261,6 @@ def test_cli_release_start_monorepo_auto_detects_project_context(
     project.hooks.post_changelog = []
 
     mocker.patch('releez.cli.SubProject.from_config', return_value=project)
-    mocker.patch('releez.cli.detect_changed_projects', return_value=[project])
 
     start_release = mocker.patch(
         'releez.cli.start_release',
@@ -238,7 +272,10 @@ def test_cli_release_start_monorepo_auto_detects_project_context(
         ),
     )
 
-    result = runner.invoke(cli.app, ['release', 'start', '--dry-run'])
+    result = runner.invoke(
+        cli.app,
+        ['release', 'start', '--dry-run', '--project', 'core'],
+    )
 
     assert result.exit_code == 0
     assert '[core] Next version: core-1.2.3' in result.output
@@ -292,12 +329,21 @@ def test_cli_release_start_monorepo_override_requires_single_project(
     ui.hooks.post_changelog = []
 
     mocker.patch('releez.cli.SubProject.from_config', side_effect=[core, ui])
-    mocker.patch('releez.cli.detect_changed_projects', return_value=[core, ui])
     start_release = mocker.patch('releez.cli.start_release')
 
     result = runner.invoke(
         cli.app,
-        ['release', 'start', '--dry-run', '--version-override', 'core-1.2.3'],
+        [
+            'release',
+            'start',
+            '--dry-run',
+            '--project',
+            'core',
+            '--project',
+            'ui',
+            '--version-override',
+            'core-1.2.3',
+        ],
     )
 
     assert result.exit_code == 1

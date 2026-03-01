@@ -450,11 +450,10 @@ tag-prefix = "ui-"
 
     result = runner.invoke(
         cli.app,
-        ['release', 'start', '--no-create-pr'],
+        ['release', 'start', '--no-create-pr', '--all'],
     )
 
     assert result.exit_code == 0
-    assert 'Detected changed projects:' in result.output
     assert 'Release summary: 2 succeeded, 0 failed.' in result.output
 
     local_branch_names = {branch.name for branch in repo.branches}
@@ -466,11 +465,11 @@ tag-prefix = "ui-"
     assert 'refs/heads/release/ui-' in remote_heads
 
 
-def test_cli_release_start_monorepo_autodetect_no_changes_exits_non_zero(
+def test_cli_release_start_monorepo_requires_explicit_project_selection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test monorepo `release start` exits non-zero when no projects changed."""
+    """Test monorepo `release start` requires --project or --all; no silent auto-detect."""
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
 
@@ -528,7 +527,7 @@ tag-prefix = "ui-"
     )
 
     assert result.exit_code == 1
-    assert 'No projects with unreleased changes were detected.' in result.output
+    assert '--project' in result.output or '--all' in result.output
     assert {branch.name for branch in repo.branches} == {'master'}
 
 
@@ -1144,6 +1143,74 @@ alias-versions = "major"
     assert notes_result.exit_code == 0
     assert '## `core`' in notes_result.output
     assert notes_result.output.strip() != ''
+
+
+def test_cli_version_artifact_monorepo_project_no_double_prefix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression guard: version artifact --project must not double-prefix the version.
+
+    git-cliff returns the full tag (e.g. "core-1.1.0") when --tag-pattern uses a prefix.
+    Without stripping the prefix before formatting, release_version becomes
+    "core-core-1.1.0" and semver tags contain the prefix too.
+    """
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    core_dir = tmp_path / 'packages' / 'core'
+    core_dir.mkdir(parents=True)
+    (core_dir / 'main.py').write_text('print("core v1")\n', encoding='utf-8')
+
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+[tool.releez]
+base-branch = "master"
+create-pr = false
+
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+tag-prefix = "core-"
+""".strip(),
+        encoding='utf-8',
+    )
+
+    repo = _init_repo(tmp_path)
+    repo.index.add(['packages/core/main.py', 'pyproject.toml'])
+    repo.index.commit('feat(core): initial commit')
+    repo.create_tag('core-1.0.0')
+
+    (core_dir / 'main.py').write_text('print("core v2")\n', encoding='utf-8')
+    repo.index.add(['packages/core/main.py'])
+    repo.index.commit('feat(core): new feature')
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--project',
+            'core',
+            '--prerelease-type',
+            'rc',
+            '--prerelease-number',
+            '1',
+            '--build-number',
+            '42',
+        ],
+    )
+
+    assert result.exit_code == 0
+    output = json.loads(result.stdout)
+
+    # release_version must be "core-1.1.0", NOT "core-core-1.1.0"
+    assert output['release_version'] == 'core-1.1.0'
+    assert output['project'] == 'core'
+
+    # semver values must NOT contain the "core-" prefix
+    assert all(not v.startswith('core-') for v in output['semver'])
+    assert output['semver'] == ['1.1.0-rc1+42']
 
 
 def test_cli_changelog_regenerate_updates_changelog_file(
