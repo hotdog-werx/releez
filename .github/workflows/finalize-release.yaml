@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-  MISE_NO_HOOKS: '1'
-
 jobs:
   finalize:
     name: Finalize release
@@ -23,16 +20,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
-      - name: Install mise tools
-        uses: jdx/mise-action@v3
-
-      - name: Releez finalize
+      - name: Finalize release
         id: releez
-        uses: hotdog-werx/releez-finalize-action@v0
-
-      - name: Set build version
-        run: uv version ${{ steps.releez.outputs.pep440-versions }} --frozen
+        uses: ./
+        with:
+          mode: finalize
 
       - name: Build package
         run: uv build
