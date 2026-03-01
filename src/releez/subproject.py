@@ -140,21 +140,21 @@ def _validate_changelog_path(config: ProjectConfig, project_path: Path) -> Path:
 
 
 def _validate_include_paths(config: ProjectConfig, repo_root: Path) -> None:
-    """Validate include paths exist and are within repo.
+    """Validate include paths are within the repo.
+
+    Non-existent paths are allowed — they simply match no commits (e.g. a lock
+    file that hasn't been created yet).  Only paths that escape the repository
+    root are rejected, as those would be a genuine misconfiguration.
 
     Args:
         config: Project configuration.
         repo_root: Repository root directory.
 
     Raises:
-        MonorepoValidationError: If any include path doesn't exist or is outside repo.
+        MonorepoValidationError: If any include path is outside the repository.
     """
     for include_path in config.include_paths:
         full_include_path = repo_root / include_path
-        if not full_include_path.exists():
-            msg = f"Project '{config.name}' include-path does not exist: {include_path}"
-            raise MonorepoValidationError(msg)
-
         try:
             full_include_path.relative_to(repo_root)
         except ValueError as e:

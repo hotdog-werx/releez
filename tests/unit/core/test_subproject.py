@@ -234,11 +234,11 @@ def test_subproject_from_config_changelog_dir_not_found(
         SubProject.from_config(config, tmp_path, settings)
 
 
-def test_subproject_from_config_include_path_not_found(
+def test_subproject_from_config_include_path_not_found_is_allowed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test error when include_path doesn't exist."""
+    """Non-existent include paths are allowed — they simply match no commits."""
     monkeypatch.chdir(tmp_path)
     project_dir = tmp_path / 'packages' / 'core'
     project_dir.mkdir(parents=True)
@@ -251,11 +251,9 @@ def test_subproject_from_config_include_path_not_found(
     )
     settings = ReleezSettings()
 
-    with pytest.raises(
-        MonorepoValidationError,
-        match='include-path does not exist',
-    ):
-        SubProject.from_config(config, tmp_path, settings)
+    # Should not raise — missing file just matches no commits
+    subproject = SubProject.from_config(config, tmp_path, settings)
+    assert subproject.include_paths == ['nonexistent.toml']
 
 
 def test_subproject_from_config_include_path_outside_repo(
