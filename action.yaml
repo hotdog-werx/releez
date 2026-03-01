@@ -276,10 +276,13 @@ runs:
       if: inputs.mode == 'validate'
       shell: bash
       run: |
-        # Use --branch if provided (useful for act testing); otherwise let
-        # releez inspect the current git branch
-        if [ -n "${{ inputs.branch }}" ]; then
-          RELEASE_INFO=$(releez release detect-from-branch --branch "${{ inputs.branch }}")
+        # Resolve branch: explicit input > GITHUB_HEAD_REF (PR) > git detection
+        BRANCH="${{ inputs.branch }}"
+        if [ -z "$BRANCH" ] && [ -n "$GITHUB_HEAD_REF" ]; then
+          BRANCH="$GITHUB_HEAD_REF"
+        fi
+        if [ -n "$BRANCH" ]; then
+          RELEASE_INFO=$(releez release detect-from-branch --branch "$BRANCH")
         else
           RELEASE_INFO=$(releez release detect-from-branch)
         fi
