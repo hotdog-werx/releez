@@ -135,11 +135,9 @@ jobs:
 
 ```yaml
 ${{ steps.releez.outputs.release-version }}  # "1.2.3"
-${{ steps.releez.outputs.semver-version }}   # "1.2.3"  (first / primary)
-${{ steps.releez.outputs.semver-versions }}  # "1.2.3\nv1"  (newline-separated)
-${{ steps.releez.outputs.docker-version }}   # "1.2.3"
+${{ steps.releez.outputs.semver-versions }}  # "1.2.3\nv1"  (first line = exact version)
 ${{ steps.releez.outputs.docker-versions }}  # "1.2.3\nv1"
-${{ steps.releez.outputs.pep440-version }}   # "1.2.3"
+${{ steps.releez.outputs.pep440-versions }}  # "1.2.3"
 ${{ steps.releez.outputs.release-notes }}    # markdown body for GitHub Release
 ```
 
@@ -242,7 +240,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.docker-version }}
+          tags: ${{ steps.version.outputs.docker-versions }}
 ```
 
 ### Advanced: alias tags (v1, v1.2, 1.2.3)
@@ -341,7 +339,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-version: ${{ steps.releez.outputs.release-version }}
-      pep440-version: ${{ steps.releez.outputs.pep440-version }}
+      pep440-versions: ${{ steps.releez.outputs.pep440-versions }}
       docker-versions: ${{ steps.releez.outputs.docker-versions }}
       release-notes: ${{ steps.releez.outputs.release-notes }}
     permissions:
@@ -367,7 +365,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docker-versions: ${{ steps.releez.outputs.docker-versions }}
-      pep440-version: ${{ steps.releez.outputs.pep440-version }}
+      pep440-versions: ${{ steps.releez.outputs.pep440-versions }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -492,7 +490,7 @@ jobs:
 
       - name: Build ${{ matrix.project }}
         run: |
-          echo "Building ${{ matrix.project }} @ ${{ steps.version.outputs.pep440-version }}"
+          echo "Building ${{ matrix.project }} @ $(echo '${{ steps.version.outputs.pep440-versions }}' | head -1)"
           # your project-specific build command here
 ```
 
@@ -543,22 +541,32 @@ jobs:
           mode: finalize
           alias-versions: major
 
-      # release-version: "core-1.2.3"  (full, with prefix)
+      # release-version: "core-1.2.3"  (full, with prefix — use as git tag)
       # project: "core"
-      # semver-version: "1.2.3"  (prefix stripped, for artifact use)
+      # semver-versions: "1.2.3\nv1"  (first line = plain semver, prefix stripped)
       # docker-versions: "1.2.3\nv1"
+
+      # Extract plain semver (first line, prefix stripped) for release title
+      - id: ver
+        env:
+          SEMVER_VERSIONS: ${{ steps.releez.outputs.semver-versions }}
+          PEP440_VERSIONS: ${{ steps.releez.outputs.pep440-versions }}
+        run: |
+          echo "semver=$(echo "$SEMVER_VERSIONS" | head -1)" >> "$GITHUB_OUTPUT"
+          echo "pep440=$(echo "$PEP440_VERSIONS" | head -1)" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.releez.outputs.release-version }}
-          name: '${{ steps.releez.outputs.project }} ${{ steps.releez.outputs.semver-version }}'
+          name: '${{ steps.releez.outputs.project }} ${{ steps.ver.outputs.semver }}'
           body: ${{ steps.releez.outputs.release-notes }}
 
       - name: Build and publish ${{ steps.releez.outputs.project }}
         run: |
           PROJECT="${{ steps.releez.outputs.project }}"
-          VERSION="${{ steps.releez.outputs.pep440-version }}"
+          VERSION="${{ steps.ver.outputs.pep440 }}"
           echo "Publishing $PROJECT @ $VERSION"
           # e.g. uv build --directory "packages/$PROJECT"
 ```

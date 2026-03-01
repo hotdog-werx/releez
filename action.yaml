@@ -196,7 +196,7 @@ runs:
         BRANCH="${{ inputs.branch || github.head_ref }}"
         RELEASE_INFO=$(releez release detect-from-branch --branch "$BRANCH")
         echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver-version=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
+        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
         echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
 
     - name: '[finalize] Create release tags'
@@ -241,14 +241,14 @@ runs:
       if: inputs.mode == 'finalize'
       shell: bash
       run: |
-        # Use semver-version (tag prefix stripped) for artifact version computation
+        # Use semver (tag prefix stripped) for artifact version computation
         IS_FULL_RELEASE_FLAG="--no-is-full-release"
         if [ "${{ inputs.is-full-release }}" = "true" ]; then
           IS_FULL_RELEASE_FLAG="--is-full-release"
         fi
         # shellcheck disable=SC2086
         VERSIONS_JSON=$(releez version artifact \
-          --version-override "${{ steps.finalize-detect.outputs.semver-version }}" \
+          --version-override "${{ steps.finalize-detect.outputs.semver }}" \
           --alias-versions "${{ inputs.alias-versions }}" \
           $IS_FULL_RELEASE_FLAG)
         {
@@ -272,7 +272,7 @@ runs:
           RELEASE_INFO=$(releez release detect-from-branch)
         fi
         echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver-version=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
+        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
         echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
 
     - name: '[validate] Preview release'
@@ -346,7 +346,7 @@ runs:
           RELEASE_INFO=$(releez release detect-from-branch)
         fi
         echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver-version=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
+        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
         echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
 
     - name: '[version-artifact] Compute versions'
@@ -355,8 +355,8 @@ runs:
       shell: bash
       run: |
         # Resolve version: explicit override → plain semver from branch detection → git-cliff
-        # Uses semver-version (tag prefix stripped) so version artifact receives a valid semver
-        VERSION="${{ inputs.version-override || steps.va-detect.outputs.semver-version }}"
+        # Uses semver (tag prefix stripped) so version artifact receives a valid semver
+        VERSION="${{ inputs.version-override || steps.va-detect.outputs.semver }}"
 
         VERSION_FLAG=""
         if [ -n "$VERSION" ]; then

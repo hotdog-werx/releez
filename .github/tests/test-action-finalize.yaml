@@ -74,6 +74,8 @@ jobs:
           dry-run: 'true'
 
       - name: Assert outputs (finalize dry-run)
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
         run: |
           fail=0
 
@@ -91,17 +93,12 @@ jobs:
 
           assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "1.1.0"
           assert_eq "project"          "${{ steps.releez.outputs.project }}"           ""
-          assert_eq "semver-version"   "${{ steps.releez.outputs.semver-version }}"    "1.1.0"
-          assert_eq "docker-version"   "${{ steps.releez.outputs.docker-version }}"    "1.1.0"
-          assert_eq "pep440-version"   "${{ steps.releez.outputs.pep440-version }}"    "1.1.0"
-
-          # Alias versions
           assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
 
-          # Release notes should be non-empty
-          if [ -z "${{ steps.releez.outputs.release-notes }}" ]; then
+          # Release notes should be non-empty (passed via env to avoid shell injection)
+          if [ -z "$RELEASE_NOTES" ]; then
             echo "FAIL [finalize-dry-run]: release-notes is empty"
             fail=1
           else
@@ -199,6 +196,8 @@ jobs:
           dry-run: 'true'
 
       - name: Assert outputs (finalize monorepo dry-run)
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
         run: |
           fail=0
 
@@ -218,12 +217,12 @@ jobs:
           assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "core-1.1.0"
           assert_eq "project"         "${{ steps.releez.outputs.project }}"          "core"
           # artifact versions use plain semver (tag prefix stripped)
-          assert_eq "semver-version"  "${{ steps.releez.outputs.semver-version }}"   "1.1.0"
-          assert_eq "docker-version"  "${{ steps.releez.outputs.docker-version }}"   "1.1.0"
-          assert_eq "pep440-version"  "${{ steps.releez.outputs.pep440-version }}"   "1.1.0"
+          assert_eq "semver-versions" "${{ steps.releez.outputs.semver-versions }}"  "1.1.0"
+          assert_eq "docker-versions" "${{ steps.releez.outputs.docker-versions }}"  "1.1.0"
+          assert_eq "pep440-versions" "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
 
           # Release notes should be non-empty (feat commit since core-1.0.0)
-          if [ -z "${{ steps.releez.outputs.release-notes }}" ]; then
+          if [ -z "$RELEASE_NOTES" ]; then
             echo "FAIL [finalize-monorepo]: release-notes is empty"
             fail=1
           else

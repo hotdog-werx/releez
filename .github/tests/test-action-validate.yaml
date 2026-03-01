@@ -73,6 +73,9 @@ jobs:
           post-comment: 'false'
 
       - name: Assert outputs (validate)
+        env:
+          RELEASE_PREVIEW: ${{ steps.releez.outputs.release-preview }}
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
         run: |
           fail=0
 
@@ -92,15 +95,15 @@ jobs:
           assert_eq "project"            "${{ steps.releez.outputs.project }}"             ""
           assert_eq "validation-status"  "${{ steps.releez.outputs.validation-status }}"  "success"
 
-          # Preview and notes should be non-empty
-          if [ -z "${{ steps.releez.outputs.release-preview }}" ]; then
+          # Preview and notes should be non-empty (passed via env to avoid shell injection)
+          if [ -z "$RELEASE_PREVIEW" ]; then
             echo "FAIL [validate]: release-preview is empty"
             fail=1
           else
             echo "OK [validate]: release-preview (non-empty)"
           fi
 
-          if [ -z "${{ steps.releez.outputs.release-notes }}" ]; then
+          if [ -z "$RELEASE_NOTES" ]; then
             echo "FAIL [validate]: release-notes is empty"
             fail=1
           else
@@ -192,6 +195,9 @@ jobs:
           post-comment: 'false'
 
       - name: Assert outputs (validate monorepo)
+        env:
+          RELEASE_PREVIEW: ${{ steps.releez.outputs.release-preview }}
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
         run: |
           fail=0
 
@@ -211,15 +217,15 @@ jobs:
           assert_eq "project"            "${{ steps.releez.outputs.project }}"             "core"
           assert_eq "validation-status"  "${{ steps.releez.outputs.validation-status }}"  "success"
 
-          # Preview and notes should be non-empty
-          if [ -z "${{ steps.releez.outputs.release-preview }}" ]; then
+          # Preview and notes should be non-empty (passed via env to avoid shell injection)
+          if [ -z "$RELEASE_PREVIEW" ]; then
             echo "FAIL [validate-monorepo]: release-preview is empty"
             fail=1
           else
             echo "OK [validate-monorepo]: release-preview (non-empty)"
           fi
 
-          if [ -z "${{ steps.releez.outputs.release-notes }}" ]; then
+          if [ -z "$RELEASE_NOTES" ]; then
             echo "FAIL [validate-monorepo]: release-notes is empty"
             fail=1
           else

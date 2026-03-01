@@ -93,7 +93,9 @@ on a full release they contain multiple entries, e.g.:
 v1
 ```
 
-With `alias-versions: none` (default) they contain a single entry.
+With `alias-versions: none` (default) they contain a single entry. The **first
+line is always the exact version** (e.g. `1.2.3`); alias tags (e.g. `v1`,
+`v1.2`) follow on subsequent lines when `alias-versions` is set.
 
 | Output            | Description                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------------- |
@@ -101,16 +103,15 @@ With `alias-versions: none` (default) they contain a single entry.
 | `docker-versions` | Newline-separated Docker-safe version strings (no `+` in build metadata — uses `-` instead) |
 | `pep440-versions` | Newline-separated PEP 440 version strings (aliases not supported for PEP 440)               |
 
-### Single-value shortcuts
+To get just the first version in a shell step, pass the output through an env
+var and use `head -1`:
 
-First element of the corresponding array — convenient when you only need one tag
-and don't use alias versions.
-
-| Output           | Description                          |
-| ---------------- | ------------------------------------ |
-| `semver-version` | First semver version (e.g. `1.2.3`)  |
-| `docker-version` | First Docker version (e.g. `1.2.3`)  |
-| `pep440-version` | First PEP 440 version (e.g. `1.2.3`) |
+```bash
+env:
+  VERSIONS: ${{ steps.releez.outputs.semver-versions }}
+run: |
+  VERSION=$(echo "$VERSIONS" | head -1)
+```
 
 ---
 
@@ -160,7 +161,7 @@ jobs:
 ```
 
 **Outputs populated**: `release-version`, `project`, `release-notes`,
-`semver-version(s)`, `docker-version(s)`, `pep440-version(s)`.
+`semver-versions`, `docker-versions`, `pep440-versions`.
 
 **Note on `dry-run`**: set `dry-run: 'true'` to skip tag creation while still
 computing all outputs. Useful for testing workflow logic on a branch without
@@ -258,10 +259,10 @@ For full releases (no prerelease) with `alias-versions: major`:
     alias-versions: major
 ```
 
-**Outputs populated**: `semver-version(s)`, `docker-version(s)`,
-`pep440-version(s)`. Release metadata outputs (`release-version`, `project`,
-`release-notes`) are populated only when `detect-from-branch: 'true'` and the
-current branch is a `release/*` branch.
+**Outputs populated**: `semver-versions`, `docker-versions`, `pep440-versions`.
+Release metadata outputs (`release-version`, `project`, `release-notes`) are
+populated only when `detect-from-branch: 'true'` and the current branch is a
+`release/*` branch.
 
 ---
 
@@ -276,7 +277,7 @@ The action detects the project automatically:
 | ----------------- | ------------ | ----------------------------------------------------------- |
 | `release-version` | `core-1.2.3` | Full version with prefix — use as the git tag name          |
 | `project`         | `core`       | Project name — use to scope downstream steps                |
-| `semver-version`  | `1.2.3`      | Plain semver, prefix stripped — use for artifact versioning |
+| `semver-versions` | `1.2.3`      | Plain semver, prefix stripped — first line for artifact use |
 
 ```yaml
 - id: releez
@@ -284,11 +285,18 @@ The action detects the project automatically:
   with:
     mode: finalize
 
+# Extract plain semver (first line of semver-versions, prefix stripped)
+- id: ver
+  env:
+    SEMVER_VERSIONS: ${{ steps.releez.outputs.semver-versions }}
+  run: echo "semver=$(echo "$SEMVER_VERSIONS" | head -1)" >> "$GITHUB_OUTPUT"
+  shell: bash
+
 - name: Create GitHub Release
   uses: softprops/action-gh-release@v2
   with:
     tag_name: ${{ steps.releez.outputs.release-version }} # "core-1.2.3"
-    name: '${{ steps.releez.outputs.project }} ${{ steps.releez.outputs.semver-version }}'
+    name: '${{ steps.releez.outputs.project }} ${{ steps.ver.outputs.semver }}'
     body: ${{ steps.releez.outputs.release-notes }}
 ```
 

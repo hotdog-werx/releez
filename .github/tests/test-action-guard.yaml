@@ -76,9 +76,9 @@ jobs:
             fi
           }
 
-          assert_eq "semver-version"  "${{ steps.releez.outputs.semver-version }}"  "2.3.4"
-          assert_eq "docker-version"  "${{ steps.releez.outputs.docker-version }}"  "2.3.4"
-          assert_eq "pep440-version"  "${{ steps.releez.outputs.pep440-version }}"  "2.3.4"
+          assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "2.3.4"
+          assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "2.3.4"
+          assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "2.3.4"
 
           exit $fail
         shell: bash

@@ -11,6 +11,8 @@ project.
 - **Always** run `mise exec -- ty check` for type checking
 - **Always** run `mise exec -- ruff check` for linting
 - **Always** run `mise exec -- pytest` for tests
+- **Always** run `mise exec -- poe format-dprint` after editing Markdown, JSON,
+  or YAML files
 - **Always** ensure PR changes have 100% coverage on modified lines and modified
   branches (Codecov patch standard)
 - **Always** write assertions against behavior, not internal implementation
@@ -240,17 +242,25 @@ def test_something(tmp_path: Path) -> None:
 
 ## Formatting
 
-### Check Formatting
+### Python — Check Formatting
 
 ```bash
 mise exec -- ruff format --check
 ```
 
-### Apply Formatting
+### Python — Apply Formatting
 
 ```bash
 mise exec -- ruff format
 ```
+
+### Markdown / JSON / YAML — Format
+
+```bash
+mise exec -- poe format-dprint
+```
+
+Run this after editing any `.md`, `.json`, or `.yaml` / `.yml` files.
 
 ## Pre-Commit Checklist
 
@@ -270,8 +280,11 @@ mise exec -- ty check
 # 4. Lint and auto-fix
 mise exec -- ruff check --fix
 
-# 5. Format code
+# 5. Format Python code
 mise exec -- ruff format
+
+# 6. Format Markdown / JSON / YAML (if any edited)
+mise exec -- poe format-dprint
 ```
 
 Or run all at once:
@@ -280,7 +293,8 @@ Or run all at once:
 mise exec -- pytest && \
 mise exec -- ty check && \
 mise exec -- ruff check --fix && \
-mise exec -- ruff format
+mise exec -- ruff format && \
+mise exec -- poe format-dprint
 ```
 
 ## Continuous Integration
@@ -290,7 +304,8 @@ The CI pipeline runs:
 1. `mise exec -- pytest` - All tests must pass
 2. `mise exec -- ty check` - No type errors allowed
 3. `mise exec -- ruff check` - No linting errors allowed
-4. `mise exec -- ruff format --check` - Code must be formatted
+4. `mise exec -- ruff format --check` - Python code must be formatted
+5. `mise exec -- poe format-dprint` - Markdown/JSON/YAML must be formatted
 
 Match these locally before pushing.
 

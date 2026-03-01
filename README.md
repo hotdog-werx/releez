@@ -345,17 +345,15 @@ and it installs the exact matching CLI version automatically.
 
 ### Key outputs
 
-| Output            | Description                                                   |
-| ----------------- | ------------------------------------------------------------- |
-| `release-version` | Detected version, e.g. `1.2.3` (or `core-1.2.3` for monorepo) |
-| `semver-version`  | Primary semver string, e.g. `1.2.3`                           |
-| `semver-versions` | Newline-separated semver tags (includes aliases)              |
-| `docker-version`  | Primary Docker-safe version                                   |
-| `docker-versions` | Newline-separated Docker tags                                 |
-| `pep440-version`  | Primary PEP 440 version                                       |
-| `release-notes`   | Markdown release notes (finalize / validate)                  |
-| `release-preview` | Markdown dry-run preview (validate)                           |
-| `project`         | Project name for monorepo releases                            |
+| Output            | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| `release-version` | Detected version, e.g. `1.2.3` (or `core-1.2.3` for monorepo)         |
+| `semver-versions` | Newline-separated semver tags; first line is always the exact version |
+| `docker-versions` | Newline-separated Docker-safe tags; first line is always exact        |
+| `pep440-versions` | Newline-separated PEP 440 versions (aliases not supported)            |
+| `release-notes`   | Markdown release notes (finalize / validate)                          |
+| `release-preview` | Markdown dry-run preview (validate)                                   |
+| `project`         | Project name for monorepo releases                                    |
 
 ### Quick examples
 

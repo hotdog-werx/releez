@@ -84,6 +84,21 @@ tests/
 - Use `Read` tool before editing files
 - Prefer `Edit` over `Write` for existing files
 
+## Documentation
+
+Keep docs in sync with code changes. When modifying:
+
+- **`action.yaml` inputs/outputs** → update `docs/action.md`,
+  `docs/workflow-recipes.md`, and the `README.md` key outputs table
+- **CLI commands or flags** → update `README.md` usage section and any relevant
+  `docs/` pages
+- **Configuration schema** (`settings.py`) → update `README.md` config reference
+- **Test files** (`*.github/tests/*.yaml`) → ensure assertions match current
+  action outputs
+
+Docs live in `docs/` and `README.md`. The action reference is `docs/action.md`;
+workflow examples are in `docs/workflow-recipes.md`.
+
 ## Getting Help
 
 - Check subsections above for specific topics
