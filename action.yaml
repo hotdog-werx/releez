@@ -113,30 +113,19 @@ outputs:
     value: ${{ steps.set-outputs.outputs.validation-status }}
 
   # ── Artifact version arrays (newline-separated) ────────────────────────────
+  # The first line is always the exact version (e.g. "1.2.3"); alias tags
+  # (e.g. "v1", "v1.2") follow on subsequent lines when alias-versions is set.
   semver-versions:
-    description: 'Newline-separated semver versions, e.g. "1.2.3\nv1" (with aliases)'
+    description: 'Newline-separated semver versions. First line is the exact version; aliases follow.'
     value: ${{ steps.set-outputs.outputs.semver-versions }}
 
   docker-versions:
-    description: 'Newline-separated docker-safe versions, e.g. "1.2.3\nv1"'
+    description: 'Newline-separated docker-safe versions. First line is the exact version; aliases follow.'
     value: ${{ steps.set-outputs.outputs.docker-versions }}
 
   pep440-versions:
-    description: 'Newline-separated PEP 440 versions, e.g. "1.2.3" (aliases not supported)'
+    description: 'Newline-separated PEP 440 versions. First line is the exact version (aliases not supported by PEP 440).'
     value: ${{ steps.set-outputs.outputs.pep440-versions }}
-
-  # ── Single versions (first in array, for backwards compatibility) ──────────
-  semver-version:
-    description: 'Primary semver version (first element of semver-versions)'
-    value: ${{ steps.set-outputs.outputs.semver-version }}
-
-  docker-version:
-    description: 'Primary docker version (first element of docker-versions)'
-    value: ${{ steps.set-outputs.outputs.docker-version }}
-
-  pep440-version:
-    description: 'Primary PEP 440 version (first element of pep440-versions)'
-    value: ${{ steps.set-outputs.outputs.pep440-version }}
 
 runs:
   using: 'composite'
@@ -457,21 +446,16 @@ runs:
           printf 'release-preview<<EOF\n%s\nEOF\n' "$PREVIEW"
         } >> "$GITHUB_OUTPUT"
 
-        # Parse JSON version arrays into newline-separated outputs
+        # Parse JSON version arrays into newline-separated outputs.
+        # The first entry is always the exact version; aliases follow.
         SEMVER_VERSIONS=""
         DOCKER_VERSIONS=""
         PEP440_VERSIONS=""
-        SEMVER_VERSION=""
-        DOCKER_VERSION=""
-        PEP440_VERSION=""
 
         if [ -n "$VERSIONS_JSON" ]; then
           SEMVER_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.semver | join("\n")')
           DOCKER_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.docker | join("\n")')
           PEP440_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.pep440 | join("\n")')
-          SEMVER_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.semver[0]')
-          DOCKER_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.docker[0]')
-          PEP440_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.pep440[0]')
         fi
 
         {
@@ -480,7 +464,4 @@ runs:
           printf 'pep440-versions<<EOF\n%s\nEOF\n' "$PEP440_VERSIONS"
         } >> "$GITHUB_OUTPUT"
 
-        echo "semver-version=$SEMVER_VERSION" >> "$GITHUB_OUTPUT"
-        echo "docker-version=$DOCKER_VERSION" >> "$GITHUB_OUTPUT"
-        echo "pep440-version=$PEP440_VERSION" >> "$GITHUB_OUTPUT"
         echo "validation-status=success" >> "$GITHUB_OUTPUT"
