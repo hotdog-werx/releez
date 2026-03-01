@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sysconfig
 import tempfile
@@ -8,7 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from releez.errors import GitCliffVersionComputeError, MissingCliError
+from releez.errors import (
+    ExternalCommandError,
+    GitCliffVersionComputeError,
+    MissingCliError,
+)
 from releez.process import run_checked
 
 GIT_CLIFF_BIN = 'git-cliff'
@@ -74,6 +79,23 @@ def _bump_args(bump: GitCliffBump) -> list[str]:
     return ['--bump', bump]
 
 
+_NO_RELEASES_PATTERN = re.compile(
+    r'No releases found, using (\S+) as the next version',
+)
+
+
+def _extract_no_releases_default(stderr: str) -> str:
+    """Return git-cliff's intended default version when no tags match the pattern.
+
+    git-cliff warns "No releases found, using 0.1.0 as the next version" and then
+    fails because 0.1.0 doesn't satisfy a prefixed tag pattern like ^core-(…)$.
+    We recover the intended version from the warning so callers get 0.1.0 rather
+    than a hard failure.
+    """
+    match = _NO_RELEASES_PATTERN.search(stderr)
+    return match.group(1) if match else ''
+
+
 class GitCliff:
     """Typed wrapper around the git-cliff CLI."""
 
@@ -117,7 +139,12 @@ class GitCliff:
             for path in include_paths:
                 cmd.extend(['--include-path', path])
 
-        version = run_checked(cmd, cwd=self._repo_root).strip()
+        try:
+            version = run_checked(cmd, cwd=self._repo_root).strip()
+        except ExternalCommandError as exc:
+            version = _extract_no_releases_default(exc.stderr)
+            if not version:
+                raise
         if not version:
             raise GitCliffVersionComputeError
         return version

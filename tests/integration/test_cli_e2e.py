@@ -1145,6 +1145,70 @@ alias-versions = "major"
     assert notes_result.output.strip() != ''
 
 
+def test_cli_version_artifact_monorepo_project_no_existing_tags_falls_back_to_0_1_0(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Integration: version artifact works when a project has no previous release tags.
+
+    git-cliff defaults to 0.1.0 when no tags match the pattern, but then fails its own
+    validation because 0.1.0 doesn't satisfy ^core-(…)$. We recover the intended version
+    so the first release of a new monorepo project succeeds without manual bootstrapping.
+    """
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    core_dir = tmp_path / 'packages' / 'core'
+    core_dir.mkdir(parents=True)
+    (core_dir / 'main.py').write_text('print("core v1")\n', encoding='utf-8')
+
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+[tool.releez]
+base-branch = "master"
+create-pr = false
+
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+tag-prefix = "core-"
+""".strip(),
+        encoding='utf-8',
+    )
+
+    repo = _init_repo(tmp_path)
+    repo.index.add(['packages/core/main.py', 'pyproject.toml'])
+    repo.index.commit('feat(core): initial commit')
+    # Intentionally no core-* tag
+
+    result = runner.invoke(
+        cli.app,
+        [
+            'version',
+            'artifact',
+            '--project',
+            'core',
+            '--prerelease-type',
+            'rc',
+            '--prerelease-number',
+            '1',
+            '--build-number',
+            '42',
+        ],
+    )
+
+    assert result.exit_code == 0
+    output = json.loads(result.stdout)
+
+    # release_version must be "core-0.1.0" (not an error, not "core-core-0.1.0")
+    assert output['release_version'] == 'core-0.1.0'
+    assert output['project'] == 'core'
+
+    # semver values must not contain the prefix
+    assert all(not v.startswith('core-') for v in output['semver'])
+    assert output['semver'] == ['0.1.0-rc1+42']
+
+
 def test_cli_version_artifact_monorepo_project_no_double_prefix(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
