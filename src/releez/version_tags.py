@@ -31,17 +31,24 @@ class VersionTags:
     minor: str
 
 
-def compute_version_tags(*, version: str) -> VersionTags:
+def compute_version_tags(*, version: str, tag_prefix: str = '') -> VersionTags:
     """Compute exact/major/minor tags for a full release version.
 
     Args:
         version: The full release version (`x.y.z`).
+        tag_prefix: Optional prefix for tags (e.g., "core-" creates "core-1.2.3").
 
     Returns:
-        The computed tag strings.
+        The computed tag strings with prefix applied.
 
     Raises:
         InvalidReleaseVersionError: If the version is not a full `x.y.z` release.
+
+    Examples:
+        >>> compute_version_tags(version='1.2.3')
+        VersionTags(exact='1.2.3', major='v1', minor='v1.2')
+        >>> compute_version_tags(version='1.2.3', tag_prefix='core-')
+        VersionTags(exact='core-1.2.3', major='core-v1', minor='core-v1.2')
     """
     normalized = version.strip().removeprefix('v')
 
@@ -54,9 +61,9 @@ def compute_version_tags(*, version: str) -> VersionTags:
         raise InvalidReleaseVersionError(version)
 
     return VersionTags(
-        exact=normalized,
-        major=f'v{parsed.major}',
-        minor=f'v{parsed.major}.{parsed.minor}',
+        exact=f'{tag_prefix}{normalized}',
+        major=f'{tag_prefix}v{parsed.major}',
+        minor=f'{tag_prefix}v{parsed.major}.{parsed.minor}',
     )
 
 

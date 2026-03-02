@@ -55,6 +55,8 @@ def test_start_release_runs_changelog_format_command(
     cliff.prepend_to_changelog.assert_called_once_with(
         version='1.2.3',
         changelog_path=changelog,
+        tag_pattern=None,
+        include_paths=None,
     )
     run_checked.assert_called_once_with(
         ['dprint', 'fmt', str(changelog)],
@@ -112,6 +114,8 @@ def test_start_release_runs_post_changelog_hooks(
     cliff.prepend_to_changelog.assert_called_once_with(
         version='1.2.3',
         changelog_path=changelog,
+        tag_pattern=None,
+        include_paths=None,
     )
     # Should run both hooks in order
     assert run_checked.call_count == 2
@@ -126,3 +130,117 @@ def test_start_release_runs_post_changelog_hooks(
         capture_stdout=False,
     )
     assert result.version == '1.2.3'
+
+
+def test_start_release_stages_project_path_and_adds_project_label(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    repo = mocker.Mock()
+    info = mocker.Mock(root=tmp_path)
+    project_path = tmp_path / 'packages' / 'core'
+    (tmp_path / 'CHANGELOG.md').write_text('# Changelog\n', encoding='utf-8')
+
+    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch('releez.release.ensure_clean')
+    mocker.patch('releez.release.fetch')
+    mocker.patch('releez.release.checkout_remote_branch')
+    mocker.patch('releez.release.create_and_checkout_branch')
+    mocker.patch('releez.release.push_set_upstream')
+    maybe_create_pr = mocker.patch(
+        'releez.release._maybe_create_pull_request',
+        return_value=None,
+    )
+
+    cliff = mocker.Mock()
+    cliff.compute_next_version.return_value = 'core-1.2.3'
+    cliff.generate_unreleased_notes.return_value = 'notes'
+    mocker.patch('releez.release.GitCliff', return_value=cliff)
+
+    result = releez.release.start_release(
+        releez.release.StartReleaseInput(
+            bump='auto',
+            version_override=None,
+            base_branch='master',
+            remote_name='origin',
+            labels=['release'],
+            title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            post_changelog_hooks=None,
+            run_changelog_format=False,
+            changelog_format_cmd=None,
+            create_pr=False,
+            github_token=None,
+            dry_run=False,
+            project_name='core',
+            project_path=project_path,
+        ),
+    )
+
+    repo.git.add.assert_called_once_with('packages/core')
+    assert result.release_branch == 'release/core-1.2.3'
+
+    pr_input = maybe_create_pr.call_args.kwargs['pr_input']
+    assert pr_input.labels == ['release', 'release:core']
+
+
+def test_start_release_monorepo_hooks_receive_bare_semver(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """Monorepo: {version} in hooks is stripped of tag prefix; {release_version} keeps it."""
+    changelog = tmp_path / 'CHANGELOG.md'
+    changelog.write_text('# Changelog\n', encoding='utf-8')
+
+    repo = mocker.Mock()
+    info = mocker.Mock(root=tmp_path)
+    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch('releez.release.ensure_clean')
+    mocker.patch('releez.release.fetch')
+    mocker.patch('releez.release.checkout_remote_branch')
+    mocker.patch('releez.release.create_and_checkout_branch')
+    mocker.patch('releez.release.push_set_upstream')
+    mocker.patch('releez.release._maybe_create_pull_request', return_value=None)
+
+    cliff = mocker.Mock()
+    cliff.compute_next_version.return_value = 'core-1.2.3'
+    cliff.generate_unreleased_notes.return_value = 'notes'
+    mocker.patch('releez.release.GitCliff', return_value=cliff)
+
+    run_checked = mocker.patch('releez.utils.run_checked', return_value='')
+
+    releez.release.start_release(
+        releez.release.StartReleaseInput(
+            bump='auto',
+            version_override=None,
+            base_branch='master',
+            remote_name='origin',
+            labels=[],
+            title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            post_changelog_hooks=[
+                ['uv', 'version', '{version}'],
+                ['echo', '{project_version}'],
+            ],
+            run_changelog_format=False,
+            changelog_format_cmd=None,
+            create_pr=False,
+            github_token=None,
+            dry_run=False,
+            project_name='core',
+            tag_prefix='core-',
+        ),
+    )
+
+    # {version} should be bare semver (prefix stripped)
+    run_checked.assert_any_call(
+        ['uv', 'version', '1.2.3'],
+        cwd=tmp_path,
+        capture_stdout=False,
+    )
+    # {project_version} should retain the full prefixed version
+    run_checked.assert_any_call(
+        ['echo', 'core-1.2.3'],
+        cwd=tmp_path,
+        capture_stdout=False,
+    )

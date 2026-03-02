@@ -15,3 +15,33 @@ ci-checks.sequence = [
   "check-complexity",
   "check-coverage",
 ]
+
+check-actionlint.help = "run actionlint on workflow files"
+check-actionlint.sequence = [
+  { cmd = "actionlint" },
+  { shell = "actionlint .github/tests/*.yaml" },
+]
+
+test-action.help = "run all GitHub Action tests locally with act"
+test-action.sequence = [
+  { cmd = "act workflow_dispatch -W .github/tests/test-action-version-artifact.yaml" },
+  { cmd = "act workflow_dispatch -W .github/tests/test-action-finalize.yaml" },
+  { cmd = "act workflow_dispatch -W .github/tests/test-action-validate.yaml" },
+  { cmd = "act pull_request -e .github/tests/events/pr-release-branch.json -W .github/tests/test-action-validate.yaml -j test-validate-github-head-ref-fallback" },
+  { cmd = "act workflow_dispatch -W .github/tests/test-action-guard.yaml" },
+]
+
+test-action-version-artifact.help = "run version-artifact action tests with act"
+test-action-version-artifact.cmd = "act workflow_dispatch -W .github/tests/test-action-version-artifact.yaml"
+
+test-action-finalize.help = "run finalize action tests with act"
+test-action-finalize.cmd = "act workflow_dispatch -W .github/tests/test-action-finalize.yaml"
+
+test-action-validate.help = "run validate action tests with act"
+test-action-validate.cmd = "act workflow_dispatch -W .github/tests/test-action-validate.yaml"
+
+test-action-validate-pr.help = "run validate GITHUB_HEAD_REF fallback test with a simulated pull_request event"
+test-action-validate-pr.cmd = "act pull_request -e .github/tests/events/pr-release-branch.json -W .github/tests/test-action-validate.yaml -j test-validate-github-head-ref-fallback"
+
+test-action-guard.help = "run action guard tests with act"
+test-action-guard.cmd = "act workflow_dispatch -W .github/tests/test-action-guard.yaml"

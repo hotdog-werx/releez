@@ -47,7 +47,10 @@ class ReleezHooks(BaseModel):
     Attributes:
         post_changelog: List of commands to run after changelog generation. Each
             command is an argv list (e.g. [["uv", "version", "{version}"]]).
-            Supports template variables: {version}, {changelog}.
+            Supports template variables:
+              {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
+              {project_version} Full project version as tagged (e.g. "core-1.2.3").
+              {changelog}       Absolute path to the changelog file.
         changelog_format: (DEPRECATED) Use post_changelog instead. Optional argv
             list used to format the changelog.
     """
@@ -80,6 +83,33 @@ class ReleezHooks(BaseModel):
         return self
 
 
+class ProjectConfig(BaseModel):
+    """Configuration for a single project in a monorepo.
+
+    Attributes:
+        name: Unique project identifier.
+        path: Project directory relative to repo root.
+        changelog_path: Changelog file relative to project path.
+        tag_prefix: Git tag prefix (e.g., "core-").
+        alias_versions: Override global alias_versions setting.
+        hooks: Per-project hooks, merged with global hooks.
+        include_paths: Additional paths to monitor for changes.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=_ALIASES,
+        populate_by_name=True,
+    )
+
+    name: str
+    path: str  # Relative to repo root
+    changelog_path: str = 'CHANGELOG.md'  # Relative to project path
+    tag_prefix: str = ''
+    alias_versions: AliasVersions | None = None
+    hooks: ReleezHooks = Field(default_factory=ReleezHooks)
+    include_paths: list[str] = Field(default_factory=list)
+
+
 class ReleezSettings(BaseSettings):
     """Settings loaded from CLI args, env vars, and config files.
 
@@ -108,6 +138,7 @@ class ReleezSettings(BaseSettings):
     run_changelog_format: bool = False
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
+    projects: list[ProjectConfig] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def _warn_deprecated_settings(self) -> ReleezSettings:

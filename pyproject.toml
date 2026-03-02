@@ -68,7 +68,12 @@ module-root = "src"
 
 [tool.releez]
 create-pr = true
-hooks = { changelog-format = ["mise", "exec", "--", "poe", "format-dprint", "{changelog}"] }
+
+[tool.releez.hooks]
+post-changelog = [
+  ["mise", "exec", "--", "poe", "format-dprint", "{changelog}"],
+  ["uv", "version", "{version}", "--frozen"],
+]
 
 [build-system]
 requires = ["uv_build"]

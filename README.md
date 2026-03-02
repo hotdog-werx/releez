@@ -59,6 +59,9 @@ Create git tags for a release:
 `releez release tag` (tags the git-cliff computed release version; pushes tags
 to `origin` by default)
 
+In monorepo mode, select target projects explicitly:
+`releez release tag --project core` (or `--all`).
+
 Override the tagged version if needed:
 
 `releez release tag --version-override 2.3.4`
@@ -78,11 +81,17 @@ Preview what will be published (version and tags):
 
 `releez release preview --output release-preview.md` (write markdown to a file)
 
+In monorepo mode, select target projects explicitly:
+`releez release preview --project core` (or `--all`).
+
 Generate the unreleased changelog section for the release:
 
 `releez release notes` (prints markdown to stdout)
 
 `releez release notes --output release-notes.md` (write markdown to a file)
+
+In monorepo mode, select target projects explicitly:
+`releez release notes --project core` (or `--all`).
 
 Regenerate the entire changelog from git history:
 
@@ -96,6 +105,129 @@ Common options:
 
 This is useful for fixing changelog formatting issues or rebuilding the
 changelog after repository changes.
+
+## Monorepo Support
+
+`releez` supports monorepos with multiple independently-versioned projects. Each
+project can have its own:
+
+- Version number (e.g., `core-1.2.3`, `ui-4.5.6`)
+- Changelog file
+- Git tags with unique prefixes
+- Release branches and PRs
+- Custom hooks and settings
+
+### Quick Start
+
+Configure projects in your root `pyproject.toml` or `releez.toml`:
+
+```toml
+[tool.releez]
+base-branch = "main"
+
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "core-"
+
+[[tool.releez.projects]]
+name = "ui"
+path = "packages/ui"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "ui-"
+```
+
+Start releases for changed projects:
+
+```bash
+# Auto-detect which projects have unreleased changes
+releez release start
+
+# Release specific projects
+releez release start --project core --project ui
+
+# Release all projects
+releez release start --all
+```
+
+### Monorepo Commands
+
+List configured projects:
+
+```bash
+releez projects list
+```
+
+Detect which projects have unreleased changes:
+
+```bash
+releez projects changed
+releez projects changed --format json  # For CI/CD
+```
+
+Get project information:
+
+```bash
+releez projects info core
+```
+
+Detect release from branch name (useful in GitHub Actions):
+
+```bash
+releez release detect-from-branch --branch release/core-1.2.3
+# Output: {"version": "core-1.2.3", "project": "core", "branch": "release/core-1.2.3"}
+```
+
+Monorepo release helpers with explicit selection:
+
+```bash
+releez release tag --project core
+releez release preview --project core
+releez release notes --project core
+```
+
+### How It Works
+
+`releez` uses path-based change detection:
+
+1. For each project, find the latest git tag matching its `tag-prefix`
+2. Check for commits since that tag touching the project's paths
+3. If commits exist, mark the project as changed
+
+Projects can monitor additional paths beyond their main directory:
+
+```toml
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+tag-prefix = "core-"
+include-paths = [
+  "pyproject.toml", # Root dependencies affect core
+  "uv.lock", # Lock file changes
+]
+```
+
+### Tags and Versioning
+
+Each project gets its own prefixed tags:
+
+- Core: `core-1.2.3`, `core-v1`, `core-v1.2`
+- UI: `ui-4.5.6`, `ui-v4`, `ui-v4.5`
+
+This prevents tag collisions and allows independent versioning.
+
+### Complete Documentation
+
+For detailed monorepo configuration, including:
+
+- Change detection strategies
+- Dependency management between projects
+- GitHub Actions integration
+- Migration from single-repo setup
+
+See the [Monorepo Setup Guide](./docs/monorepo-setup.md) and
+[example configuration](./examples/monorepo-config.toml).
 
 ## Configuration
 
@@ -179,30 +311,90 @@ Notes:
 - `{changelog}` in `changelog_format` is replaced with the configured changelog
   path before execution.
 
-## GitHub actions
+## GitHub Action
 
-We've built two GitHub reusable actions which use `releez` to streamline
-integration with CI pipelines. Review the documentation for each action for more
-details.
+`releez` ships a composite GitHub Action at the root of this repo. Pin it by tag
+and it installs the exact matching CLI version automatically.
 
-### [`releez-version-artifact-action`](https://github.com/hotdog-werx/releez-version-artifact-action)
+```yaml
+- uses: hotdog-werx/releez@v0
+  with:
+    mode: finalize # finalize | validate | version-artifact
+```
 
-This action can be used during CI to generate artifact versions with versions
-corresponding to the versions suggested by `releez` (and implicitly,
-`git-cliff`).
+### Modes at a glance
 
-### [`releez-finalize-action`](https://github.com/hotdog-werx/releez-finalize-action)
+| Mode               | When                               | What it does                                      |
+| ------------------ | ---------------------------------- | ------------------------------------------------- |
+| `validate`         | PR opened / updated on `release/*` | Dry-runs the release, posts a preview comment     |
+| `finalize`         | Release PR merged                  | Creates git tags, emits version outputs           |
+| `version-artifact` | Any build                          | Computes semver / docker / pep440 version strings |
 
-This action can be run to finalize a release. You can see
-[this workflow](./.github/workflows/finalize-release.yaml) for an example a
-usage.
+### Key inputs
 
-It applies tags and outputs artifact versions as well as release notes that can
-be used subsequently to create a GitHub Release.
+| Input                | Default | Description                                                    |
+| -------------------- | ------- | -------------------------------------------------------------- |
+| `mode`               | —       | **Required.** `finalize`, `validate`, or `version-artifact`    |
+| `alias-versions`     | `none`  | Create `v1` / `v1.2` alias tags (`none`, `major`, `minor`)     |
+| `is-full-release`    | `true`  | `false` emits prerelease versions                              |
+| `dry-run`            | `false` | `[finalize]` Skip tag creation, still emit outputs             |
+| `post-comment`       | `true`  | `[validate]` Post preview as a PR comment                      |
+| `detect-from-branch` | `false` | `[version-artifact]` Read version from `release/*` branch name |
+| `prerelease-type`    | `alpha` | `[version-artifact]` `alpha`, `beta`, or `rc`                  |
+| `prerelease-number`  | —       | `[version-artifact]` PR number (makes version unique per PR)   |
 
-A release should first be started with `releez release start`, usually locally,
-unless you've given your actions permission to create PRs, such as via a GitHub
-App.
+### Key outputs
+
+| Output            | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| `release-version` | Detected version, e.g. `1.2.3` (or `core-1.2.3` for monorepo)         |
+| `semver-versions` | Newline-separated semver tags; first line is always the exact version |
+| `docker-versions` | Newline-separated Docker-safe tags; first line is always exact        |
+| `pep440-versions` | Newline-separated PEP 440 versions (aliases not supported)            |
+| `release-notes`   | Markdown release notes (finalize / validate)                          |
+| `release-preview` | Markdown dry-run preview (validate)                                   |
+| `project`         | Project name for monorepo releases                                    |
+
+### Quick examples
+
+**Validate a release PR:**
+
+```yaml
+- uses: hotdog-werx/releez@v0
+  with:
+    mode: validate
+    post-comment: 'true'
+```
+
+**Finalize and create a GitHub Release:**
+
+```yaml
+- id: releez
+  uses: hotdog-werx/releez@v0
+  with:
+    mode: finalize
+    alias-versions: major
+
+- uses: softprops/action-gh-release@v2
+  with:
+    tag_name: ${{ steps.releez.outputs.release-version }}
+    body: ${{ steps.releez.outputs.release-notes }}
+```
+
+**Artifact versions for a Docker build:**
+
+```yaml
+- id: version
+  uses: hotdog-werx/releez@v0
+  with:
+    mode: version-artifact
+    is-full-release: ${{ github.event_name != 'pull_request' }}
+    prerelease-number: ${{ github.event.pull_request.number }}
+```
+
+For complete workflow recipes see
+[docs/workflow-recipes.md](./docs/workflow-recipes.md). For the full action
+reference see [docs/action.md](./docs/action.md).
 
 ## GitHub recommendations
 

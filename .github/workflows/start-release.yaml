@@ -18,6 +18,9 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  MISE_NO_HOOKS: '1'
+
 jobs:
   start:
     name: Start release

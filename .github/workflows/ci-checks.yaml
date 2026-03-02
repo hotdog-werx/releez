@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MISE_NO_HOOKS: '1'
+
 jobs:
   checks:
     name: Run checks
@@ -41,20 +44,69 @@ jobs:
 
       - name: Run type check
         if: always() && !cancelled()
-        run: poe check-basedpyright
+        run: mise exec -- ty check .
+
+      - name: Run actionlint
+        if: always() && !cancelled()
+        run: poe check-actionlint
+
+  tests:
+    name: Run tests (${{ matrix.os }})
+    needs: checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Sync with pkglink
+        run: pkglink sync
+
+      - name: Install python dependencies
+        run: uv sync --all-groups
 
       - name: Run coverage check
         if: always() && !cancelled()
         run: poe check-coverage
 
       - name: Generate coverage XML report
-        run: uv run coverage xml
         if: always() && !cancelled()
+        run: uv run coverage xml -o coverage-${{ runner.os }}.xml
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
         if: always() && !cancelled()
+        uses: codecov/codecov-action@v5
         with:
+          files: ./coverage-${{ runner.os }}.xml
+          flags: ${{ runner.os }}
+          name: coverage-${{ runner.os }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           verbose: true
+
+  test-action:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise tools
+        uses: jdx/mise-action@v3
+
+      - name: Sync with pkglink
+        run: pkglink sync
+
+      - name: Create local branch for act (avoids detached HEAD warnings)
+        run: git checkout -b ci-act-ref
+
+      - name: Run action tests
+        run: poe test-action

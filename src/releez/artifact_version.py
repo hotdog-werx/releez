@@ -62,10 +62,10 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
     """Compute an artifact version string.
 
     Args:
-        artifact_input: The inputs for computing the version.
+        artifact_input: Inputs for computing the version.
 
     Returns:
-        The version string to apply to the artifact.
+        Version string to apply to the artifact.
 
     Raises:
         BuildNumberRequiredError: If a prerelease build is missing a build number.
@@ -82,6 +82,7 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
     prerelease_number = artifact_input.prerelease_number
     if prerelease_number is None:
         raise PrereleaseNumberRequiredError
+    # semver uses + as build separator; docker uses - (+ is not valid in image tags)
     if artifact_input.scheme == ArtifactVersionScheme.semver:
         return f'{next_version}-{prerelease_type}{prerelease_number}+{artifact_input.build_number}'
     if artifact_input.scheme == ArtifactVersionScheme.docker:
@@ -95,6 +96,11 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
 
 
 def _compute_next_version() -> str:
+    """Compute next version from the current git repo using git-cliff.
+
+    Returns:
+        Next version string as determined by git-cliff.
+    """
     _, info = open_repo()
     cliff = GitCliff(repo_root=info.root)
     return cliff.compute_next_version(bump='auto')
@@ -107,5 +113,20 @@ def _pep440_version(
     prerelease_number: int | None,
     build_number: int,
 ) -> str:
+    """Format a version string in PEP 440 prerelease format.
+
+    PEP 440 format: {version}{marker}{prerelease}.dev{build}
+    Example: 1.2.3a123.dev456
+
+    Args:
+        next_version: Base version (e.g., "1.2.3").
+        prerelease_type: Prerelease type (alpha/beta/rc).
+        prerelease_number: Prerelease sequence number.
+        build_number: Build identifier.
+
+    Returns:
+        PEP 440 formatted version string.
+    """
+    # Map prerelease type to PEP 440 marker: alpha→a, beta→b, rc→rc
     marker = _PEP440_PRERELEASE_MARKERS[prerelease_type]
     return f'{next_version}{marker}{prerelease_number}.dev{build_number}'

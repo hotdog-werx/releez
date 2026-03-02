@@ -1,0 +1,324 @@
+# Example Monorepo Configuration for Releez
+#
+# This file demonstrates a complete monorepo setup with multiple
+# independently-versioned projects.
+#
+# Copy this to your root pyproject.toml or releez.toml and customize
+# for your project structure.
+
+[tool.releez]
+# ============================================================================
+# GLOBAL SETTINGS
+# These apply to all projects unless overridden
+# ============================================================================
+
+# Base branch for releases (usually 'main' or 'master')
+base-branch = "main"
+
+# Git remote name (usually 'origin')
+git-remote = "origin"
+
+# Automatically create pull requests
+create-pr = true
+
+# Default alias version strategy for full releases
+# Options: "none", "major", "minor"
+alias-versions = "none"
+
+# ============================================================================
+# GLOBAL HOOKS
+# These run for all projects
+# ============================================================================
+
+[tool.releez.hooks]
+# Format changelogs after generation
+post-changelog = [
+  ["prettier", "--write", "{changelog}"],
+]
+
+# ============================================================================
+# PROJECT 1: Core Library
+#
+# A foundational library used by other projects in the monorepo.
+# Releases when:
+#   - Core code changes (packages/core/**)
+#   - Root dependencies change (pyproject.toml, uv.lock)
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "core"
+
+# Path to project directory (relative to repo root)
+path = "packages/core"
+
+# Changelog location (relative to project path)
+# Full path: packages/core/CHANGELOG.md
+changelog-path = "CHANGELOG.md"
+
+# Git tag prefix (creates tags like: core-1.2.3, core-v1)
+tag-prefix = "core-"
+
+# Override global setting: create major version aliases (v1, v2, etc.)
+# This is useful for libraries where users want stable "v1" tags
+alias-versions = "major"
+
+# Additional paths to monitor for changes
+# When these files change, core is considered "changed" for release detection
+include-paths = [
+  "pyproject.toml", # Root dependencies affect core
+  "uv.lock", # Lock file changes
+]
+
+# Project-specific hooks
+[tool.releez.projects.core.hooks]
+post-changelog = [
+  # Update version in core's pyproject.toml
+  ["uv", "version", "{version}"],
+]
+
+# ============================================================================
+# PROJECT 2: UI Components
+#
+# Frontend component library.
+# Releases when:
+#   - UI code changes (packages/ui/**)
+#   - Does NOT release for root file changes
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "ui"
+path = "packages/ui"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "ui-"
+
+# No include-paths specified:
+# - Only releases when UI code itself changes
+# - Root pyproject.toml changes won't trigger UI release
+# - Good for independent frontend projects
+
+# Override: create major and minor aliases (v4, v4.5)
+alias-versions = "minor"
+
+[tool.releez.projects.ui.hooks]
+post-changelog = [
+  # Update package.json version
+  [
+    "npm",
+    "version",
+    "{version}",
+    "--no-git-tag-version",
+    "--prefix",
+    "packages/ui",
+  ],
+]
+
+# ============================================================================
+# PROJECT 3: API Service
+#
+# Backend API service.
+# Releases when:
+#   - API code changes (services/api/**)
+#   - Shared OpenAPI spec changes (shared/openapi.yaml)
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "api"
+path = "services/api"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "api-"
+
+# Monitor shared API specification
+include-paths = [
+  "shared/openapi.yaml",
+]
+
+# No alias versions for services (only exact versions)
+alias-versions = "none"
+
+[tool.releez.projects.api.hooks]
+post-changelog = [
+  # Update version in Cargo.toml (for Rust projects)
+  [
+    "cargo",
+    "set-version",
+    "{version}",
+    "--manifest-path",
+    "services/api/Cargo.toml",
+  ],
+]
+
+# ============================================================================
+# PROJECT 4: CLI Tool
+#
+# Command-line application.
+# Releases when:
+#   - CLI code changes (packages/cli/**)
+#   - Depends on core library (not automated, see hooks)
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "cli"
+path = "packages/cli"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "cli-"
+alias-versions = "major"
+
+[tool.releez.projects.cli.hooks]
+post-changelog = [
+  # Update CLI's own version
+  ["uv", "version", "{version}", "--directory", "packages/cli"],
+  # Update dependency on core library (if core was also released)
+  # Note: This assumes core version matches CLI version
+  # For different versioning, use a more sophisticated approach
+  ["uv", "add", "--directory", "packages/cli", "core@{version}"],
+]
+
+# ============================================================================
+# PROJECT 5: Documentation Site
+#
+# Documentation website (e.g., MkDocs, Docusaurus).
+# Releases when:
+#   - Docs content changes (docs/**)
+#   - Package versions change (monitors all packages)
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "docs"
+path = "docs"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "docs-"
+
+# Monitor all package directories to rebuild docs when code changes
+include-paths = [
+  "packages/core",
+  "packages/ui",
+  "packages/cli",
+]
+
+# Docs don't need version aliases
+alias-versions = "none"
+
+[tool.releez.projects.docs.hooks]
+post-changelog = [
+  # Rebuild documentation
+  ["mkdocs", "build", "--config-file", "docs/mkdocs.yml"],
+]
+
+# ============================================================================
+# ADVANCED: Project with Multiple Languages
+#
+# A project that manages versions across multiple package manifests
+# ============================================================================
+
+[[tool.releez.projects]]
+name = "sdk"
+path = "sdks/unified-sdk"
+changelog-path = "CHANGELOG.md"
+tag-prefix = "sdk-"
+alias-versions = "major"
+
+[tool.releez.projects.sdk.hooks]
+post-changelog = [
+  # Update Python package version
+  ["uv", "version", "{version}", "--directory", "sdks/unified-sdk/python"],
+  # Update JavaScript package version
+  [
+    "npm",
+    "version",
+    "{version}",
+    "--no-git-tag-version",
+    "--prefix",
+    "sdks/unified-sdk/javascript",
+  ],
+  # Update Rust package version
+  [
+    "cargo",
+    "set-version",
+    "{version}",
+    "--manifest-path",
+    "sdks/unified-sdk/rust/Cargo.toml",
+  ],
+]
+
+# ============================================================================
+# USAGE EXAMPLES
+# ============================================================================
+
+# Start release for all changed projects (auto-detect):
+#   releez release start
+#
+# Release specific projects:
+#   releez release start --project core --project ui
+#
+# Release all projects regardless of changes:
+#   releez release start --all
+#
+# Check which projects have changes:
+#   releez projects changed
+#
+# List all configured projects:
+#   releez projects list
+#
+# Get project details:
+#   releez projects info core
+#
+# Detect release from branch name:
+#   releez release detect-from-branch --branch release/core-1.2.3
+
+# ============================================================================
+# DEPENDENCY MANAGEMENT STRATEGIES
+# ============================================================================
+
+# Strategy 1: Manual Version Bumps
+# Use hooks to update inter-project dependencies when releasing:
+#
+# [tool.releez.projects.app.hooks]
+# post-changelog = [
+#   ["uv", "add", "--directory", "packages/app", "core@{version}"],
+# ]
+
+# Strategy 2: Independent Versioning
+# Projects don't track each other's versions
+# - Simpler, less coordination needed
+# - Use semantic versioning ranges in dependencies
+
+# Strategy 3: Synchronized Versioning
+# All projects share the same version number
+# - Set all tag-prefix values the same
+# - Or use single project with path = "."
+
+# ============================================================================
+# MIGRATION FROM SINGLE REPO
+# ============================================================================
+
+# If migrating from a single-repo setup, you can keep the old tag format:
+#
+# [[tool.releez.projects]]
+# name = "main"
+# path = "."
+# changelog-path = "CHANGELOG.md"
+# tag-prefix = ""  # Empty prefix = no prefix (backward compatible)
+#
+# Then gradually add new projects with prefixes as you split the monorepo.
+
+# ============================================================================
+# CI/CD INTEGRATION
+# ============================================================================
+
+# GitHub Actions example for detecting changed projects:
+#
+# jobs:
+#   detect:
+#     outputs:
+#       matrix: ${{ steps.detect.outputs.matrix }}
+#     steps:
+#       - run: |
+#           releez projects changed --format json > changed.json
+#           echo "matrix=$(jq -c '.include' changed.json)" >> $GITHUB_OUTPUT
+#
+#   build:
+#     needs: detect
+#     strategy:
+#       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
+#     steps:
+#       - run: echo "Building ${{ matrix.project }}"
