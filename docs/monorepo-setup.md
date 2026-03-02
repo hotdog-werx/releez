@@ -263,6 +263,79 @@ JSON output:
 }
 ```
 
+## uv Workspace Integration
+
+If your monorepo is a
+[uv workspace](https://docs.astral.sh/uv/concepts/workspaces/), each package has
+its own `pyproject.toml` with a `[project]` version field, and a shared
+`uv.lock` at the repo root tracks the resolved dependency graph including
+workspace member versions.
+
+### Recommended Hook Pattern
+
+Use `uv version` (without `--frozen`) to bump the package version and regenerate
+the lock file in a single step. Then explicitly stage `uv.lock` so it is
+included in the release commit:
+
+```toml
+[tool.uv.workspace]
+members = ["packages/core", "packages/ui"]
+
+[tool.releez]
+base-branch = "main"
+
+[[tool.releez.projects]]
+name = "core"
+path = "packages/core"
+tag-prefix = "core-"
+changelog-path = "CHANGELOG.md"
+include-paths = ["pyproject.toml", "uv.lock"]
+
+[tool.releez.projects.hooks]
+post-changelog = [
+  ["uv", "version", "--directory", "packages/core", "{version}"],
+  ["git", "add", "uv.lock"],
+]
+
+[[tool.releez.projects]]
+name = "ui"
+path = "packages/ui"
+tag-prefix = "ui-"
+changelog-path = "CHANGELOG.md"
+include-paths = ["pyproject.toml", "uv.lock"]
+
+[tool.releez.projects.hooks]
+post-changelog = [
+  ["uv", "version", "--directory", "packages/ui", "{version}"],
+  ["git", "add", "uv.lock"],
+]
+```
+
+**Why this works:**
+
+- `uv version --directory packages/ui 0.2.3` updates
+  `packages/ui/pyproject.toml` _and_ re-resolves `uv.lock` in one step,
+  preserving all existing pins (it is equivalent to `uv lock` without
+  `--upgrade`).
+- `git add uv.lock` explicitly stages the updated lock file. Because `uv.lock`
+  lives outside the project directory, releez's selective staging would
+  otherwise leave it out of the release commit.
+- The `{version}` template variable is always the bare semver (e.g. `0.2.3`),
+  with the tag prefix stripped — exactly what `uv version` expects.
+
+**Why `include-paths = ["pyproject.toml", "uv.lock"]`:**
+
+Both files are declared as `include-paths` so that a root-level dependency
+update (bump in `pyproject.toml` or `uv.lock`) registers as an unreleased change
+and triggers a new release for all affected projects.
+
+### Changelog Staging
+
+The project changelog (`packages/ui/CHANGELOG.md`) is inside the project
+directory and is staged automatically by releez — no explicit `git add` needed
+for it. Only files **outside** the project directory (like the root `uv.lock`)
+require an explicit `git add` hook.
+
 ## Dependency Management
 
 ### Inter-Project Dependencies
@@ -586,14 +659,23 @@ alias-versions = "major" # Exception: SDK needs v1 for convenience
 Use hooks to maintain consistency:
 
 ```toml
+# Global hook: format changelogs for every project
 [tool.releez.hooks]
 post-changelog = [
-  ["prettier", "--write", "{changelog}"], # Format all changelogs
+  ["prettier", "--write", "{changelog}"],
 ]
 
-[tool.releez.projects.python-pkg.hooks]
+# Per-project hook (must follow the [[tool.releez.projects]] entry it belongs to)
+[[tool.releez.projects]]
+name = "python-pkg"
+path = "packages/python-pkg"
+tag-prefix = "python-pkg-"
+changelog-path = "CHANGELOG.md"
+
+[tool.releez.projects.hooks]
 post-changelog = [
-  ["uv", "version", "{version}"], # Update Python package version
+  ["uv", "version", "--directory", "packages/python-pkg", "{version}"],
+  ["git", "add", "uv.lock"],
 ]
 ```
 

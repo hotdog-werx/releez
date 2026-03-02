@@ -110,6 +110,24 @@ post-changelog = [
 ]
 ```
 
+### uv workspace: bump version and update lock file
+
+In a uv workspace, `uv version` (without `--frozen`) bumps the package version
+in `pyproject.toml` _and_ re-resolves `uv.lock` in one step. Because `uv.lock`
+lives at the repo root (outside the project directory), you must stage it
+explicitly so it ends up in the release commit:
+
+```toml
+post-changelog = [
+  ["uv", "version", "--directory", "packages/my-pkg", "{version}"],
+  ["git", "add", "uv.lock"],
+]
+```
+
+See
+[Monorepo Setup — uv Workspace Integration](./monorepo-setup.md#uv-workspace-integration)
+for a complete example.
+
 ### Format multiple files
 
 ```toml
