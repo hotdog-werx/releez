@@ -10,6 +10,8 @@
 version bumping, changelog generation, release PRs, and git tags — powered by
 [`git-cliff`](https://git-cliff.org/) under the hood.
 
+**[Full documentation at hotdog-werx.github.io/releez](https://hotdog-werx.github.io/releez/)**
+
 ```bash
 uv tool install releez
 ```
@@ -56,8 +58,9 @@ Each project gets its own changelog, release branch, PR, and tags (e.g.
 `core-1.2.3`, `core-v1`). `releez` auto-detects which projects have unreleased
 changes.
 
-See [docs/monorepo/setup.md](./docs/monorepo/setup.md) for full configuration,
-change detection, uv workspace integration, and CI patterns.
+See the
+[Monorepo Setup Guide](https://hotdog-werx.github.io/releez/monorepo/setup/) for
+full configuration, change detection, uv workspace integration, and CI patterns.
 
 ## Configuration
 
@@ -81,8 +84,11 @@ Hooks run automatically after the changelog is updated. Template variables:
 `{version}` (bare semver), `{project_version}` (full tagged version, e.g.
 `core-1.2.3`), `{changelog}` (absolute path).
 
-See [docs/configuration/hooks.md](./docs/configuration/hooks.md) for the full
-hook reference and migration guide.
+See the
+[Settings reference](https://hotdog-werx.github.io/releez/configuration/settings/)
+and
+[Hooks documentation](https://hotdog-werx.github.io/releez/configuration/hooks/)
+for details.
 
 ## GitHub Action
 
@@ -135,9 +141,10 @@ version is installed automatically.
 Key outputs: `release-version`, `semver-versions`, `docker-versions`,
 `pep440-versions`, `release-notes`, `project` (monorepo).
 
-For full input/output reference and workflow recipes see
-[docs/github-actions/action.md](./docs/github-actions/action.md) and
-[docs/github-actions/workflow-recipes.md](./docs/github-actions/workflow-recipes.md).
+For the full input/output reference and workflow recipes see the
+[Action Reference](https://hotdog-werx.github.io/releez/github-actions/action/)
+and
+[Workflow Recipes](https://hotdog-werx.github.io/releez/github-actions/workflow-recipes/).
 
 ## GitHub recommendations
 
