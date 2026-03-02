@@ -113,8 +113,8 @@ include-paths = [
   "uv.lock",
 ]
 
-# Core-specific hooks
-[tool.releez.projects.core.hooks]
+# Core-specific hooks (must follow the [[tool.releez.projects]] entry it belongs to)
+[tool.releez.projects.hooks]
 post-changelog = [
   ["uv", "version", "{version}"],
 ]
@@ -349,7 +349,7 @@ path = "packages/app"
 tag-prefix = "app-"
 
 # Update core dependency version after release
-[tool.releez.projects.app.hooks]
+[tool.releez.projects.hooks]
 post-changelog = [
   ["uv", "add", "--directory", "packages/app", "core@{version}"],
 ]
@@ -411,7 +411,7 @@ jobs:
 ### Version Artifacts for Changed Projects
 
 ```yaml
-- uses: truss-security/releez-action@v2
+- uses: hotdog-werx/releez@v0
   id: version
   with:
     mode: version-artifact
@@ -442,7 +442,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
-      - uses: truss-security/releez-action@v2
+      - uses: hotdog-werx/releez@v0
         with:
           mode: finalize
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -715,7 +715,6 @@ complete example configuration with:
 
 ## Further Reading
 
-- [Configuration Reference](./configuration.md)
-- [Hooks Documentation](./hooks.md)
-- [GitHub Actions Integration](./github-actions.md)
+- [Hooks Documentation](../configuration/hooks.md)
+- [GitHub Actions Integration](../github-actions/action.md)
 - [Conventional Commits](https://www.conventionalcommits.org/)

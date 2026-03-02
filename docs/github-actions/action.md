@@ -300,7 +300,7 @@ The action detects the project automatically:
     body: ${{ steps.releez.outputs.release-notes }}
 ```
 
-See [Monorepo Setup Guide](./monorepo-setup.md) for configuring projects,
+See [Monorepo Setup Guide](../monorepo/setup.md) for configuring projects,
 `include-paths`, and per-project hooks.
 
 ---

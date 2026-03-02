@@ -45,3 +45,16 @@ test-action-validate-pr.cmd = "act pull_request -e .github/tests/events/pr-relea
 
 test-action-guard.help = "run action guard tests with act"
 test-action-guard.cmd = "act workflow_dispatch -W .github/tests/test-action-guard.yaml"
+
+# doc tasks
+# Development server for docs
+dev-docs.help = "Start MkDocs development server"
+dev-docs.cmd = "zensical serve --dev-addr=127.0.0.1:8000"
+
+# Build documentation
+build-docs.help = "Build static documentation site"
+build-docs.cmd = "zensical build --clean"
+
+# Clean docs build
+clean-docs.help = "Clean documentation build artifacts"
+clean-docs.cmd = "rm -rf site/"

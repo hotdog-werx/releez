@@ -88,16 +88,18 @@ tests/
 
 Keep docs in sync with code changes. When modifying:
 
-- **`action.yaml` inputs/outputs** → update `docs/action.md`,
-  `docs/workflow-recipes.md`, and the `README.md` key outputs table
+- **`action.yaml` inputs/outputs** → update `docs/github-actions/action.md`,
+  `docs/github-actions/workflow-recipes.md`, and the `README.md` key outputs
+  table
 - **CLI commands or flags** → update `README.md` usage section and any relevant
   `docs/` pages
 - **Configuration schema** (`settings.py`) → update `README.md` config reference
 - **Test files** (`*.github/tests/*.yaml`) → ensure assertions match current
   action outputs
 
-Docs live in `docs/` and `README.md`. The action reference is `docs/action.md`;
-workflow examples are in `docs/workflow-recipes.md`.
+Docs live in `docs/` and `README.md`. The action reference is
+`docs/github-actions/action.md`; workflow examples are in
+`docs/github-actions/workflow-recipes.md`.
 
 ## Getting Help
 
