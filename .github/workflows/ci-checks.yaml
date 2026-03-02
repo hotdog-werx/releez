@@ -50,6 +50,10 @@ jobs:
         if: always() && !cancelled()
         run: poe check-actionlint
 
+      - name: Build docs
+        if: always() && !cancelled()
+        run: poe build-docs
+
   tests:
     name: Run tests (${{ matrix.os }})
     needs: checks
