@@ -110,17 +110,20 @@ post-changelog = [
 ]
 ```
 
-### uv workspace: bump version and update lock file
+In single-repo mode releez uses `git add -A`, so any files modified by hooks
+(including `uv.lock`) are staged automatically — no explicit `git add` needed.
+
+### uv workspace (monorepo): bump version and update lock file
 
 In a uv workspace, `uv version` (without `--frozen`) bumps the package version
-in `pyproject.toml` _and_ re-resolves `uv.lock` in one step. Because `uv.lock`
-lives at the repo root (outside the project directory), you must stage it
-explicitly so it ends up in the release commit:
+in `pyproject.toml` _and_ re-resolves `uv.lock` in one step. In monorepo mode
+releez uses selective staging (only the project directory), so `uv.lock` at the
+repo root must be staged explicitly:
 
 ```toml
 post-changelog = [
   ["uv", "version", "--directory", "packages/my-pkg", "{version}"],
-  ["git", "add", "uv.lock"],
+  ["git", "add", "uv.lock"], # only needed in monorepo mode
 ]
 ```
 
