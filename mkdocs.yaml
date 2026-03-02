@@ -5,11 +5,16 @@ repo_url: https://github.com/hotdog-werx/releez
 repo_name: hotdog-werx/releez
 
 nav:
-  - Getting Started:
-      - Installation: getting-started/installation.md
-      # - Quick Start: getting-started/quick-start.md
+  - Home: index.md
   - Configuration:
-      - Overview: configuration/overview.md
+      - Settings: configuration/settings.md
+      - Hooks: configuration/hooks.md
+  - GitHub Actions:
+      - Action Reference: github-actions/action.md
+      - Workflow Recipes: github-actions/workflow-recipes.md
+  - Monorepo:
+      - Setup Guide: monorepo/setup.md
+      - Design Reference: monorepo/design.md
 
 # Configuration
 theme:

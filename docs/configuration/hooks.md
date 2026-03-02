@@ -128,7 +128,7 @@ post-changelog = [
 ```
 
 See
-[Monorepo Setup — uv Workspace Integration](./monorepo-setup.md#uv-workspace-integration)
+[Monorepo Setup — uv Workspace Integration](../monorepo/setup.md#uv-workspace-integration)
 for a complete example.
 
 ### Format multiple files

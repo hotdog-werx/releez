@@ -556,7 +556,7 @@ understand dependency graph.
 
 **Files to create**:
 
-- `docs/monorepo-setup.md` - Complete guide
+- `docs/monorepo/setup.md` - Complete guide
 - `examples/monorepo-config.toml` - Example configuration
 - Update `README.md` with monorepo support
 
