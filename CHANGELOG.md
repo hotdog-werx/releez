@@ -1,3 +1,31 @@
+## [0.3.0] - 2026-03-02
+
+### 🚀 Features
+
+- Post changelog hooks (#22) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#22](https://github.com/hotdog-werx/releez/pull/22)
+
+- Monorepo support with independent project versioning (#23) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#23](https://github.com/hotdog-werx/releez/pull/23)
+
+- Add documentation site (#24) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#24](https://github.com/hotdog-werx/releez/pull/24)
+
+### 🐛 Bug Fixes
+
+- Bump typer to 0.24.1 by [@jamestrousdale](https://github.com/jamestrousdale)
+
+- _(ci)_ Fix permissions on docs deploy job by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
+### ⚙️ Miscellaneous Tasks
+
+- _(docs)_ Link to GitHub pages docs by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.2.6] - 2026-02-18
 
 ### 🐛 Bug Fixes
