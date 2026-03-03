@@ -69,7 +69,7 @@ module-root = "src"
 
 [tool.releez]
 create-pr = true
-alias-tags = "major"
+alias-versions = "major"
 
 [tool.releez.hooks]
 post-changelog = [
