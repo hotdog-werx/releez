@@ -32,9 +32,11 @@ inputs:
     default: 'true'
 
   alias-versions:
-    description: 'Alias version strategy for full releases: none, major, or minor'
+    description: |
+      Optional alias version strategy for full releases: none, major, or minor.
+      If unset, releez config/defaults are used.
     required: false
-    default: 'none'
+    default: ''
 
   version-override:
     description: 'Explicit version string to use (skips git-cliff auto-detection)'
@@ -235,10 +237,14 @@ runs:
         if [ -n "$FINALIZE_PROJECT" ]; then
           PROJECT_FLAG="--project $FINALIZE_PROJECT"
         fi
+        ALIAS_VERSIONS_FLAG=""
+        if [ -n "${{ inputs.alias-versions }}" ]; then
+          ALIAS_VERSIONS_FLAG="--alias-versions ${{ inputs.alias-versions }}"
+        fi
         # shellcheck disable=SC2086
         releez release tag \
           --version-override "${{ steps.finalize-detect.outputs.version }}" \
-          --alias-versions "${{ inputs.alias-versions }}" \
+          $ALIAS_VERSIONS_FLAG \
           $PROJECT_FLAG
 
     - name: '[finalize] Compute artifact versions'
@@ -253,6 +259,10 @@ runs:
         if [ -n "$FINALIZE_PROJECT" ]; then
           PROJECT_FLAG="--project $FINALIZE_PROJECT"
         fi
+        ALIAS_VERSIONS_FLAG=""
+        if [ -n "${{ inputs.alias-versions }}" ]; then
+          ALIAS_VERSIONS_FLAG="--alias-versions ${{ inputs.alias-versions }}"
+        fi
         IS_FULL_RELEASE_FLAG="--no-is-full-release"
         if [ "${{ inputs.is-full-release }}" = "true" ]; then
           IS_FULL_RELEASE_FLAG="--is-full-release"
@@ -260,7 +270,7 @@ runs:
         # shellcheck disable=SC2086
         VERSIONS_JSON=$(releez version artifact \
           --version-override "${{ steps.finalize-detect.outputs.semver }}" \
-          --alias-versions "${{ inputs.alias-versions }}" \
+          $ALIAS_VERSIONS_FLAG \
           $PROJECT_FLAG \
           $IS_FULL_RELEASE_FLAG)
         {
@@ -367,6 +377,8 @@ runs:
     - name: '[version-artifact] Compute versions'
       id: va-compute
       if: inputs.mode == 'version-artifact'
+      env:
+        DETECTED_PROJECT: ${{ steps.va-detect.outputs.project }}
       shell: bash
       run: |
         # Resolve version: explicit override → plain semver from branch detection → git-cliff
@@ -378,9 +390,18 @@ runs:
           VERSION_FLAG="--version-override $VERSION"
         fi
 
+        PROJECT_NAME="${{ inputs.project }}"
+        if [ -z "$PROJECT_NAME" ] && [ -n "$DETECTED_PROJECT" ]; then
+          PROJECT_NAME="$DETECTED_PROJECT"
+        fi
+
         PROJECT_FLAG=""
-        if [ -n "${{ inputs.project }}" ]; then
-          PROJECT_FLAG="--project ${{ inputs.project }}"
+        if [ -n "$PROJECT_NAME" ]; then
+          PROJECT_FLAG="--project $PROJECT_NAME"
+        fi
+        ALIAS_VERSIONS_FLAG=""
+        if [ -n "${{ inputs.alias-versions }}" ]; then
+          ALIAS_VERSIONS_FLAG="--alias-versions ${{ inputs.alias-versions }}"
         fi
 
         IS_FULL_RELEASE_FLAG="--no-is-full-release"
@@ -401,7 +422,7 @@ runs:
         VERSIONS_JSON=$(releez version artifact \
           $VERSION_FLAG \
           $PROJECT_FLAG \
-          --alias-versions "${{ inputs.alias-versions }}" \
+          $ALIAS_VERSIONS_FLAG \
           $IS_FULL_RELEASE_FLAG \
           $PRERELEASE_FLAGS)
 

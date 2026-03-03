@@ -1,0 +1,78 @@
+name: Test Action — version-artifact detect project
+
+# Regression guard: in version-artifact mode with detect-from-branch=true,
+# the action must propagate the detected monorepo project into version
+# computation when inputs.project is omitted. Without this, releez exits
+# because monorepo config requires an explicit project scope.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-version-artifact-detect-project.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-version-artifact-monorepo-detect-project:
+    name: version-artifact monorepo detect-from-branch infers project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up monorepo config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/core
+          echo "# core" > packages/core/README.md
+          git add packages/core/README.md
+          git commit -m "chore: add core package for detect-from-branch regression"
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "core"
+          path = "packages/core"
+          tag-prefix = "core-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Run action (detect-from-branch, project omitted)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          detect-from-branch: 'true'
+          branch: 'release/core-2.3.4'
+          is-full-release: 'true'
+          alias-versions: 'none'
+
+      - name: Assert outputs (detected project scope applied)
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [monorepo-detect-project]: $name"
+            else
+              echo "FAIL [monorepo-detect-project]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.version.outputs.release-version }}" "core-2.3.4"
+          assert_eq "project"         "${{ steps.version.outputs.project }}"         "core"
+          assert_eq "semver-versions" "${{ steps.version.outputs.semver-versions }}" "2.3.4"
+          assert_eq "docker-versions" "${{ steps.version.outputs.docker-versions }}" "2.3.4"
+          assert_eq "pep440-versions" "${{ steps.version.outputs.pep440-versions }}" "2.3.4"
+
+          exit $fail
+        shell: bash

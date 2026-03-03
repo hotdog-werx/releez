@@ -57,6 +57,7 @@ jobs:
         with:
           mode: version-artifact
           releez-version: '${{ github.workspace }}'
+          alias-versions: 'none'
           is-full-release: 'true'
           version-override: '2.3.4'
 

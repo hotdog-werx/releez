@@ -1,17 +1,18 @@
-name: Test Action — finalize single-repo
+name: Test Action — finalize config alias
 
-# Verifies finalize mode detects the version, generates notes, and produces
-# version outputs without pushing tags (dry-run: true).
+# Regression guard: when alias-versions input is omitted, finalize mode must
+# honor repo config (tool.releez.alias-versions=major) instead of silently
+# forcing "none". We assert both local and remote tags include the alias.
 #
 # Run manually or via act:
-#   act workflow_dispatch -W tests/action/test-action-finalize-single-repo.yaml
+#   act workflow_dispatch -W tests/action/test-action-finalize-config-alias.yaml
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  test-finalize-dry-run-single-repo:
-    name: finalize dry-run single-repo
+  test-finalize-real-tags-use-config-alias:
+    name: finalize non-dry-run uses config alias
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,12 +21,21 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Set up git history
+      - name: Set up git with local remote
         run: |
           git config user.email "test@example.com"
           git config user.name "Test"
+
+          # Local bare repo to receive tag pushes (stands in for GitHub remote).
+          # Clone instead of init+push to avoid shallow-update issues under act.
+          git clone --bare . /tmp/origin
+          git remote set-url origin /tmp/origin
+
           git tag 1.0.0
-          git commit --allow-empty -m "feat: add new capability"
+          git commit --allow-empty -m "feat: cover finalize config-alias regression"
+
+          # Push commit so release tags can be pushed in finalize mode.
+          git push origin HEAD:master
         shell: bash
 
       - name: Write test cliff.toml (no GitHub remote)
@@ -61,27 +71,25 @@ jobs:
           TOML
         shell: bash
 
-      - name: Run action (finalize dry-run)
+      - name: Run action (finalize non-dry-run, no alias input)
         id: releez
         uses: ./
         with:
           mode: finalize
           branch: 'release/1.1.0'
           is-full-release: 'true'
-          dry-run: 'true'
+          dry-run: 'false'
 
-      - name: Assert outputs (finalize dry-run)
-        env:
-          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+      - name: Assert outputs and created tags (config alias)
         run: |
           fail=0
 
           assert_eq() {
             local name="$1" actual="$2" expected="$3"
             if [ "$actual" = "$expected" ]; then
-              echo "OK [finalize-dry-run]: $name"
+              echo "OK [finalize-config-alias]: $name"
             else
-              echo "FAIL [finalize-dry-run]: $name"
+              echo "FAIL [finalize-config-alias]: $name"
               printf '  expected: %q\n' "$expected"
               printf '  actual:   %q\n' "$actual"
               fail=1
@@ -89,17 +97,36 @@ jobs:
           }
 
           assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "1.1.0"
-          assert_eq "project"          "${{ steps.releez.outputs.project }}"           ""
           assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
 
-          # Release notes should be non-empty (passed via env to avoid shell injection)
-          if [ -z "$RELEASE_NOTES" ]; then
-            echo "FAIL [finalize-dry-run]: release-notes is empty"
-            fail=1
+          if git tag -l | grep -q '^1\.1\.0$'; then
+            echo "OK [finalize-config-alias]: local exact tag exists"
           else
-            echo "OK [finalize-dry-run]: release-notes (non-empty)"
+            echo "FAIL [finalize-config-alias]: local exact tag missing"
+            fail=1
+          fi
+
+          if git tag -l | grep -q '^v1$'; then
+            echo "OK [finalize-config-alias]: local alias tag exists"
+          else
+            echo "FAIL [finalize-config-alias]: local alias tag missing"
+            fail=1
+          fi
+
+          if git ls-remote --tags origin refs/tags/1.1.0 >/dev/null 2>&1; then
+            echo "OK [finalize-config-alias]: remote exact tag exists"
+          else
+            echo "FAIL [finalize-config-alias]: remote exact tag missing"
+            fail=1
+          fi
+
+          if git ls-remote --tags origin refs/tags/v1 >/dev/null 2>&1; then
+            echo "OK [finalize-config-alias]: remote alias tag exists"
+          else
+            echo "FAIL [finalize-config-alias]: remote alias tag missing"
+            fail=1
           fi
 
           exit $fail

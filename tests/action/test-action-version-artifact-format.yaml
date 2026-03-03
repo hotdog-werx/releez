@@ -194,3 +194,52 @@ jobs:
 
           exit $fail
         shell: bash
+
+  # ── Full release aliases from releez config when input is omitted ────────────
+  #
+  # Regression guard: action must not force alias-versions=none when input is
+  # unset. It should let releez config/defaults apply.
+  test-version-artifact-full-release-config-alias:
+    name: version-artifact full release alias from config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run action (config alias, no input override)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          version-override: '7.8.9'
+          is-full-release: 'true'
+
+      - name: Assert outputs (config alias, no input override)
+        env:
+          ACTUAL_SEMVER: ${{ steps.version.outputs.semver-versions }}
+          ACTUAL_DOCKER: ${{ steps.version.outputs.docker-versions }}
+          ACTUAL_PEP440: ${{ steps.version.outputs.pep440-versions }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [config-alias]: $name"
+            else
+              echo "FAIL [config-alias]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "semver-versions" "$ACTUAL_SEMVER" "$(printf '7.8.9\nv7')"
+          assert_eq "docker-versions" "$ACTUAL_DOCKER" "$(printf '7.8.9\nv7')"
+          assert_eq "pep440-versions" "$ACTUAL_PEP440" "7.8.9"
+
+          exit $fail
+        shell: bash
