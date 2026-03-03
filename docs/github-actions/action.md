@@ -43,7 +43,7 @@ CLI version are always identical — version drift is impossible by construction
 | `mode`             | Yes      | —       | `finalize`, `validate`, or `version-artifact`                                                                                                                                                                                                                      |
 | `releez-version`   | No       | `''`    | Override the releez CLI version to install. Bare version (`1.2.3`) installs from PyPI; full specifiers (`git+https://github.com/hotdog-werx/releez@branch`) are passed through to `uv tool install` unchanged. Defaults to the version co-located with the action. |
 | `is-full-release`  | No       | `true`  | `false` produces prerelease version strings                                                                                                                                                                                                                        |
-| `alias-versions`   | No       | `none`  | Create alias tags for full releases: `none`, `major` (adds `v1`), or `minor` (adds `v1` and `v1.2`)                                                                                                                                                                |
+| `alias-versions`   | No       | `''`    | Optional override for alias tags on full releases: `none`, `major` (adds `v1`), or `minor` (adds `v1` and `v1.2`). When unset, releez config/defaults are used.                                                                                                    |
 | `version-override` | No       | `''`    | Explicit version string — skips git-cliff auto-detection                                                                                                                                                                                                           |
 | `branch`           | No       | `''`    | Branch name for release detection. Defaults to `github.head_ref` (finalize) or current branch (validate/version-artifact). Useful for testing with `act`.                                                                                                          |
 
@@ -93,9 +93,10 @@ on a full release they contain multiple entries, e.g.:
 v1
 ```
 
-With `alias-versions: none` (default) they contain a single entry. The **first
-line is always the exact version** (e.g. `1.2.3`); alias tags (e.g. `v1`,
-`v1.2`) follow on subsequent lines when `alias-versions` is set.
+With aliases disabled (for example `alias-versions: none`, or unset with config
+defaulting to none) they contain a single entry. The **first line is always the
+exact version** (e.g. `1.2.3`); alias tags (e.g. `v1`, `v1.2`) follow on
+subsequent lines when aliases are enabled.
 
 | Output            | Description                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------------- |
