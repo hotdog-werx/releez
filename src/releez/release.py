@@ -23,6 +23,7 @@ from releez.git_repo import (
     push_set_upstream,
 )
 from releez.github import PullRequestCreateRequest, create_pull_request
+from releez.subproject import generate_tag_pattern
 from releez.utils import (
     resolve_changelog_path,
     run_changelog_formatter,
@@ -67,11 +68,11 @@ class StartReleaseInput:
         github_token: GitHub token for PR creation.
         dry_run: If true, do not modify the repo; just output version and notes.
         project_name: Optional project name for monorepo support.
-        tag_pattern: Optional tag pattern for git-cliff (monorepo).
         include_paths: Optional path filters for git-cliff (monorepo).
         project_path: Optional project directory path for selective staging (monorepo).
         tag_prefix: Optional tag prefix (e.g. "core-") used to strip the prefix from
             the hook {version} variable, so hooks always receive bare semver.
+            The git-cliff tag pattern is derived automatically from this prefix.
     """
 
     bump: GitCliffBump
@@ -89,10 +90,18 @@ class StartReleaseInput:
     dry_run: bool
     # Monorepo support
     project_name: str | None = None
-    tag_pattern: str | None = None
     include_paths: list[str] | None = None
     project_path: Path | None = None
     tag_prefix: str = ''
+
+    @property
+    def tag_pattern(self) -> str | None:
+        """Derive git-cliff tag pattern from tag_prefix.
+
+        Returns None for single-repo mode (no prefix), so git-cliff uses its
+        default pattern. Returns a prefixed pattern for monorepo projects.
+        """
+        return generate_tag_pattern(self.tag_prefix) if self.tag_prefix else None
 
 
 @dataclass(frozen=True)

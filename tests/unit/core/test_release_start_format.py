@@ -229,7 +229,6 @@ def test_start_release_monorepo_first_release_prefixes_version(
             dry_run=False,
             project_name='core',
             tag_prefix='core-',
-            tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
         ),
     )
 
