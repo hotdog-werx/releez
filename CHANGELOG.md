@@ -1,3 +1,10 @@
+## [0.3.2] - 2026-03-03
+
+### 🐛 Bug Fixes
+
+- _(ci)_ Major alias tag for action support by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.3.1] - 2026-03-03
 
 ### 🐛 Bug Fixes
