@@ -79,7 +79,7 @@ jobs:
 
       - name: Run coverage check
         if: always() && !cancelled()
-        run: poe check-coverage
+        run: poe check-coverage -- --ignore tests/action/
 
       - name: Generate coverage XML report
         if: always() && !cancelled()
@@ -108,6 +108,9 @@ jobs:
 
       - name: Sync with pkglink
         run: pkglink sync
+
+      - name: Install python dependencies
+        run: uv sync --all-groups
 
       - name: Create local branch for act (avoids detached HEAD warnings)
         run: git checkout -b ci-act-ref

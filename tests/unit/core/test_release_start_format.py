@@ -184,6 +184,59 @@ def test_start_release_stages_project_path_and_adds_project_label(
     assert pr_input.labels == ['release', 'release:core']
 
 
+def test_start_release_monorepo_first_release_prefixes_version(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """First monorepo release: bare semver from git-cliff gets tag prefix prepended.
+
+    When no prior tags match the project's tag pattern, git-cliff falls back to
+    "0.1.0" (no prefix). _resolve_release_version must prepend the tag_prefix so
+    the branch is "release/core-0.1.0", not "release/0.1.0".
+    """
+    (tmp_path / 'CHANGELOG.md').write_text('# Changelog\n', encoding='utf-8')
+
+    repo = mocker.Mock()
+    info = mocker.Mock(root=tmp_path)
+    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch('releez.release.ensure_clean')
+    mocker.patch('releez.release.fetch')
+    mocker.patch('releez.release.checkout_remote_branch')
+    mocker.patch('releez.release.create_and_checkout_branch')
+    mocker.patch('releez.release.push_set_upstream')
+    mocker.patch('releez.release._maybe_create_pull_request', return_value=None)
+
+    cliff = mocker.Mock()
+    # Simulate git-cliff returning bare semver (no prefix) for first release
+    cliff.compute_next_version.return_value = '0.1.0'
+    cliff.generate_unreleased_notes.return_value = 'notes'
+    mocker.patch('releez.release.GitCliff', return_value=cliff)
+
+    result = releez.release.start_release(
+        releez.release.StartReleaseInput(
+            bump='auto',
+            version_override=None,
+            base_branch='master',
+            remote_name='origin',
+            labels=[],
+            title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            post_changelog_hooks=None,
+            run_changelog_format=False,
+            changelog_format_cmd=None,
+            create_pr=False,
+            github_token=None,
+            dry_run=False,
+            project_name='core',
+            tag_prefix='core-',
+            tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
+        ),
+    )
+
+    assert result.version == 'core-0.1.0'
+    assert result.release_branch == 'release/core-0.1.0'
+
+
 def test_start_release_monorepo_hooks_receive_bare_semver(
     mocker: MockerFixture,
     tmp_path: Path,

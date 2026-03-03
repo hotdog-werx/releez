@@ -1,0 +1,126 @@
+name: Test Action — validate monorepo
+
+# Validates that a monorepo branch (release/core-2.0.0) is previewed
+# correctly with project-scoped notes.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-validate-monorepo.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-validate-monorepo:
+    name: validate monorepo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up git history and monorepo config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/core
+          echo "# core" > packages/core/README.md
+          git add packages/core/README.md
+          git commit -m "feat(core): initial core package"
+
+          git tag core-1.0.0
+          git commit --allow-empty -m "feat(core): new feature for core"
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "core"
+          path = "packages/core"
+          tag-prefix = "core-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (validate monorepo)
+        id: releez
+        uses: ./
+        with:
+          mode: validate
+          branch: 'release/core-2.0.0'
+          post-comment: 'false'
+
+      - name: Assert outputs (validate monorepo)
+        env:
+          RELEASE_PREVIEW: ${{ steps.releez.outputs.release-preview }}
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [validate-monorepo]: $name"
+            else
+              echo "FAIL [validate-monorepo]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version"    "${{ steps.releez.outputs.release-version }}"    "core-2.0.0"
+          assert_eq "project"            "${{ steps.releez.outputs.project }}"             "core"
+          assert_eq "validation-status"  "${{ steps.releez.outputs.validation-status }}"  "success"
+
+          # Preview and notes should be non-empty (passed via env to avoid shell injection)
+          if [ -z "$RELEASE_PREVIEW" ]; then
+            echo "FAIL [validate-monorepo]: release-preview is empty"
+            fail=1
+          else
+            echo "OK [validate-monorepo]: release-preview (non-empty)"
+          fi
+
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "FAIL [validate-monorepo]: release-notes is empty"
+            fail=1
+          else
+            echo "OK [validate-monorepo]: release-notes (non-empty)"
+          fi
+
+          exit $fail
+        shell: bash

@@ -1,0 +1,107 @@
+name: Test Action — finalize single-repo
+
+# Verifies finalize mode detects the version, generates notes, and produces
+# version outputs without pushing tags (dry-run: true).
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-finalize-single-repo.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-finalize-dry-run-single-repo:
+    name: finalize dry-run single-repo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up git history
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+          git tag 1.0.0
+          git commit --allow-empty -m "feat: add new capability"
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (finalize dry-run)
+        id: releez
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/1.1.0'
+          is-full-release: 'true'
+          alias-versions: 'major'
+          dry-run: 'true'
+
+      - name: Assert outputs (finalize dry-run)
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [finalize-dry-run]: $name"
+            else
+              echo "FAIL [finalize-dry-run]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "1.1.0"
+          assert_eq "project"          "${{ steps.releez.outputs.project }}"           ""
+          assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '1.1.0\nv1')"
+          assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '1.1.0\nv1')"
+          assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
+
+          # Release notes should be non-empty (passed via env to avoid shell injection)
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "FAIL [finalize-dry-run]: release-notes is empty"
+            fail=1
+          else
+            echo "OK [finalize-dry-run]: release-notes (non-empty)"
+          fi
+
+          exit $fail
+        shell: bash

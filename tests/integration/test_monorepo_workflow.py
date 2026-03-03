@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from git import Repo
 
+from releez.cliff import GitCliff
 from releez.git_repo import detect_changed_projects, open_repo
 from releez.settings import ReleezSettings
 from releez.subproject import SubProject
@@ -14,6 +15,72 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import pytest
+
+
+_MINIMAL_CLIFF_TOML = """\
+[changelog]
+body = \"\"\"
+{% if version %}## [{{ version | trim_start_matches(pat="v") }}]\\
+{% else %}## [unreleased]{% endif %}
+\"\"\"
+trim = true
+render_always = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+]
+filter_commits = false
+"""
+
+
+def test_cliff_compute_next_version_first_monorepo_release(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    r"""Integration: git-cliff returns bare semver when no tags match tag-pattern.
+
+    When a monorepo project has no previous tags, git-cliff warns:
+      "No releases found, using 0.1.0 as the next version"
+    and then exits with an error because "0.1.0" doesn't match the prefixed
+    tag-pattern (e.g. ^core-([0-9]+\\.[0-9]+\\.[0-9]+)$).
+
+    GitCliff.compute_next_version() must recover the intended version ("0.1.0")
+    from stderr rather than propagating the error.
+
+    This is a regression test against git-cliff itself: if a future git-cliff
+    release changes this behavior (different message, different exit code, etc.),
+    this test will catch it before it silently breaks monorepo first releases.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / 'cliff.toml').write_text(_MINIMAL_CLIFF_TOML)
+
+    repo = Repo.init(tmp_path)
+    repo.config_writer().set_value('user', 'name', 'Test User').release()
+    repo.config_writer().set_value(
+        'user',
+        'email',
+        'test@example.com',
+    ).release()
+
+    (tmp_path / 'README.md').write_text('# core\n')
+    repo.index.add(['cliff.toml', 'README.md'])
+    repo.index.commit('feat(core): initial core package')
+    # Intentionally NO core-* tags — first release scenario
+
+    cliff = GitCliff(repo_root=tmp_path)
+    version = cliff.compute_next_version(
+        bump='auto',
+        tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
+    )
+
+    # git-cliff recovers "0.1.0" from its "No releases found" warning.
+    # The caller (_resolve_release_version) is responsible for prepending
+    # the tag prefix to produce the final "core-0.1.0" version.
+    assert version == '0.1.0'
 
 
 def test_monorepo_detect_and_release_workflow(

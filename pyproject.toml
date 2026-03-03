@@ -42,6 +42,7 @@ dev = [
   "pytest >=9.0.2, <10",
   "pytest-cov >=7.0.0, <8",
   "pytest-mock >=3.15.1, <4",
+  "pytest-xdist >=3.6.0, <4",
 ]
 
 [project.urls]
@@ -60,7 +61,8 @@ extend = ".codeguide/configs/ruff.toml"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/integration"]
+markers = ["action: GitHub Action tests run via act (require Docker)"]
 
 [tool.uv.build-backend]
 module-name = "releez"

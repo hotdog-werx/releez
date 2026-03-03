@@ -176,11 +176,19 @@ def _resolve_release_version(
     """
     if release_input.version_override is not None:
         return release_input.version_override
-    return cliff.compute_next_version(
+    version = cliff.compute_next_version(
         bump=release_input.bump,
         tag_pattern=release_input.tag_pattern,
         include_paths=release_input.include_paths,
     )
+    # git-cliff returns bare semver (e.g. "0.1.0") when no tags match the
+    # tag-pattern yet (first release of a new monorepo project). Prepend the
+    # prefix so callers always receive the fully-qualified version ("core-0.1.0").
+    if release_input.tag_prefix and not version.startswith(
+        release_input.tag_prefix,
+    ):
+        version = f'{release_input.tag_prefix}{version}'
+    return version
 
 
 def _format_changelog_if_requested(

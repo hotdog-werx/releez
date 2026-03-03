@@ -1,0 +1,196 @@
+name: Test Action — version-artifact format
+
+# Verifies version string formatting across all schemes and alias settings,
+# using version-override to skip git-cliff entirely.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-version-artifact-format.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Prerelease matrix ────────────────────────────────────────────────────────
+  #
+  # Covers all three prerelease types (alpha/beta/rc) across all three version
+  # schemes (semver/docker/pep440), using version-override to skip git-cliff.
+  test-version-artifact-prerelease:
+    name: version-artifact prerelease (${{ matrix.case }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - case: prerelease-beta
+            version-override: '2.0.0'
+            prerelease-type: 'beta'
+            prerelease-number: '123'
+            is-full-release: 'false'
+            alias-versions: 'none'
+            expect-semver: '2.0.0-beta123+456'
+            expect-docker: '2.0.0-beta123-456'
+            expect-pep440: '2.0.0b123.dev456'
+
+          - case: prerelease-alpha
+            version-override: '2.0.0'
+            prerelease-type: 'alpha'
+            prerelease-number: '234'
+            is-full-release: 'false'
+            alias-versions: 'none'
+            expect-semver: '2.0.0-alpha234+456'
+            expect-docker: '2.0.0-alpha234-456'
+            expect-pep440: '2.0.0a234.dev456'
+
+          - case: prerelease-rc
+            version-override: '3.1.0'
+            prerelease-type: 'rc'
+            prerelease-number: '7'
+            is-full-release: 'false'
+            alias-versions: 'none'
+            expect-semver: '3.1.0-rc7+456'
+            expect-docker: '3.1.0-rc7-456'
+            expect-pep440: '3.1.0rc7.dev456'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run action (${{ matrix.case }})
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          version-override: ${{ matrix.version-override }}
+          prerelease-type: ${{ matrix.prerelease-type }}
+          prerelease-number: ${{ matrix.prerelease-number }}
+          is-full-release: ${{ matrix.is-full-release }}
+          alias-versions: ${{ matrix.alias-versions }}
+
+      - name: Assert outputs (${{ matrix.case }})
+        env:
+          ACTUAL_SEMVER: ${{ steps.version.outputs.semver-versions }}
+          ACTUAL_DOCKER: ${{ steps.version.outputs.docker-versions }}
+          ACTUAL_PEP440: ${{ steps.version.outputs.pep440-versions }}
+          EXPECT_SEMVER: ${{ matrix.expect-semver }}
+          EXPECT_DOCKER: ${{ matrix.expect-docker }}
+          EXPECT_PEP440: ${{ matrix.expect-pep440 }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [${{ matrix.case }}]: $name"
+            else
+              echo "FAIL [${{ matrix.case }}]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "semver-versions" "$ACTUAL_SEMVER" "$EXPECT_SEMVER"
+          assert_eq "docker-versions" "$ACTUAL_DOCKER" "$EXPECT_DOCKER"
+          assert_eq "pep440-versions" "$ACTUAL_PEP440" "$EXPECT_PEP440"
+
+          exit $fail
+        shell: bash
+
+  # ── Full release alias matrix ────────────────────────────────────────────────
+  #
+  # Verifies alias-versions produces the correct extra tags for full releases,
+  # and that pep440 never includes aliases regardless of the setting.
+
+  test-version-artifact-full-release:
+    name: version-artifact full release (${{ matrix.case }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: full-release-no-alias
+            version-override: '1.2.3'
+            alias-versions: 'none'
+            expect-semver: '1.2.3'
+            expect-docker: '1.2.3'
+            expect-pep440: '1.2.3'
+
+          - case: full-release-major-alias
+            version-override: '2.0.0'
+            alias-versions: 'major'
+            expect-semver: |-
+              2.0.0
+              v2
+            expect-docker: |-
+              2.0.0
+              v2
+            expect-pep440: '2.0.0'
+
+          - case: full-release-minor-alias
+            version-override: '3.4.0'
+            alias-versions: 'minor'
+            expect-semver: |-
+              3.4.0
+              v3
+              v3.4
+            expect-docker: |-
+              3.4.0
+              v3
+              v3.4
+            expect-pep440: '3.4.0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run action (${{ matrix.case }})
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          version-override: ${{ matrix.version-override }}
+          is-full-release: 'true'
+          alias-versions: ${{ matrix.alias-versions }}
+
+      - name: Assert outputs (${{ matrix.case }})
+        env:
+          ACTUAL_SEMVER: ${{ steps.version.outputs.semver-versions }}
+          ACTUAL_DOCKER: ${{ steps.version.outputs.docker-versions }}
+          ACTUAL_PEP440: ${{ steps.version.outputs.pep440-versions }}
+          EXPECT_SEMVER: ${{ matrix.expect-semver }}
+          EXPECT_DOCKER: ${{ matrix.expect-docker }}
+          EXPECT_PEP440: ${{ matrix.expect-pep440 }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [${{ matrix.case }}]: $name"
+            else
+              echo "FAIL [${{ matrix.case }}]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "semver-versions" "$ACTUAL_SEMVER" "$EXPECT_SEMVER"
+          assert_eq "docker-versions" "$ACTUAL_DOCKER" "$EXPECT_DOCKER"
+          # pep440 never includes alias versions
+          assert_eq "pep440-versions" "$ACTUAL_PEP440" "$EXPECT_PEP440"
+
+          # Ordering guarantee: first line must always be the exact version, never an alias
+          assert_eq "semver-versions[0] is exact" "$(echo "$ACTUAL_SEMVER" | head -1)" "${{ matrix.version-override }}"
+          assert_eq "docker-versions[0] is exact" "$(echo "$ACTUAL_DOCKER" | head -1)" "${{ matrix.version-override }}"
+
+          exit $fail
+        shell: bash
