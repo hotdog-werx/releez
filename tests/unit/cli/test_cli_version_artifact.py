@@ -174,6 +174,8 @@ def test_cli_version_artifact_pep440_without_aliases(
             '--version-override',
             '1.2.3',
             '--is-full-release',
+            '--alias-versions',
+            'none',
         ],
     )
 
@@ -322,6 +324,8 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
             '--version-override',
             '1.2.3',
             '--is-full-release',
+            '--alias-versions',
+            'none',
         ],
     )
 
