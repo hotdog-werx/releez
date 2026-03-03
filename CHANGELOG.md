@@ -1,3 +1,11 @@
+## [0.3.1] - 2026-03-03
+
+### 🐛 Bug Fixes
+
+- _(action)_ Generate release notes before tagging (#28) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#28](https://github.com/hotdog-werx/releez/pull/28)
+
 ## [0.3.0] - 2026-03-02
 
 ### 🚀 Features
