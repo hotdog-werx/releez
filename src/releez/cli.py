@@ -623,7 +623,6 @@ def _build_release_start_input_project(
         github_token=options.github_token,
         dry_run=options.dry_run,
         project_name=project.name,
-        tag_pattern=project.tag_pattern,
         include_paths=_project_include_paths(
             project=project,
             repo_root=repo_root,

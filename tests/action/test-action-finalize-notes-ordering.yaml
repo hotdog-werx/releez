@@ -1,0 +1,129 @@
+name: Test Action — finalize notes ordering
+
+# Regression: verifies that release-notes is non-empty even when dry-run is
+# false (i.e. when the tag is actually created). The bug: notes were previously
+# generated AFTER tag creation, so git-cliff --unreleased returned nothing
+# because all commits were already tagged. The fix moves notes generation
+# before tagging.
+#
+# Uses a local bare repo as the remote so git push succeeds without GitHub.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-finalize-notes-ordering.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-finalize-notes-before-tagging:
+    name: finalize notes non-empty after real tag creation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up git with local remote
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          # Local bare repo to receive tag pushes (stands in for GitHub remote).
+          # Clone instead of init+push to avoid "shallow update not allowed" when
+          # act copies a shallow CI checkout into the container.
+          git clone --bare . /tmp/origin
+          git remote set-url origin /tmp/origin
+
+          # Baseline tagged release
+          git tag 1.0.0
+          git commit --allow-empty -m "feat: add new capability"
+
+          # Push the new commit so the upcoming 1.1.0 tag can be pushed to origin
+          git push origin HEAD:master
+        shell: bash
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (finalize non-dry-run)
+        id: releez
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/1.1.0'
+          is-full-release: 'true'
+          alias-versions: 'none'
+          dry-run: 'false'
+
+      - name: Assert outputs
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [notes-ordering]: $name"
+            else
+              echo "FAIL [notes-ordering]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "1.1.0"
+
+          # Regression: notes must be non-empty even when the tag is actually
+          # created (dry-run: false). If notes were generated after tagging,
+          # git-cliff --unreleased would find no commits and return nothing.
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "FAIL [notes-ordering]: release-notes is empty (were notes generated after tagging?)"
+            fail=1
+          else
+            echo "OK [notes-ordering]: release-notes non-empty"
+          fi
+
+          # Confirm the tag was really created (not a no-op dry-run)
+          if git tag -l | grep -q '^1\.1\.0$'; then
+            echo "OK [notes-ordering]: tag 1.1.0 exists"
+          else
+            echo "FAIL [notes-ordering]: tag 1.1.0 not found"
+            fail=1
+          fi
+
+          exit $fail
+        shell: bash

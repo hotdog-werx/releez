@@ -1,0 +1,58 @@
+name: Test Action — version-artifact pre-installed uv
+
+# Verifies the action works when uv is already present — the action must skip
+# installation rather than reinstalling.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-version-artifact-install.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-version-artifact-preinstalled-uv:
+    name: version-artifact preinstalled uv
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Pre-install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run action (preinstalled-uv)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          version-override: '3.0.0'
+          prerelease-type: 'rc'
+          prerelease-number: '7'
+          is-full-release: 'false'
+          alias-versions: 'none'
+
+      - name: Assert outputs (preinstalled-uv)
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [preinstalled-uv]: $name"
+            else
+              echo "FAIL [preinstalled-uv]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "semver-versions" "${{ steps.version.outputs.semver-versions }}" "3.0.0-rc7+456"
+          assert_eq "docker-versions" "${{ steps.version.outputs.docker-versions }}" "3.0.0-rc7-456"
+          assert_eq "pep440-versions" "${{ steps.version.outputs.pep440-versions }}" "3.0.0rc7.dev456"
+
+          exit $fail
+        shell: bash

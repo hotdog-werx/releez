@@ -17,4 +17,4 @@ pre-push:
       run: mise exec -- poe check-complexity
 
     - name: python coverage
-      run: mise exec -- poe check-coverage
+      run: mise exec -- poe check-coverage -- --ignore tests/action/

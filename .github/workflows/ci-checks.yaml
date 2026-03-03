@@ -79,7 +79,7 @@ jobs:
 
       - name: Run coverage check
         if: always() && !cancelled()
-        run: poe check-coverage
+        run: poe check-coverage -- --ignore tests/action/
 
       - name: Generate coverage XML report
         if: always() && !cancelled()
@@ -102,12 +102,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install mise tools
         uses: jdx/mise-action@v3
 
       - name: Sync with pkglink
         run: pkglink sync
+
+      - name: Install python dependencies
+        run: uv sync --all-groups
 
       - name: Create local branch for act (avoids detached HEAD warnings)
         run: git checkout -b ci-act-ref

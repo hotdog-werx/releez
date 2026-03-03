@@ -60,7 +60,8 @@ extend = ".codeguide/configs/ruff.toml"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/integration"]
+markers = ["action: GitHub Action tests run via act (require Docker)"]
 
 [tool.uv.build-backend]
 module-name = "releez"

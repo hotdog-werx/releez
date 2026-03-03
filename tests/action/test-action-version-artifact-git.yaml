@@ -1,0 +1,119 @@
+name: Test Action — version-artifact git detection
+
+# Verifies that the action can derive the version from git history (no
+# version-override), and that detect-from-branch extracts the version from
+# the release branch name.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-version-artifact-git.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Git-based version detection ──────────────────────────────────────────────
+  #
+  # Creates a git tag and a feat commit, then lets git-cliff auto-bump the
+  # minor version. No version-override — the action must derive the base
+  # version from git history.
+  test-version-artifact-git-detection:
+    name: version-artifact git detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up git and create baseline tag
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+          git tag 100.0.0
+          git commit --allow-empty -m "feat: trigger minor bump"
+        shell: bash
+
+      - name: Run action (git-detection, prerelease)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          prerelease-type: 'rc'
+          prerelease-number: '1'
+          is-full-release: 'false'
+          alias-versions: 'none'
+
+      - name: Assert outputs (git-detection)
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [git-detection]: $name"
+            else
+              echo "FAIL [git-detection]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          # feat commit since 100.0.0 → git-cliff bumps minor → 100.1.0
+          assert_eq "semver-versions" "${{ steps.version.outputs.semver-versions }}" "100.1.0-rc1+456"
+          assert_eq "docker-versions" "${{ steps.version.outputs.docker-versions }}" "100.1.0-rc1-456"
+          assert_eq "pep440-versions" "${{ steps.version.outputs.pep440-versions }}" "100.1.0rc1.dev456"
+
+          exit $fail
+        shell: bash
+
+  # ── Detect from release branch ───────────────────────────────────────────────
+  #
+  # Simulates being on a release/2.3.4 branch. The action detects the version
+  # from the branch name and formats it as a full release.
+
+  test-version-artifact-detect-from-branch:
+    name: version-artifact detect-from-branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run action (detect-from-branch)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          detect-from-branch: 'true'
+          branch: 'release/5.6.7'
+          is-full-release: 'true'
+          alias-versions: 'major'
+
+      - name: Assert outputs (detect-from-branch)
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [detect-from-branch]: $name"
+            else
+              echo "FAIL [detect-from-branch]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version"  "${{ steps.version.outputs.release-version }}"  "5.6.7"
+          assert_eq "semver-versions"  "${{ steps.version.outputs.semver-versions }}"  "$(printf '5.6.7\nv5')"
+          assert_eq "docker-versions"  "${{ steps.version.outputs.docker-versions }}"  "$(printf '5.6.7\nv5')"
+          assert_eq "pep440-versions"  "${{ steps.version.outputs.pep440-versions }}"  "5.6.7"
+
+          exit $fail
+        shell: bash

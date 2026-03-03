@@ -204,22 +204,6 @@ runs:
         echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
         echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
 
-    - name: '[finalize] Create release tags'
-      if: inputs.mode == 'finalize' && inputs.dry-run != 'true'
-      env:
-        FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
-      shell: bash
-      run: |
-        PROJECT_FLAG=""
-        if [ -n "$FINALIZE_PROJECT" ]; then
-          PROJECT_FLAG="--project $FINALIZE_PROJECT"
-        fi
-        # shellcheck disable=SC2086
-        releez release tag \
-          --version-override "${{ steps.finalize-detect.outputs.version }}" \
-          --alias-versions "${{ inputs.alias-versions }}" \
-          $PROJECT_FLAG
-
     - name: '[finalize] Generate release notes'
       id: finalize-notes
       if: inputs.mode == 'finalize'
@@ -240,6 +224,22 @@ runs:
           echo "$NOTES"
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
+
+    - name: '[finalize] Create release tags'
+      if: inputs.mode == 'finalize' && inputs.dry-run != 'true'
+      env:
+        FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
+      shell: bash
+      run: |
+        PROJECT_FLAG=""
+        if [ -n "$FINALIZE_PROJECT" ]; then
+          PROJECT_FLAG="--project $FINALIZE_PROJECT"
+        fi
+        # shellcheck disable=SC2086
+        releez release tag \
+          --version-override "${{ steps.finalize-detect.outputs.version }}" \
+          --alias-versions "${{ inputs.alias-versions }}" \
+          $PROJECT_FLAG
 
     - name: '[finalize] Compute artifact versions'
       id: finalize-versions

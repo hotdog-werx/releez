@@ -376,6 +376,11 @@ post-changelog = [
 
 ### Detect Changed Projects
 
+#### Matrix Strategy (Homogeneous Stacks)
+
+When all projects use the same tech stack, use the `include` matrix output to
+fan out jobs automatically:
+
 ```yaml
 name: Build Changed Projects
 
@@ -407,6 +412,48 @@ jobs:
       - name: Build ${{ matrix.project }}
         run: echo "Building ${{ matrix.project }}"
 ```
+
+#### Conditional Jobs per Project (Polyglot Stacks)
+
+When projects use different tech stacks, emit the `projects` JSON array and use
+`contains(fromJSON(...))` to gate each job:
+
+```yaml
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.detect.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv tool install releez
+
+      - id: detect
+        run: |
+          CHANGED=$(releez projects changed --format json)
+          echo "projects=$(echo "$CHANGED" | jq -c '.projects')" >> $GITHUB_OUTPUT
+
+  check-core:
+    needs: detect
+    if: contains(fromJSON(needs.detect.outputs.projects), 'core')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pytest packages/core
+
+  check-ui:
+    needs: detect
+    if: contains(fromJSON(needs.detect.outputs.projects), 'ui')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test --prefix packages/ui
+```
+
+> **Pitfall**: Use `contains(fromJSON(outputs.projects), 'core')`, **not**
+> `contains(outputs.projects, 'core')`. The latter does substring matching on
+> the raw JSON string — `'core'` would incorrectly match `"core-ui"` too.
 
 ### Version Artifacts for Changed Projects
 
