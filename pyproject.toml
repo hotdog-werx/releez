@@ -3,7 +3,7 @@ name = "releez"
 description = "CLI tool for helping to manage release processes."
 readme = "README.md"
 requires-python = ">=3.11"
-version = "0.3.1"
+version = "0.3.2"
 license = "MIT"
 authors = [{ name = "James Trousdale" }]
 keywords = [
@@ -69,7 +69,7 @@ module-root = "src"
 
 [tool.releez]
 create-pr = true
-alias-tags = "major"
+alias-versions = "major"
 
 [tool.releez.hooks]
 post-changelog = [
