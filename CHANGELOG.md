@@ -1,3 +1,11 @@
+## [0.3.3] - 2026-03-03
+
+### 🐛 Bug Fixes
+
+- _(action)_ Make sure action doesn't clobber alias-versions setting (#31) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#31](https://github.com/hotdog-werx/releez/pull/31)
+
 ## [0.3.2] - 2026-03-03
 
 ### 🐛 Bug Fixes
