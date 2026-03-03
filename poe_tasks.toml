@@ -22,8 +22,8 @@ check-actionlint.sequence = [
   { shell = "actionlint tests/action/*.yaml" },
 ]
 
-test-action.help = "run all GitHub Action tests via pytest in parallel (requires Docker / act)"
-test-action.cmd = "pytest tests/action/ -v -n 2"
+test-action.help = "run all GitHub Action tests via pytest (requires Docker / act)"
+test-action.cmd = "pytest tests/action/ -v"
 
 # doc tasks
 # Development server for docs
