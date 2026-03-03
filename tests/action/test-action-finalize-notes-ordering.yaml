@@ -30,17 +30,17 @@ jobs:
           git config user.email "test@example.com"
           git config user.name "Test"
 
-          # Local bare repo to receive tag pushes (stands in for GitHub remote)
-          # actions/checkout already configures origin, so use set-url not add
-          git init --bare /tmp/origin
+          # Local bare repo to receive tag pushes (stands in for GitHub remote).
+          # Clone instead of init+push to avoid "shallow update not allowed" when
+          # act copies a shallow CI checkout into the container.
+          git clone --bare . /tmp/origin
           git remote set-url origin /tmp/origin
-          git push origin HEAD:master
 
           # Baseline tagged release
           git tag 1.0.0
           git commit --allow-empty -m "feat: add new capability"
 
-          # Push commits so the upcoming 1.1.0 tag can be pushed to origin
+          # Push the new commit so the upcoming 1.1.0 tag can be pushed to origin
           git push origin HEAD:master
         shell: bash
 
