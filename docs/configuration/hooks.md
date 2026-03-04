@@ -20,10 +20,10 @@ post-changelog = [
 ]
 ```
 
-Or in `releez.toml`:
+Or in `releez.toml` (same table structure as `pyproject.toml`):
 
 ```toml
-[hooks]
+[tool.releez.hooks]
 post-changelog = [
   ["uv", "version", "{version}"],
   ["prettier", "--write", "{changelog}"],
