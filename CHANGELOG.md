@@ -1,3 +1,11 @@
+## [0.3.4] - 2026-03-04
+
+### 🐛 Bug Fixes
+
+- Make releez.toml config paths the same as pyproject (#33) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#33](https://github.com/hotdog-werx/releez/pull/33)
+
 ## [0.3.3] - 2026-03-03
 
 ### 🐛 Bug Fixes
