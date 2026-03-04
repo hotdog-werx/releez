@@ -65,17 +65,25 @@ post-changelog = [
 ### `releez.toml`
 
 ```toml
-base_branch = "main"
-git_remote = "origin"
-alias_versions = "minor"
-create_pr = true
+[tool.releez]
+base-branch = "main"
+git-remote = "origin"
+alias-versions = "minor"
+create-pr = true
 
-[hooks]
+[tool.releez.hooks]
 post-changelog = [
   ["uv", "version", "{version}"],
   ["prettier", "--write", "{changelog}"],
 ]
 ```
+
+The table structure mirrors `pyproject.toml` exactly — you can copy a
+`[tool.releez]` block between files unchanged.
+
+!!! note "Legacy flat format" Older `releez.toml` files with top-level keys (no
+`[tool.releez]` header) still work but emit a deprecation warning. Move your
+settings under `[tool.releez]` to silence it.
 
 ### Environment variables
 
