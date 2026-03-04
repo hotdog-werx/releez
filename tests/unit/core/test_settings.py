@@ -27,7 +27,22 @@ def test_settings_reads_pyproject_tool_releez_kebab_case(
     assert settings.git_remote == 'upstream'
 
 
-def test_settings_reads_releez_toml(
+def test_settings_reads_releez_toml_tool_releez_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'releez.toml').write_text(
+        '[tool.releez]\nalias-versions = "minor"\ngit-remote = "upstream"\n',
+        encoding='utf-8',
+    )
+
+    settings = ReleezSettings()
+    assert settings.alias_versions == AliasVersions.minor
+    assert settings.git_remote == 'upstream'
+
+
+def test_settings_reads_releez_toml_flat_legacy_warns(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -37,8 +52,14 @@ def test_settings_reads_releez_toml(
         encoding='utf-8',
     )
 
-    settings = ReleezSettings()
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        settings = ReleezSettings()
+
     assert settings.alias_versions == AliasVersions.minor
+    assert any(
+        issubclass(warning.category, DeprecationWarning) and 'tool.releez' in str(warning.message) for warning in w
+    )
 
 
 def test_settings_reads_env_vars(

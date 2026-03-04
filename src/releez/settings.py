@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 
 from pydantic import (
     AliasChoices,
@@ -19,6 +20,52 @@ from pydantic_settings import (
 )
 
 from releez.version_tags import AliasVersions
+
+
+class _ReleezTomlConfigSettingsSource(TomlConfigSettingsSource):
+    """Load settings from releez.toml, navigating into [tool.releez] if present.
+
+    Preferred format (mirrors pyproject.toml):
+        [tool.releez]
+        base-branch = "main"
+
+    Legacy flat format (deprecated):
+        base-branch = "main"
+    """
+
+    _TABLE_HEADER: tuple[str, ...] = ('tool', 'releez')
+
+    def __init__(self, settings_cls: type[BaseSettings]) -> None:
+        self.toml_file_path = Path('releez.toml')
+        raw_data: dict[str, object] = self._read_files(self.toml_file_path)
+
+        data = raw_data
+        found = True
+        for key in self._TABLE_HEADER:
+            if isinstance(data, dict) and key in data:
+                data = data[key]
+            else:
+                found = False
+                break
+
+        if not found:
+            if raw_data:
+                warnings.warn(
+                    'releez.toml: top-level configuration is deprecated. '
+                    'Nest your settings under [tool.releez]:\n\n'
+                    '  [tool.releez]\n'
+                    '  base-branch = "main"\n\n'
+                    'Top-level configuration will be removed in a future release.',
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            data = raw_data
+
+        self.toml_data = data
+        super(TomlConfigSettingsSource, self).__init__(
+            settings_cls,
+            self.toml_data,
+        )
 
 
 def _to_kebab(name: str) -> str:
@@ -168,10 +215,7 @@ class ReleezSettings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Customize settings sources for Releez."""
         _ = (dotenv_settings, file_secret_settings)
-        releez_toml = TomlConfigSettingsSource(
-            settings_cls,
-            toml_file='releez.toml',
-        )
+        releez_toml = _ReleezTomlConfigSettingsSource(settings_cls)
         pyproject_toml = PyprojectTomlConfigSettingsSource(settings_cls)
         return (
             init_settings,
