@@ -292,8 +292,31 @@ class GitCliff:
         config = _build_validation_config(cliff_toml)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            cfg = Path(tmp_dir) / 'cliff-validate.toml'
+            tmp = Path(tmp_dir)
+            cfg = tmp / 'cliff-validate.toml'
             cfg.write_bytes(tomli_w.dumps(config).encode())
+
+            # Run git-cliff in a fresh git repo so real history doesn't interfere.
+            # Without this, git-cliff processes all unreleased commits in the project
+            # repo and any non-conventional commit (e.g. a CI merge commit from a
+            # shallow checkout) causes a false failure via fail_on_unmatched_commit.
+            run_checked(['git', 'init', str(tmp)], cwd=tmp)
+            run_checked(
+                ['git', '-C', str(tmp), 'config', 'user.email', 'x@x.x'],
+            )
+            run_checked(['git', '-C', str(tmp), 'config', 'user.name', 'x'])
+            run_checked(
+                [
+                    'git',
+                    '-C',
+                    str(tmp),
+                    'commit',
+                    '--allow-empty',
+                    '-m',
+                    'chore: init',
+                ],
+            )
+
             try:
                 run_checked(
                     [
@@ -304,7 +327,7 @@ class GitCliff:
                         '--config',
                         str(cfg),
                     ],
-                    cwd=self._repo_root,
+                    cwd=tmp,
                 )
                 return CommitValidationResult(
                     valid=True,

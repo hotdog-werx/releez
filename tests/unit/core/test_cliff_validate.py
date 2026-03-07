@@ -188,12 +188,10 @@ def test_validate_returns_invalid_on_nonzero_exit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _fail(*_a: object, **_kw: object) -> str:
-        raise ExternalCommandError(
-            cmd_args=['git-cliff'],
-            returncode=101,
-            stderr='',
-        )
+    def _fail(cmd: list[str], **_kw: object) -> str:
+        if 'git-cliff' in cmd[0]:
+            raise ExternalCommandError(cmd_args=cmd, returncode=101, stderr='')
+        return ''
 
     monkeypatch.setattr(releez.cliff, 'run_checked', _fail)
     cliff = _make_cliff(tmp_path, monkeypatch)
@@ -217,8 +215,10 @@ def test_validate_passes_with_commit_and_config_flags(
     cliff = _make_cliff(tmp_path, monkeypatch)
     cliff.validate_commit_message('feat: test')
 
-    assert len(captured) == 1
-    cmd = captured[0]
+    # Find the git-cliff call (others are git setup commands for the temp repo)
+    cliff_calls = [cmd for cmd in captured if 'git-cliff' in cmd[0]]
+    assert len(cliff_calls) == 1
+    cmd = cliff_calls[0]
     assert '--with-commit' in cmd
     assert 'feat: test' in cmd
     assert '--config' in cmd
