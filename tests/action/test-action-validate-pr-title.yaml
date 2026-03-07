@@ -1,0 +1,168 @@
+name: Test Action — validate-pr-title mode
+
+# Tests the validate-pr-title action mode, which runs
+# `releez validate commit-message "<pr-title>"` against the repo's cliff.toml.
+#
+# Two jobs:
+#   1. valid title → action exits 0
+#   2. invalid title → action exits 1 (asserted via continue-on-error)
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-validate-pr-title.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Valid PR title ──────────────────────────────────────────────────────────
+  #
+  # "feat: add new endpoint" matches the ^feat parser → action must exit 0.
+  test-valid-pr-title:
+    name: valid PR title exits 0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (valid title)
+        id: releez
+        uses: ./
+        with:
+          mode: validate-pr-title
+          pr-title: 'feat: add new endpoint'
+
+      - name: Assert action succeeded
+        run: |
+          if [ "${{ steps.releez.outcome }}" = "success" ]; then
+            echo "OK [validate-pr-title]: valid title correctly accepted"
+          else
+            echo "FAIL [validate-pr-title]: valid title was unexpectedly rejected"
+            exit 1
+          fi
+        shell: bash
+
+  # ── Invalid PR title ────────────────────────────────────────────────────────
+  #
+  # "half-done something" matches no parser → action must exit 1.
+
+  test-invalid-pr-title:
+    name: invalid PR title exits 1
+    needs: [test-valid-pr-title]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (invalid title — expect failure)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: validate-pr-title
+          pr-title: 'half-done something'
+
+      - name: Assert action failed
+        run: |
+          if [ "${{ steps.bad.outcome }}" = "failure" ]; then
+            echo "OK [validate-pr-title]: invalid title correctly rejected"
+          else
+            echo "FAIL [validate-pr-title]: invalid title should have been rejected but outcome was ${{ steps.bad.outcome }}"
+            exit 1
+          fi
+        shell: bash
+
+  # ── skip=true parser is valid ───────────────────────────────────────────────
+  #
+  # "chore(release): 1.2.3" matches a skip=true parser — it must still exit 0
+  # (skip=true means "omit from changelog", not "reject").
+
+  test-skip-parser-is-valid:
+    name: skip=true PR title exits 0
+    needs: [test-invalid-pr-title]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (skip=true title)
+        id: releez
+        uses: ./
+        with:
+          mode: validate-pr-title
+          pr-title: 'chore(release): 1.2.3'
+
+      - name: Assert action succeeded
+        run: |
+          if [ "${{ steps.releez.outcome }}" = "success" ]; then
+            echo "OK [validate-pr-title]: skip=true title correctly accepted"
+          else
+            echo "FAIL [validate-pr-title]: skip=true title was unexpectedly rejected"
+            exit 1
+          fi
+        shell: bash

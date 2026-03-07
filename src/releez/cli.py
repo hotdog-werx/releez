@@ -1919,10 +1919,34 @@ def projects_info(
             typer.echo(f'    - {" ".join(hook)}')
 
 
+validate_app = typer.Typer(
+    help='Validate commit messages against cliff.toml rules.',
+)
+
+
+@validate_app.command('commit-message')
+def validate_commit_message(
+    message: Annotated[str, typer.Argument(help='Commit message to validate.')],
+) -> None:
+    """Check if a commit message matches a configured commit parser.
+
+    Exits 0 if valid, 1 if the message does not match any parser.
+    Useful for validating PR titles before merge.
+    """
+    _, repo_info = open_repo()
+    result = GitCliff(repo_root=repo_info.root).validate_commit_message(message)
+    if result.valid:
+        typer.secho(f'✓ {result.reason}', fg=typer.colors.GREEN)
+    else:
+        typer.secho(f'✗ {result.reason}', err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
 app.add_typer(release_app, name='release')
 app.add_typer(version_app, name='version')
 app.add_typer(changelog_app, name='changelog')
 app.add_typer(projects_app, name='projects')
+app.add_typer(validate_app, name='validate')
 
 
 def main() -> None:

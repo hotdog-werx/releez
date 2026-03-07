@@ -5,6 +5,50 @@ the image name / registry / environment, and ship.
 
 ---
 
+## Recipe 0 — Validate PR titles against cliff.toml
+
+Enforce that every PR title follows the project's `cliff.toml` commit parsers
+before it can be merged. Because `releez validate commit-message` reads the same
+config used at release time, adding a new type to `cliff.toml` immediately
+unblocks that type as a PR title — no separate validator list to maintain.
+
+```yaml
+# .github/workflows/validate-pr-title.yaml
+name: Validate PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hotdog-werx/releez@v0
+        with:
+          mode: validate-pr-title
+          pr-title: ${{ github.event.pull_request.title }}
+```
+
+**What counts as valid**:
+
+- Any type configured as a named parser in `cliff.toml`: `feat`, `fix`, `chore`,
+  `ci`, etc.
+- `skip = true` parsers (e.g. `chore(release): 1.2.3`) are also valid
+- Breaking-change markers are accepted: `feat!:`, `fix(api)!:`
+- Scoped variants: `feat(scope):`, `fix(api):`
+
+**What is invalid**:
+
+- Any unrecognised type not present in `cliff.toml` (e.g. `wip:`, `docs:` if not
+  configured)
+- Non-conventional format: `WIP`, `half-done something`
+- Wrong case: `FEAT:`, `Fix:`
+
+---
+
 ## Core concepts
 
 | Mode               | When to use                             | Key outputs                                                       |

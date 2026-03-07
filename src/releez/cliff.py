@@ -5,9 +5,12 @@ import re
 import shutil
 import sysconfig
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+import tomli_w
 
 from releez.errors import (
     ExternalCommandError,
@@ -28,6 +31,41 @@ class ReleaseNotes:
 
     version: str
     markdown: str
+
+
+@dataclass(frozen=True)
+class CommitValidationResult:
+    """Result of validating a commit message against the project's cliff.toml parsers."""
+
+    valid: bool
+    reason: str
+
+
+def _build_validation_config(cliff_toml_path: Path) -> dict[str, object]:
+    """Build a cliff.toml config dict suitable for commit message validation.
+
+    Reads the project's cliff.toml and applies three overrides to [git]:
+      - filter_unconventional = False  (non-conventional commits reach parsers)
+      - fail_on_unmatched_commit = True (unmatched commit → non-zero exit)
+      - removes catch-all parsers (message = ".*") so they don't swallow invalid msgs
+
+    Returns the modified config dict (ready for tomli_w.dumps()).
+    """
+    with cliff_toml_path.open('rb') as f:
+        config: dict[str, object] = tomllib.load(f)
+
+    git = config.setdefault('git', {})
+    if not isinstance(git, dict):
+        msg = f'Expected [git] to be a table, got {type(git).__name__}'
+        raise TypeError(msg)
+    git['filter_unconventional'] = False
+    git['fail_on_unmatched_commit'] = True
+    parsers = git.get('commit_parsers', [])
+    if not isinstance(parsers, list):
+        msg = f'Expected commit_parsers to be an array, got {type(parsers).__name__}'
+        raise TypeError(msg)
+    git['commit_parsers'] = [p for p in parsers if p.get('message') != '.*']
+    return config
 
 
 def _git_cliff_base_cmd() -> list[str]:
@@ -239,6 +277,44 @@ class GitCliff:
             cwd=self._repo_root,
             capture_stdout=False,
         )
+
+    def validate_commit_message(self, message: str) -> CommitValidationResult:
+        """Check if a commit message matches a parser in the project's cliff.toml.
+
+        Generates a temp cliff.toml from the real config with validation-safe overrides
+        (fail_on_unmatched_commit=True, filter_unconventional=False, no catch-all parsers)
+        and runs git-cliff --with-commit against it.
+
+        skip=true parsers still exit 0 — e.g. chore(release): 1.2.3 is a valid PR title.
+        Any non-zero exit (including git-cliff panics on unmatched commits) is invalid.
+        """
+        cliff_toml = self._repo_root / 'cliff.toml'
+        config = _build_validation_config(cliff_toml)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cfg = Path(tmp_dir) / 'cliff-validate.toml'
+            cfg.write_bytes(tomli_w.dumps(config).encode())
+            try:
+                run_checked(
+                    [
+                        *self._cmd,
+                        '--unreleased',
+                        '--with-commit',
+                        message,
+                        '--config',
+                        str(cfg),
+                    ],
+                    cwd=self._repo_root,
+                )
+                return CommitValidationResult(
+                    valid=True,
+                    reason='Valid: matches a commit parser',
+                )
+            except ExternalCommandError:
+                return CommitValidationResult(
+                    valid=False,
+                    reason='Invalid: does not match any commit parser (expected: type(scope?): subject)',
+                )
 
     def regenerate_changelog(
         self,
