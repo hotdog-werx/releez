@@ -47,7 +47,13 @@ def _build_validation_config(cliff_toml_path: Path) -> dict[str, object]:
     Reads the project's cliff.toml and applies three overrides to [git]:
       - filter_unconventional = False  (non-conventional commits reach parsers)
       - fail_on_unmatched_commit = True (unmatched commit → non-zero exit)
-      - removes catch-all parsers (message = ".*") so they don't swallow invalid msgs
+      - removes catch-all parsers (message = ".*")
+
+    The catch-all removal is necessary because our filter_unconventional=False
+    override causes ".*" to match *any* raw commit message — including completely
+    non-conventional text like "half-done something".  Keeping ".*" would make
+    validation a no-op.  Stripping it preserves the intent of the project's
+    explicit parser list without silently bypassing the check.
 
     Returns the modified config dict (ready for tomli_w.dumps()).
     """

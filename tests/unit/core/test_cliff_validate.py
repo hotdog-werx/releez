@@ -73,6 +73,9 @@ def test_forces_fail_on_unmatched_commit_true(tmp_path: Path) -> None:
 
 
 def test_removes_catchall_parser(tmp_path: Path) -> None:
+    # ".*" must be stripped: our filter_unconventional=False override causes it
+    # to match *any* raw text (including "half-done something"), making
+    # validation a no-op if kept.
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
     parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
     assert not any(p.get('message') == '.*' for p in parsers)
@@ -116,6 +119,21 @@ def test_no_parsers_in_source_stays_empty(tmp_path: Path) -> None:
     assert cfg['git']['commit_parsers'] == []  # type: ignore[index]
 
 
+def test_multiple_catchalls_all_removed(tmp_path: Path) -> None:
+    toml = (
+        '[git]\n'
+        'commit_parsers = [\n'
+        '  { message = "^feat", group = "Features" },\n'
+        '  { message = ".*", group = "Other1" },\n'
+        '  { message = ".*", group = "Other2" },\n'
+        ']\n'
+    )
+    cfg = _build_validation_config(_write_cliff_toml(tmp_path, toml))
+    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
+    assert len(parsers) == 1
+    assert parsers[0]['message'] == '^feat'
+
+
 def test_raises_type_error_if_git_is_not_a_dict(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -139,21 +157,6 @@ def test_raises_type_error_if_commit_parsers_is_not_a_list(
         match='Expected commit_parsers to be an array',
     ):
         _build_validation_config(_write_cliff_toml(tmp_path))
-
-
-def test_multiple_catchalls_all_removed(tmp_path: Path) -> None:
-    toml = (
-        '[git]\n'
-        'commit_parsers = [\n'
-        '  { message = "^feat", group = "Features" },\n'
-        '  { message = ".*", group = "Other1" },\n'
-        '  { message = ".*", group = "Other2" },\n'
-        ']\n'
-    )
-    cfg = _build_validation_config(_write_cliff_toml(tmp_path, toml))
-    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
-    assert len(parsers) == 1
-    assert parsers[0]['message'] == '^feat'
 
 
 # ---------------------------------------------------------------------------
