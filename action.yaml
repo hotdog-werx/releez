@@ -13,7 +13,7 @@ inputs:
         finalize         — Create tags and emit version outputs after a release PR is merged
         validate         — Preview and validate a release PR before merge
         version-artifact — Compute artifact versions for build pipelines
-        validate-pr-title — Check a PR title against cliff.toml commit parsers
+        validate-commit  — Check a commit message against cliff.toml commit parsers
     required: true
 
   # ── Common inputs ──────────────────────────────────────────────────────────
@@ -59,10 +59,10 @@ inputs:
     required: false
     default: 'false'
 
-  # ── Validate-PR-title mode inputs ─────────────────────────────────────────
+  # ── Validate-commit mode inputs ────────────────────────────────────────────
 
-  pr-title:
-    description: '[validate-pr-title] Commit message / PR title to validate against cliff.toml parsers.'
+  commit-message:
+    description: '[validate-commit] Commit message to validate against cliff.toml parsers.'
     required: false
     default: ''
 
@@ -194,9 +194,9 @@ runs:
       shell: bash
       run: |
         case "${{ inputs.mode }}" in
-          finalize|validate|version-artifact|validate-pr-title) ;;
+          finalize|validate|version-artifact|validate-commit) ;;
           *)
-            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: finalize, validate, version-artifact, or validate-pr-title" >&2
+            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: finalize, validate, version-artifact, or validate-commit" >&2
             exit 1
             ;;
         esac
@@ -440,12 +440,12 @@ runs:
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 
-    # ── VALIDATE-PR-TITLE MODE ───────────────────────────────────────────────
+    # ── VALIDATE-COMMIT MODE ─────────────────────────────────────────────────
 
-    - name: '[validate-pr-title] Validate PR title against cliff.toml parsers'
-      if: inputs.mode == 'validate-pr-title'
+    - name: '[validate-commit] Validate commit message against cliff.toml parsers'
+      if: inputs.mode == 'validate-commit'
       shell: bash
-      run: releez validate commit-message "${{ inputs.pr-title }}"
+      run: releez validate commit-message "${{ inputs.commit-message }}"
 
     # ── AGGREGATE OUTPUTS ────────────────────────────────────────────────────
 
@@ -503,7 +503,7 @@ runs:
               [ -n "$JSON_PROJECT" ] && PROJECT="$JSON_PROJECT"
             fi
             ;;
-          validate-pr-title)
+          validate-commit)
             VERSION=""
             PROJECT=""
             VERSIONS_JSON=""

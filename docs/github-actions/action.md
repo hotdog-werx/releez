@@ -19,7 +19,7 @@ CLI version are always identical — version drift is impossible by construction
   - [finalize](#finalize)
   - [validate](#validate)
   - [version-artifact](#version-artifact)
-  - [validate-pr-title](#validate-pr-title)
+  - [validate-commit](#validate-commit)
 - [Monorepo support](#monorepo-support)
 - [Workflow recipes](#workflow-recipes)
 
@@ -27,12 +27,12 @@ CLI version are always identical — version drift is impossible by construction
 
 ## Modes
 
-| Mode                                      | Typical trigger                    | Purpose                                                       |
-| ----------------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
-| [`finalize`](#finalize)                   | Release PR merged to main          | Create git tags, generate release notes, emit version outputs |
-| [`validate`](#validate)                   | PR opened / updated on `release/*` | Dry-run the release, post a preview comment on the PR         |
-| [`version-artifact`](#version-artifact)   | Any push or PR                     | Compute artifact version strings (semver / docker / pep440)   |
-| [`validate-pr-title`](#validate-pr-title) | PR opened / updated (any PR)       | Check that the PR title is a valid conventional commit type   |
+| Mode                                    | Typical trigger                    | Purpose                                                         |
+| --------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| [`finalize`](#finalize)                 | Release PR merged to main          | Create git tags, generate release notes, emit version outputs   |
+| [`validate`](#validate)                 | PR opened / updated on `release/*` | Dry-run the release, post a preview comment on the PR           |
+| [`version-artifact`](#version-artifact) | Any push or PR                     | Compute artifact version strings (semver / docker / pep440)     |
+| [`validate-commit`](#validate-commit)   | PR opened / updated (any PR)       | Check that a commit message is a valid conventional commit type |
 
 ---
 
@@ -42,7 +42,7 @@ CLI version are always identical — version drift is impossible by construction
 
 | Input              | Required | Default | Description                                                                                                                                                                                                                                                        |
 | ------------------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mode`             | Yes      | —       | `finalize`, `validate`, `version-artifact`, or `validate-pr-title`                                                                                                                                                                                                 |
+| `mode`             | Yes      | —       | `finalize`, `validate`, `version-artifact`, or `validate-commit`                                                                                                                                                                                                   |
 | `releez-version`   | No       | `''`    | Override the releez CLI version to install. Bare version (`1.2.3`) installs from PyPI; full specifiers (`git+https://github.com/hotdog-werx/releez@branch`) are passed through to `uv tool install` unchanged. Defaults to the version co-located with the action. |
 | `is-full-release`  | No       | `true`  | `false` produces prerelease version strings                                                                                                                                                                                                                        |
 | `alias-versions`   | No       | `''`    | Optional override for alias tags on full releases: `none`, `major` (adds `v1`), or `minor` (adds `v1` and `v1.2`). When unset, releez config/defaults are used.                                                                                                    |
@@ -62,11 +62,11 @@ CLI version are always identical — version drift is impossible by construction
 | `post-comment` | `true`                    | Post / update a PR comment with the release preview and notes                                                  |
 | `comment-tag`  | `releez-validate-release` | Identifier for the PR comment — enables updating the same comment on every push instead of creating duplicates |
 
-### `validate-pr-title` inputs
+### `validate-commit` inputs
 
-| Input      | Required | Default | Description                                   |
-| ---------- | -------- | ------- | --------------------------------------------- |
-| `pr-title` | Yes      | `''`    | The PR title to validate against `cliff.toml` |
+| Input            | Required | Default | Description                                         |
+| ---------------- | -------- | ------- | --------------------------------------------------- |
+| `commit-message` | Yes      | `''`    | The commit message to validate against `cliff.toml` |
 
 ### `version-artifact` inputs
 
@@ -275,21 +275,21 @@ populated only when `detect-from-branch: 'true'` and the current branch is a
 
 ---
 
-### `validate-pr-title`
+### `validate-commit`
 
-Validates a PR title against the project's `cliff.toml` commit parsers — the
-same rules used at release time. This ensures that squash-and-merge commits
+Validates a commit message against the project's `cliff.toml` commit parsers —
+the same rules used at release time. This ensures that squash-and-merge commits
 produce a clean changelog without maintaining a separate validator config.
 
-A PR title is **valid** if it matches any named parser in `cliff.toml`,
-including `skip = true` parsers (e.g. `chore(release): 1.2.3`). Any unrecognised
-type or non-conventional format exits 1.
+A message is **valid** if it matches any named parser in `cliff.toml`, including
+`skip = true` parsers (e.g. `chore(release): 1.2.3`). Any unrecognised type or
+non-conventional format exits 1.
 
 ```yaml
 - uses: hotdog-werx/releez@v0
   with:
-    mode: validate-pr-title
-    pr-title: ${{ github.event.pull_request.title }}
+    mode: validate-commit
+    commit-message: ${{ github.event.pull_request.title }}
 ```
 
 **What this does**:
@@ -297,8 +297,8 @@ type or non-conventional format exits 1.
 - Derives a validation config from the project's `cliff.toml` with three
   overrides: `filter_unconventional = false`, `fail_on_unmatched_commit = true`,
   and catch-all parsers (`message = ".*"`) removed
-- Runs `releez validate commit-message "<title>"` and exits 0 or 1 accordingly
-- Fails the step (and the workflow job) if the title does not match any parser
+- Runs `releez validate commit-message "<message>"` and exits 0 or 1 accordingly
+- Fails the step (and the workflow job) if the message does not match any parser
 
 **Outputs populated**: none — this mode is purely a pass/fail check.
 
@@ -350,7 +350,7 @@ See [Monorepo Setup Guide](../monorepo/setup.md) for configuring projects,
 
 Complete copy-pasteable workflow examples:
 
-- [Validate PR titles](./workflow-recipes.md#recipe-0--validate-pr-titles-against-clifftomll)
+- [Validate commit messages / PR titles](./workflow-recipes.md#recipe-0--validate-commit-messages-against-clifftomll)
 - [Validate release PRs](./workflow-recipes.md#recipe-1--validate-a-release-pr)
 - [Finalize and create a GitHub Release](./workflow-recipes.md#recipe-2--finalize-a-release-and-publish-a-github-release)
 - [Publish to PyPI](./workflow-recipes.md#recipe-3--publish-a-python-package-to-pypi)
