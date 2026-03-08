@@ -38,7 +38,7 @@ postprocessors = [
 # See https://www.conventionalcommits.org
 conventional_commits = true
 # Exclude commits that do not match the conventional commits specification.
-filter_unconventional = false
+filter_unconventional = true
 # Require all commits to be conventional.
 # Takes precedence over filter_unconventional.
 require_conventional = false
@@ -77,7 +77,7 @@ commit_parsers = [
 # Exclude commits that are not matched by any commit parser.
 filter_commits = false
 # Fail on a commit that is not matched by any commit parser.
-fail_on_unmatched_commit = true
+fail_on_unmatched_commit = false
 # An array of link parsers for extracting external references, and turning them into URLs, using regex.
 link_parsers = []
 # Include only the tags that belong to the current branch.
