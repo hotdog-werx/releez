@@ -5,10 +5,103 @@ the image name / registry / environment, and ship.
 
 ---
 
+## Recipe 0 — Validate commit messages against cliff.toml
+
+Enforce that every PR title (and optionally every commit on a PR) follows the
+project's `cliff.toml` commit parsers before it can be merged. Because
+`releez validate commit-message` reads the same config used at release time,
+adding a new type to `cliff.toml` immediately unblocks that type — no separate
+validator list to maintain.
+
+### Validate the PR title (squash-and-merge workflow)
+
+In a squash-and-merge workflow the PR title becomes the commit message on
+`main`, so validating the title is sufficient for a clean changelog.
+
+```yaml
+# .github/workflows/validate-pr-title.yaml
+name: Validate PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hotdog-werx/releez@v0
+        with:
+          mode: validate-commit
+          commit-message: ${{ github.event.pull_request.title }}
+```
+
+**What counts as valid**:
+
+- Any type configured as a named parser in `cliff.toml`: `feat`, `fix`, `chore`,
+  `ci`, etc.
+- `skip = true` parsers (e.g. `chore(release): 1.2.3`) are also valid
+- Breaking-change markers are accepted: `feat!:`, `fix(api)!:`
+- Scoped variants: `feat(scope):`, `fix(api):`
+
+**What is invalid**:
+
+- Any unrecognised type not present in `cliff.toml` (e.g. `wip:`, `docs:` if not
+  configured)
+- Non-conventional format: `WIP`, `half-done something`
+- Wrong case: `FEAT:`, `Fix:`
+
+### Validate every commit on a PR (rebase/merge-commit workflow)
+
+If your project uses rebase or merge-commit (not squash), every commit on the PR
+branch lands on `main` individually, so you may want to validate all of them.
+
+> **Note**: This is unnecessary in squash-and-merge workflows — validate the PR
+> title instead (see above). Running both is harmless but redundant.
+
+```yaml
+# .github/workflows/validate-commits.yaml
+name: Validate Commits
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate each commit message
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          fail=0
+          while IFS= read -r msg; do
+            if ! releez validate commit-message "$msg"; then
+              fail=1
+            fi
+          done < <(git log --format=%s "${BASE}..${HEAD}")
+          exit $fail
+        shell: bash
+```
+
+`git log --format=%s` prints the subject line (first line) of each commit.
+Adjust to `%B` if you want to validate the full commit body.
+
+---
+
 ## Core concepts
 
 | Mode               | When to use                             | Key outputs                                                       |
 | ------------------ | --------------------------------------- | ----------------------------------------------------------------- |
+| `validate-commit`  | Any PR (validate title or commits)      | none — pass/fail only                                             |
 | `validate`         | PR opened / updated on a release branch | `release-preview`, `release-notes`, `validation-status`           |
 | `finalize`         | Release PR merged to main               | `release-version`, `release-notes`, semver/docker/pep440 versions |
 | `version-artifact` | Every build, on any branch              | semver/docker/pep440 version arrays                               |

@@ -1,0 +1,169 @@
+name: Test Action — validate-commit mode
+
+# Tests the validate-commit action mode, which runs
+# `releez validate commit-message "<message>"` against the repo's cliff.toml.
+#
+# Three jobs:
+#   1. valid message → action exits 0
+#   2. invalid message → action exits 1 (asserted via continue-on-error)
+#   3. skip=true parser → action exits 0 (skip means omit, not reject)
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-validate-commit.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Valid commit message ─────────────────────────────────────────────────────
+  #
+  # "feat: add new endpoint" matches the ^feat parser → action must exit 0.
+  test-valid-commit:
+    name: valid commit message exits 0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (valid commit message)
+        id: releez
+        uses: ./
+        with:
+          mode: validate-commit
+          commit-message: 'feat: add new endpoint'
+
+      - name: Assert action succeeded
+        run: |
+          if [ "${{ steps.releez.outcome }}" = "success" ]; then
+            echo "OK [validate-commit]: valid message correctly accepted"
+          else
+            echo "FAIL [validate-commit]: valid message was unexpectedly rejected"
+            exit 1
+          fi
+        shell: bash
+
+  # ── Invalid commit message ───────────────────────────────────────────────────
+  #
+  # "half-done something" matches no parser → action must exit 1.
+
+  test-invalid-commit:
+    name: invalid commit message exits 1
+    needs: [test-valid-commit]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (invalid message — expect failure)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: validate-commit
+          commit-message: 'half-done something'
+
+      - name: Assert action failed
+        run: |
+          if [ "${{ steps.bad.outcome }}" = "failure" ]; then
+            echo "OK [validate-commit]: invalid message correctly rejected"
+          else
+            echo "FAIL [validate-commit]: invalid message should have been rejected but outcome was ${{ steps.bad.outcome }}"
+            exit 1
+          fi
+        shell: bash
+
+  # ── skip=true parser is valid ────────────────────────────────────────────────
+  #
+  # "chore(release): 1.2.3" matches a skip=true parser — it must still exit 0
+  # (skip=true means "omit from changelog", not "reject").
+
+  test-skip-parser-is-valid:
+    name: skip=true message exits 0
+    needs: [test-invalid-commit]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write test cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = ""
+          render_always = false
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          fail_on_unmatched_commit = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = "^chore\\(deps", skip = true },
+            { message = "^chore|^ci", group = "Misc" },
+          ]
+          TOML
+        shell: bash
+
+      - name: Run action (skip=true message)
+        id: releez
+        uses: ./
+        with:
+          mode: validate-commit
+          commit-message: 'chore(release): 1.2.3'
+
+      - name: Assert action succeeded
+        run: |
+          if [ "${{ steps.releez.outcome }}" = "success" ]; then
+            echo "OK [validate-commit]: skip=true message correctly accepted"
+          else
+            echo "FAIL [validate-commit]: skip=true message was unexpectedly rejected"
+            exit 1
+          fi
+        shell: bash

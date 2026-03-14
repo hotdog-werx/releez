@@ -10,9 +10,10 @@ inputs:
   mode:
     description: |
       Action mode:
-        finalize        — Create tags and emit version outputs after a release PR is merged
-        validate        — Preview and validate a release PR before merge
+        finalize         — Create tags and emit version outputs after a release PR is merged
+        validate         — Preview and validate a release PR before merge
         version-artifact — Compute artifact versions for build pipelines
+        validate-commit  — Check a commit message against cliff.toml commit parsers
     required: true
 
   # ── Common inputs ──────────────────────────────────────────────────────────
@@ -57,6 +58,13 @@ inputs:
     description: '[finalize] Skip tag creation and push (outputs are still computed)'
     required: false
     default: 'false'
+
+  # ── Validate-commit mode inputs ────────────────────────────────────────────
+
+  commit-message:
+    description: '[validate-commit] Commit message to validate against cliff.toml parsers.'
+    required: false
+    default: ''
 
   # ── Validate mode inputs ───────────────────────────────────────────────────
 
@@ -186,9 +194,9 @@ runs:
       shell: bash
       run: |
         case "${{ inputs.mode }}" in
-          finalize|validate|version-artifact) ;;
+          finalize|validate|version-artifact|validate-commit) ;;
           *)
-            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: finalize, validate, or version-artifact" >&2
+            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: finalize, validate, version-artifact, or validate-commit" >&2
             exit 1
             ;;
         esac
@@ -432,6 +440,13 @@ runs:
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 
+    # ── VALIDATE-COMMIT MODE ─────────────────────────────────────────────────
+
+    - name: '[validate-commit] Validate commit message against cliff.toml parsers'
+      if: inputs.mode == 'validate-commit'
+      shell: bash
+      run: releez validate commit-message "${{ inputs.commit-message }}"
+
     # ── AGGREGATE OUTPUTS ────────────────────────────────────────────────────
 
     - name: Set outputs
@@ -487,6 +502,13 @@ runs:
               [ -n "$JSON_RELEASE_VERSION" ] && VERSION="$JSON_RELEASE_VERSION"
               [ -n "$JSON_PROJECT" ] && PROJECT="$JSON_PROJECT"
             fi
+            ;;
+          validate-commit)
+            VERSION=""
+            PROJECT=""
+            VERSIONS_JSON=""
+            NOTES=""
+            PREVIEW=""
             ;;
         esac
 
