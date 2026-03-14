@@ -286,7 +286,8 @@ def start_release(
     Raises:
         ReleezError: If a release step fails (git, git-cliff, or GitHub).
     """
-    repo, info = open_repo()
+    ctx = open_repo()
+    repo, info = ctx.repo, ctx.info
     ensure_clean(repo)
     fetch(repo, remote_name=release_input.remote_name)
 

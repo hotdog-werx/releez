@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 
 from releez import cli
 from releez.errors import MissingCliError
-from releez.git_repo import RepoContext
 
 if TYPE_CHECKING:
     from unittest.mock import Mock
@@ -63,10 +62,7 @@ def mock_changelog_setup(
 
         mocker.patch(
             'releez.subapps.changelog.open_repo',
-            return_value=RepoContext(
-                repo=mocker.Mock(),
-                info=mocker.Mock(root=repo_root),
-            ),
+            return_value=mocker.Mock(info=mocker.Mock(root=repo_root)),
         )
 
         cliff = mocker.Mock()
@@ -204,10 +200,7 @@ def test_changelog_regenerate_handles_releez_error(
 
     mocker.patch(
         'releez.subapps.changelog.open_repo',
-        return_value=RepoContext(
-            repo=mocker.Mock(),
-            info=mocker.Mock(root=repo_root),
-        ),
+        return_value=mocker.Mock(info=mocker.Mock(root=repo_root)),
     )
 
     # This test needs to raise an error during GitCliff creation,

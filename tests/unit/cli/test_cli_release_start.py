@@ -21,7 +21,10 @@ def _mock_repo_context(
 ) -> None:
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.MagicMock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root=repo_root, active_branch=None),
+        ),
     )
 
 

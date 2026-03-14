@@ -66,13 +66,13 @@ def changelog_regenerate(
         if run_changelog_format and not changelog_format_cmd:
             raise ChangelogFormatCommandRequiredError
 
-        repo_context = open_repo()
+        info = open_repo().info
         changelog = resolve_changelog_path(
             changelog_path,
-            repo_context.info.root,
+            info.root,
         )
 
-        cliff = GitCliff(repo_root=repo_context.info.root)
+        cliff = GitCliff(repo_root=info.root)
         cliff.regenerate_changelog(changelog_path=changelog)
         typer.secho(
             f'✓ Regenerated changelog: {changelog}',
@@ -82,7 +82,7 @@ def changelog_regenerate(
         if run_changelog_format and changelog_format_cmd:
             _run_changelog_formatter_with_message(
                 changelog_path=changelog,
-                repo_root=repo_context.info.root,
+                repo_root=info.root,
                 changelog_format_cmd=changelog_format_cmd,
             )
     except ReleezError as exc:

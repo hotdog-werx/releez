@@ -101,7 +101,7 @@ def _compute_next_version() -> str:
     Returns:
         Next version string as determined by git-cliff.
     """
-    _, info = open_repo()
+    info = open_repo().info
     cliff = GitCliff(repo_root=info.root)
     return cliff.compute_next_version(bump='auto')
 

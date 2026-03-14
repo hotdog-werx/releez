@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING, cast
 import pytest
 import typer
 from click.core import ParameterSource
+from semver import VersionInfo
 
 from releez import cli
+from releez.cli import MaintenanceContext
 from releez.errors import ReleezError
 from releez.release import StartReleaseResult
 
@@ -48,6 +50,7 @@ def test_root_merges_into_existing_default_map(
         run_changelog_format=False,
         alias_versions=cli.AliasVersions.none,
         hooks=hooks,
+        maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
     )
     mocker.patch('releez.cli.ReleezSettings', return_value=settings)
 
@@ -304,6 +307,7 @@ def test_run_release_preview_command_uses_single_repo_builder(
             output=None,
         ),
         repo_root=Path('/repo'),
+        tag_pattern=None,
     )
     emit_output.assert_called_once_with(output=None, content='preview')
 
@@ -420,8 +424,84 @@ def test_run_release_start_command_exits_when_monorepo_targets_empty(
             options=_make_start_options(),
             project_names=[],
             all_projects=False,
+            maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
+            non_interactive=False,
         )
 
     exit_with_code.assert_called_once()
     run_single.assert_not_called()
     run_mono.assert_not_called()
+
+
+def test_project_semver_version_strips_prefix_when_present(
+    mocker: MockerFixture,
+) -> None:
+    """When git-cliff returns a prefixed tag (e.g. 'core-1.2.3'), the prefix is stripped."""
+    project = mocker.MagicMock()
+    project.tag_prefix = 'core-'
+
+    result = cli._project_semver_version(
+        project=project,
+        version=VersionInfo.parse('1.2.3'),
+    )
+    assert result == '1.2.3'
+
+
+def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
+    mocker: MockerFixture,
+) -> None:
+    """On a maintenance branch, confirmation is shown when not dry_run and not non_interactive."""
+    project = mocker.MagicMock(name='ui')
+    project.name = 'ui'
+
+    maintenance_ctx = MaintenanceContext(
+        branch='support/ui-1.x',
+        major=1,
+        tag_pattern=r'^ui\-1\.[0-9]+\.[0-9]+$',
+    )
+
+    mocker.patch(
+        'releez.cli._resolve_project_release_version',
+        return_value=VersionInfo.parse('1.5.0'),
+    )
+    confirm = mocker.patch('releez.cli._confirm_release_start')
+    mocker.patch(
+        'releez.cli._build_release_start_input_project',
+        return_value=object(),
+    )
+    mocker.patch(
+        'releez.cli.start_release',
+        return_value=mocker.Mock(
+            version='ui-1.5.0',
+            release_notes_markdown='notes',
+            release_branch='release/1.5.0',
+            pr_url=None,
+        ),
+    )
+    mocker.patch('releez.cli.typer.secho')
+    mocker.patch('releez.cli.typer.echo')
+
+    options = cli._ReleaseStartOptions(
+        bump='auto',
+        version_override=None,
+        run_changelog_format=False,
+        changelog_format_cmd=None,
+        create_pr=False,
+        dry_run=False,
+        base='master',
+        remote='origin',
+        labels=[],
+        title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        github_token=None,
+    )
+
+    cli._run_project_release_start(
+        options=options,
+        project=project,
+        repo_root=Path('/repo'),
+        maintenance_ctx=maintenance_ctx,
+        non_interactive=False,
+    )
+
+    confirm.assert_called_once()

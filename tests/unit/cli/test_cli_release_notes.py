@@ -46,7 +46,10 @@ def test_cli_release_notes_stdout(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=object(),
+            info=mocker.Mock(root=repo_root, active_branch=None),
+        ),
     )
     mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
 
@@ -98,7 +101,10 @@ def test_cli_release_notes_writes_file(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=object(),
+            info=mocker.Mock(root=repo_root, active_branch=None),
+        ),
     )
     mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
 
@@ -125,7 +131,10 @@ def test_cli_release_notes_monorepo_requires_project_selection(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',
@@ -156,7 +165,10 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     project_path = tmp_path / 'packages' / 'core'
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',

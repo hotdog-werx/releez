@@ -1,0 +1,156 @@
+name: Test Action — finalize maintenance monorepo release
+
+# Verifies finalize mode for a monorepo maintenance (1.x) release where
+# ui-2.0.0 also exists on a separate branch lineage (unreachable from HEAD).
+# The 2.x tag must NOT appear in release notes for the ui-1.5.0 release.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-finalize-maintenance-monorepo.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Monorepo maintenance (ui-1.x) finalize dry-run ───────────────────────────
+  #
+  # History:
+  #   ui-1.4.0 ──► "fix: critical hotfix" ← maintenance-ui-1x branch (HEAD)
+  #           └──► "feat!: breaking change" ──► ui-2.0.0  (unreachable from HEAD)
+  #
+  # release notes --project ui uses the project tag pattern (all ui-* tags) but
+  # only reachable tags are considered, so ui-2.0.0 is excluded automatically.
+  test-finalize-maintenance-monorepo:
+    name: finalize monorepo maintenance release dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up branched git history and monorepo config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          # Set up monorepo project directory
+          mkdir -p packages/ui
+          echo "# ui" > packages/ui/README.md
+          git add packages/ui/README.md
+          git commit -m "feat(ui): initial ui package"
+
+          # Baseline tags shared by both lines
+          git tag ui-1.0.0
+          git commit --allow-empty -m "feat(ui): add a feature"
+          git tag ui-1.4.0
+
+          # 1.x maintenance branch: one hotfix commit
+          git checkout -b maintenance-ui-1x
+          git commit --allow-empty -m "fix(ui): critical hotfix for ui 1.x"
+
+          # 2.x line: branch from ui-1.4.0 (not reachable from maintenance-ui-1x HEAD)
+          git checkout ui-1.4.0
+          git commit --allow-empty -m "feat!: breaking change for ui 2.x"
+          git tag ui-2.0.0
+
+          # Return to maintenance branch so release notes are scoped to ui-1.x
+          git checkout maintenance-ui-1x
+
+          # Write a releez config declaring the ui project
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "ui"
+          path = "packages/ui"
+          tag-prefix = "ui-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (finalize monorepo maintenance dry-run)
+        id: releez
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/ui-1.5.0'
+          is-full-release: 'true'
+          alias-versions: 'none'
+          dry-run: 'true'
+
+      - name: Assert outputs (finalize monorepo maintenance)
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [finalize-maintenance-monorepo]: $name"
+            else
+              echo "FAIL [finalize-maintenance-monorepo]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "ui-1.5.0"
+          assert_eq "project"         "${{ steps.releez.outputs.project }}"          "ui"
+          assert_eq "semver-versions" "${{ steps.releez.outputs.semver-versions }}"  "1.5.0"
+
+          # Release notes must contain the ui 1.x hotfix
+          if echo "$RELEASE_NOTES" | grep -q "critical hotfix"; then
+            echo "OK [finalize-maintenance-monorepo]: release-notes contains 1.x hotfix"
+          else
+            echo "FAIL [finalize-maintenance-monorepo]: release-notes missing 1.x hotfix"
+            echo "Notes: $RELEASE_NOTES"
+            fail=1
+          fi
+
+          # Release notes must NOT contain the 2.x breaking change
+          if echo "$RELEASE_NOTES" | grep -q "breaking change"; then
+            echo "FAIL [finalize-maintenance-monorepo]: release-notes incorrectly contains 2.x commit"
+            echo "Notes: $RELEASE_NOTES"
+            fail=1
+          else
+            echo "OK [finalize-maintenance-monorepo]: release-notes excludes 2.x commit"
+          fi
+
+          exit $fail
+        shell: bash

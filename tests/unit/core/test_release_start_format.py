@@ -19,7 +19,10 @@ def test_start_release_runs_changelog_format_command(
 
     repo = mocker.Mock()
     info = mocker.Mock(root=tmp_path)
-    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
     mocker.patch('releez.release.ensure_clean')
     mocker.patch('releez.release.fetch')
     mocker.patch('releez.release.checkout_remote_branch')
@@ -75,7 +78,10 @@ def test_start_release_runs_post_changelog_hooks(
 
     repo = mocker.Mock()
     info = mocker.Mock(root=tmp_path)
-    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
     mocker.patch('releez.release.ensure_clean')
     mocker.patch('releez.release.fetch')
     mocker.patch('releez.release.checkout_remote_branch')
@@ -141,7 +147,10 @@ def test_start_release_stages_project_path_and_adds_project_label(
     project_path = tmp_path / 'packages' / 'core'
     (tmp_path / 'CHANGELOG.md').write_text('# Changelog\n', encoding='utf-8')
 
-    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
     mocker.patch('releez.release.ensure_clean')
     mocker.patch('releez.release.fetch')
     mocker.patch('releez.release.checkout_remote_branch')
@@ -198,7 +207,10 @@ def test_start_release_monorepo_first_release_prefixes_version(
 
     repo = mocker.Mock()
     info = mocker.Mock(root=tmp_path)
-    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
     mocker.patch('releez.release.ensure_clean')
     mocker.patch('releez.release.fetch')
     mocker.patch('releez.release.checkout_remote_branch')
@@ -246,7 +258,10 @@ def test_start_release_monorepo_hooks_receive_bare_semver(
 
     repo = mocker.Mock()
     info = mocker.Mock(root=tmp_path)
-    mocker.patch('releez.release.open_repo', return_value=(repo, info))
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
     mocker.patch('releez.release.ensure_clean')
     mocker.patch('releez.release.fetch')
     mocker.patch('releez.release.checkout_remote_branch')

@@ -241,6 +241,26 @@ releez release start --project core --project ui
 releez release start --all
 ```
 
+### Release from a Support Branch (Maintenance Releases)
+
+Support branches work in monorepo mode with a project-scoped naming convention.
+For a project with `tag-prefix = "ui-"`, create a branch named
+`support/ui-{major}.x` (e.g. `support/ui-1.x`).
+
+```bash
+git checkout -b support/ui-1.x
+
+# Run from the support branch, targeting the matching project
+releez release start --project ui
+```
+
+Releez detects the branch, scopes git-cliff to tags in the `ui-1.x` line (e.g.
+`ui-1.0.0`, `ui-1.1.0`), and uses the support branch as the PR base. Versions
+that would bump to a different major are rejected.
+
+Other projects in the same monorepo are unaffected; their releases run normally
+from the default base branch.
+
 ### Check Which Projects Changed
 
 ```bash

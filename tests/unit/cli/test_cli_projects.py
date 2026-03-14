@@ -134,7 +134,7 @@ def test_projects_changed_text_output_with_changes(
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch('releez.cli.SubProject.from_config', return_value=mock_project)
     mocker.patch(
@@ -168,7 +168,7 @@ def test_projects_changed_text_output_no_changes(mocker: MockerFixture) -> None:
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
         'releez.cli.SubProject.from_config',
@@ -205,7 +205,7 @@ def test_projects_changed_json_output(mocker: MockerFixture) -> None:
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch('releez.cli.SubProject.from_config', return_value=mock_project)
     mocker.patch(
@@ -243,7 +243,7 @@ def test_projects_changed_with_custom_base(mocker: MockerFixture) -> None:
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
         'releez.cli.SubProject.from_config',
@@ -282,7 +282,7 @@ def test_projects_changed_handles_releez_error(mocker: MockerFixture) -> None:
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
         'releez.cli.SubProject.from_config',
