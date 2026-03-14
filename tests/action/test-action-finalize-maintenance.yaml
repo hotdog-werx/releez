@@ -37,16 +37,22 @@ jobs:
 
           # Baseline tag shared by both lines
           git tag 1.0.0
-          git commit --allow-empty -m "feat: add a feature"
+          echo "feature" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "feat: add a feature"
           git tag 1.4.0
 
           # 1.x maintenance branch: one hotfix commit
           git checkout -b maintenance-1x
-          git commit --allow-empty -m "fix: critical hotfix for 1.x"
+          echo "hotfix" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "fix: critical hotfix for 1.x"
 
           # 2.x line: branch from 1.4.0 (not reachable from maintenance-1x HEAD)
           git checkout 1.4.0
-          git commit --allow-empty -m "feat!: breaking change for 2.x"
+          echo "breaking" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "feat!: breaking change for 2.x"
           git tag 2.0.0
 
           # Return to maintenance branch so release notes are scoped to 1.x
@@ -118,7 +124,7 @@ jobs:
           assert_eq "project"         "${{ steps.releez.outputs.project }}"          ""
 
           # Release notes must contain the 1.x hotfix
-          if echo "$RELEASE_NOTES" | grep -q "critical hotfix"; then
+          if echo "$RELEASE_NOTES" | grep -qi "critical hotfix"; then
             echo "OK [finalize-maintenance]: release-notes contains 1.x hotfix"
           else
             echo "FAIL [finalize-maintenance]: release-notes missing 1.x hotfix"
@@ -127,7 +133,7 @@ jobs:
           fi
 
           # Release notes must NOT contain the 2.x breaking change
-          if echo "$RELEASE_NOTES" | grep -q "breaking change"; then
+          if echo "$RELEASE_NOTES" | grep -qi "breaking change"; then
             echo "FAIL [finalize-maintenance]: release-notes incorrectly contains 2.x commit"
             echo "Notes: $RELEASE_NOTES"
             fail=1

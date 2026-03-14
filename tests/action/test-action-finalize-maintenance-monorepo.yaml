@@ -43,16 +43,22 @@ jobs:
 
           # Baseline tags shared by both lines
           git tag ui-1.0.0
-          git commit --allow-empty -m "feat(ui): add a feature"
+          echo "feature" >> packages/ui/README.md
+          git add packages/ui/README.md
+          git commit -m "feat(ui): add a feature"
           git tag ui-1.4.0
 
           # 1.x maintenance branch: one hotfix commit
           git checkout -b maintenance-ui-1x
-          git commit --allow-empty -m "fix(ui): critical hotfix for ui 1.x"
+          echo "hotfix" >> packages/ui/README.md
+          git add packages/ui/README.md
+          git commit -m "fix(ui): critical hotfix for ui 1.x"
 
           # 2.x line: branch from ui-1.4.0 (not reachable from maintenance-ui-1x HEAD)
           git checkout ui-1.4.0
-          git commit --allow-empty -m "feat!: breaking change for ui 2.x"
+          echo "breaking" >> packages/ui/README.md
+          git add packages/ui/README.md
+          git commit -m "feat!: breaking change for ui 2.x"
           git tag ui-2.0.0
 
           # Return to maintenance branch so release notes are scoped to ui-1.x
@@ -135,7 +141,7 @@ jobs:
           assert_eq "semver-versions" "${{ steps.releez.outputs.semver-versions }}"  "1.5.0"
 
           # Release notes must contain the ui 1.x hotfix
-          if echo "$RELEASE_NOTES" | grep -q "critical hotfix"; then
+          if echo "$RELEASE_NOTES" | grep -qi "critical hotfix"; then
             echo "OK [finalize-maintenance-monorepo]: release-notes contains 1.x hotfix"
           else
             echo "FAIL [finalize-maintenance-monorepo]: release-notes missing 1.x hotfix"
@@ -144,7 +150,7 @@ jobs:
           fi
 
           # Release notes must NOT contain the 2.x breaking change
-          if echo "$RELEASE_NOTES" | grep -q "breaking change"; then
+          if echo "$RELEASE_NOTES" | grep -qi "breaking change"; then
             echo "FAIL [finalize-maintenance-monorepo]: release-notes incorrectly contains 2.x commit"
             echo "Notes: $RELEASE_NOTES"
             fail=1
