@@ -412,7 +412,7 @@ jobs:
     outputs:
       matrix: ${{ steps.detect.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
@@ -428,7 +428,7 @@ jobs:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build ${{ matrix.project }}
         run: echo "Building ${{ matrix.project }}"
 ```
@@ -445,7 +445,7 @@ jobs:
     outputs:
       projects: ${{ steps.detect.outputs.projects }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
@@ -459,7 +459,7 @@ jobs:
     if: contains(fromJSON(needs.detect.outputs.projects), 'core')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: pytest packages/core
 
   check-ui:
@@ -467,7 +467,7 @@ jobs:
     if: contains(fromJSON(needs.detect.outputs.projects), 'ui')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: npm test --prefix packages/ui
 ```
 
@@ -505,7 +505,7 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
