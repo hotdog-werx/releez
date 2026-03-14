@@ -312,6 +312,9 @@ class GitCliff:
             )
             run_checked(['git', '-C', str(tmp), 'config', 'user.name', 'x'])
             run_checked(
+                ['git', '-C', str(tmp), 'config', 'commit.gpgsign', 'false'],
+            )
+            run_checked(
                 [
                     'git',
                     '-C',

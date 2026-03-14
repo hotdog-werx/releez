@@ -33,6 +33,7 @@ def _mock_validate(mocker: MockerFixture, *, valid: bool) -> None:
 
 
 def test_valid_message_exits_0(mocker: MockerFixture) -> None:
+    """A message matching a configured parser exits 0 with a ✓ prefix."""
     _mock_validate(mocker, valid=True)
     result = runner.invoke(
         cli.app,
@@ -43,6 +44,10 @@ def test_valid_message_exits_0(mocker: MockerFixture) -> None:
 
 
 def test_valid_message_prints_reason(mocker: MockerFixture) -> None:
+    """On success, the validation reason is printed.
+
+    The user must be able to see which parser matched their message.
+    """
     _mock_validate(mocker, valid=True)
     result = runner.invoke(
         cli.app,
@@ -52,6 +57,10 @@ def test_valid_message_prints_reason(mocker: MockerFixture) -> None:
 
 
 def test_invalid_message_exits_1(mocker: MockerFixture) -> None:
+    """A message matching no parser exits 1.
+
+    Exit code 1 causes CI steps to fail and block the merge.
+    """
     _mock_validate(mocker, valid=False)
     result = runner.invoke(
         cli.app,
@@ -61,6 +70,10 @@ def test_invalid_message_exits_1(mocker: MockerFixture) -> None:
 
 
 def test_invalid_message_prints_reason_to_stderr(mocker: MockerFixture) -> None:
+    """On failure, the rejection reason is printed with a ✗ prefix.
+
+    The user must be told what format is expected so they can correct the message.
+    """
     _mock_validate(mocker, valid=False)
     result = runner.invoke(
         cli.app,
@@ -72,6 +85,11 @@ def test_invalid_message_prints_reason_to_stderr(mocker: MockerFixture) -> None:
 
 
 def test_message_is_passed_to_validate(mocker: MockerFixture) -> None:
+    """The CLI argument is forwarded verbatim to GitCliff.validate_commit_message.
+
+    No transformation (stripping, encoding, etc.) must occur between CLI input
+    and the call to the validation layer.
+    """
     captured: list[str] = []
     reason = 'Valid: matches a commit parser'
 

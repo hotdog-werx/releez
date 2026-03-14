@@ -94,6 +94,12 @@ def test_validate_commit_message(
     expected_valid: bool,  # noqa: FBT001
     tmp_path: Path,
 ) -> None:
+    """End-to-end validation against real git-cliff using a strict fixture config (no catch-all parser).
+
+    Covers: configured types (feat, fix, chore, ci), skip=true parsers
+    (chore(release):, chore(deps):), scoped and breaking variants, plus
+    rejection of non-conventional format, unconfigured types, and wrong case.
+    """
     _setup_repo(tmp_path)
     cliff = GitCliff(repo_root=tmp_path)
     result = cliff.validate_commit_message(message)
