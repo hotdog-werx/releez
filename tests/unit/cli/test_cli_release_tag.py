@@ -41,7 +41,10 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
     repo = object()
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(repo, mocker.Mock(root=Path.cwd())),
+        return_value=mocker.Mock(
+            repo=repo,
+            info=mocker.Mock(root=Path.cwd(), active_branch=None),
+        ),
     )
     mocker.patch('releez.cli.fetch')
     mocker.patch(
@@ -124,7 +127,10 @@ def test_cli_release_tag_defaults_to_git_cliff(
     repo = object()
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(repo, mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=repo,
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     mocker.patch('releez.cli.fetch')
 
@@ -167,7 +173,10 @@ def test_cli_release_tag_monorepo_requires_project_selection(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',
@@ -199,7 +208,10 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
     project_path = tmp_path / 'packages' / 'core'
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(repo, mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=repo,
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',
@@ -230,6 +242,7 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
         version_override=None,
         tag_pattern=r'^core-([0-9]+\.[0-9]+\.[0-9]+)$',
         include_paths=['packages/core/**', 'pyproject.toml'],
+        tag_prefix='core-',
     )
     assert create_tags.call_args_list == [
         mocker.call(repo, tags=['core-1.2.3'], force=False),

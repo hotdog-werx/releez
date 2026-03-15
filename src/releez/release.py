@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from pathlib import Path
 
     from git import Repo
@@ -73,6 +73,9 @@ class StartReleaseInput:
         tag_prefix: Optional tag prefix (e.g. "core-") used to strip the prefix from
             the hook {version} variable, so hooks always receive bare semver.
             The git-cliff tag pattern is derived automatically from this prefix.
+        maintenance_tag_pattern: Optional explicit tag pattern override for
+            maintenance branch releases. When set, takes precedence over the
+            tag_prefix-derived pattern.
     """
 
     bump: GitCliffBump
@@ -93,14 +96,18 @@ class StartReleaseInput:
     include_paths: list[str] | None = None
     project_path: Path | None = None
     tag_prefix: str = ''
+    maintenance_tag_pattern: str | None = None
 
     @property
     def tag_pattern(self) -> str | None:
-        """Derive git-cliff tag pattern from tag_prefix.
+        """Derive git-cliff tag pattern.
 
-        Returns None for single-repo mode (no prefix), so git-cliff uses its
-        default pattern. Returns a prefixed pattern for monorepo projects.
+        maintenance_tag_pattern takes priority (maintenance branch releases).
+        Falls back to the tag_prefix-derived pattern for monorepo projects.
+        Returns None for plain single-repo releases.
         """
+        if self.maintenance_tag_pattern:
+            return self.maintenance_tag_pattern
         return generate_tag_pattern(self.tag_prefix) if self.tag_prefix else None
 
 
@@ -279,7 +286,8 @@ def start_release(
     Raises:
         ReleezError: If a release step fails (git, git-cliff, or GitHub).
     """
-    repo, info = open_repo()
+    ctx = open_repo()
+    repo, info = ctx.repo, ctx.info
     ensure_clean(repo)
     fetch(repo, remote_name=release_input.remote_name)
 

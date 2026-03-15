@@ -1,0 +1,145 @@
+name: Test Action — finalize maintenance release
+
+# Verifies finalize mode for a maintenance (1.x) release where 2.x tags also
+# exist on a separate branch lineage. The 2.0.0 tag must NOT appear in the
+# release notes for the 1.5.0 release.
+#
+# Run manually or via act:
+#   act workflow_dispatch -W tests/action/test-action-finalize-maintenance.yaml
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+
+  # ── Maintenance (1.x) finalize dry-run ───────────────────────────────────────
+  #
+  # History:
+  #   HEAD (1.4.0) ──► "fix: critical hotfix"  ← maintenance-1x branch (HEAD)
+  #               └──► "feat!: breaking change" ──► 2.0.0  (unreachable from HEAD)
+  #
+  # The action must generate release notes that include "critical hotfix" but
+  # NOT "breaking change" — verifying git-cliff scopes to the 1.x lineage.
+  test-finalize-maintenance:
+    name: finalize maintenance release dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up branched git history
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          # Baseline tag shared by both lines
+          git tag 1.0.0
+          echo "feature" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "feat: add a feature"
+          git tag 1.4.0
+
+          # 1.x maintenance branch: one hotfix commit
+          git checkout -b maintenance-1x
+          echo "hotfix" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "fix: critical hotfix for 1.x"
+
+          # 2.x line: branch from 1.4.0 (not reachable from maintenance-1x HEAD)
+          git checkout 1.4.0
+          echo "breaking" >> CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "feat!: breaking change for 2.x"
+          git tag 2.0.0
+
+          # Return to maintenance branch so release notes are scoped to 1.x
+          git checkout maintenance-1x
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = "^chore\\(release\\):", skip = true },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          topo_order_commits = true
+          sort_commits = "oldest"
+          TOML
+        shell: bash
+
+      - name: Run action (finalize maintenance dry-run)
+        id: releez
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/1.5.0'
+          is-full-release: 'true'
+          alias-versions: 'none'
+          dry-run: 'true'
+
+      - name: Assert outputs (finalize maintenance)
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [finalize-maintenance]: $name"
+            else
+              echo "FAIL [finalize-maintenance]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "1.5.0"
+          assert_eq "project"         "${{ steps.releez.outputs.project }}"          ""
+
+          # Release notes must contain the 1.x hotfix
+          if echo "$RELEASE_NOTES" | grep -qi "critical hotfix"; then
+            echo "OK [finalize-maintenance]: release-notes contains 1.x hotfix"
+          else
+            echo "FAIL [finalize-maintenance]: release-notes missing 1.x hotfix"
+            echo "Notes: $RELEASE_NOTES"
+            fail=1
+          fi
+
+          # Release notes must NOT contain the 2.x breaking change
+          if echo "$RELEASE_NOTES" | grep -qi "breaking change"; then
+            echo "FAIL [finalize-maintenance]: release-notes incorrectly contains 2.x commit"
+            echo "Notes: $RELEASE_NOTES"
+            fail=1
+          else
+            echo "OK [finalize-maintenance]: release-notes excludes 2.x commit"
+          fi
+
+          exit $fail
+        shell: bash

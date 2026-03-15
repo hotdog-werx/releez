@@ -73,7 +73,7 @@ def test_cli_release_detect_from_branch_monorepo(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_repo_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_repo_info),
     )
     mocker.patch(
         'releez.cli.SubProject.from_config',
@@ -149,7 +149,7 @@ def test_cli_release_detect_from_branch_uses_current_branch(
     mock_info = mocker.MagicMock(active_branch='release/1.2.3')
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
 
     mocker.patch(
@@ -187,7 +187,7 @@ def test_cli_release_detect_from_branch_detached_head_error(
     mock_info = mocker.MagicMock(active_branch=None)
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mock_info),
+        return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
 
     result = runner.invoke(cli.app, ['release', 'detect-from-branch'])

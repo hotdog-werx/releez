@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+import typing
+from typing import Annotated
 
 import typer
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from pathlib import Path
 
 from releez.cliff import GitCliff
@@ -66,8 +67,11 @@ def changelog_regenerate(
         if run_changelog_format and not changelog_format_cmd:
             raise ChangelogFormatCommandRequiredError
 
-        _, info = open_repo()
-        changelog = resolve_changelog_path(changelog_path, info.root)
+        info = open_repo().info
+        changelog = resolve_changelog_path(
+            changelog_path,
+            info.root,
+        )
 
         cliff = GitCliff(repo_root=info.root)
         cliff.regenerate_changelog(changelog_path=changelog)
