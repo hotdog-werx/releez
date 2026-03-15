@@ -436,7 +436,7 @@ def validate_commit_for_major(
         raise InvalidSupportBranchCommitError(
             commit=commit_ref,
             major=major,
-            reason=f'not an ancestor of latest {major}.x.x tag {latest_tag!r}',
+            reason=f'not an ancestor of {latest_tag!r} — commit must predate the next major release',
         ) from exc
 
     return commit_sha

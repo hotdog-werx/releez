@@ -744,10 +744,19 @@ def _run_support_branch_inner(
     assert latest_tag is not None  # noqa: S101
 
     if commit_ref is not None:
+        # Validate against the next major's latest tag: the commit must predate
+        # the breaking change that caused the N+1 major bump, so it must be an
+        # ancestor of at least one N+1.x.x release.
+        next_major = min(m for m in all_majors if m > major)
+        next_major_tag = find_latest_tag_matching_pattern(
+            repo,
+            pattern=_monorepo_maintenance_tag_pattern(tag_prefix, next_major),
+        )
+        assert next_major_tag is not None  # noqa: S101
         split_sha = validate_commit_for_major(
             repo,
             commit_ref=commit_ref,
-            latest_tag=latest_tag,
+            latest_tag=next_major_tag,
             major=major,
         )
         split_label = f'{commit_ref} ({split_sha[:8]})'

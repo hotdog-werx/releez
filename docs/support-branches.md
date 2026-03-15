@@ -37,16 +37,23 @@ name.
 
 ### Custom split point
 
-If you want the support branch to start before the most recent patch release
-(e.g. at the commit immediately before a large refactor was merged), use
-`--commit`:
+The default split point is the latest N.x.x release tag. Use `--commit` when you
+want to split from a specific commit instead — the most common reason is to
+exclude a breaking change that was merged before the next major was tagged:
+
+```
+... 1.4.0 → A → B (breaking change merged) → ... → 2.0.0
+                 ^
+                 └─ git checkout here for support/1.x
+```
 
 ```bash
 releez release support-branch 1 --commit abc1234
 ```
 
-The provided commit must be reachable from (i.e., an ancestor of) the latest
-1.x.x tag. Releez rejects commits that aren't in the 1.x history.
+The provided commit must predate the next major release — Releez validates that
+it is an ancestor of the next major's latest tag (e.g. `2.0.0`). Commits after
+the `2.x` line began are rejected.
 
 ## Releasing from a support branch
 

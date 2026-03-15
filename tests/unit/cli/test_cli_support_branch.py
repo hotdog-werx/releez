@@ -250,12 +250,13 @@ class TestSupportBranchSingleRepo:
         )
         mocker.patch('releez.cli._build_subprojects_list', return_value=[])
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
+        # First call: latest 1.x.x tag; second call: latest 2.x.x tag for validation
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
-            return_value='1.4.0',
+            side_effect=['1.4.0', '2.0.0'],
         )
         custom_sha = 'deadbeef' * 4 + 'deadbeef'
-        mocker.patch(
+        validate = mocker.patch(
             'releez.cli.validate_commit_for_major',
             return_value=custom_sha,
         )
@@ -267,6 +268,8 @@ class TestSupportBranchSingleRepo:
         )
 
         assert result.exit_code == 0, result.output
+        # Validation uses the next major's tag, not the current major's
+        assert validate.call_args.kwargs['latest_tag'] == '2.0.0'
         create_branch.assert_called_once()
         assert create_branch.call_args.kwargs['ref'] == custom_sha
 
@@ -297,7 +300,7 @@ class TestSupportBranchSingleRepo:
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
-            return_value='1.4.0',
+            side_effect=['1.4.0', '2.0.0'],
         )
         mocker.patch(
             'releez.cli.validate_commit_for_major',
