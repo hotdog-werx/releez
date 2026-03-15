@@ -8,6 +8,7 @@ from pathlib import Path
 
 from git import Repo
 from git.exc import GitCommandError, GitCommandNotFound
+from semver import VersionInfo
 
 from releez.errors import (
     DirtyWorkingTreeError,
@@ -16,8 +17,10 @@ from releez.errors import (
     GitRemoteNotFoundError,
     GitRepoRootResolveError,
     GitTagExistsError,
+    InvalidSupportBranchCommitError,
     MissingCliError,
 )
+from releez.subproject import generate_tag_pattern
 
 if typing.TYPE_CHECKING:
     from releez.subproject import SubProject
@@ -344,6 +347,99 @@ def find_latest_tag_matching_pattern(repo: Repo, *, pattern: str) -> str | None:
         repo,
         compiled_pattern,
     )
+
+
+def find_all_major_versions(repo: Repo, *, tag_prefix: str) -> list[int]:
+    """Return sorted list of distinct major versions found in release tags.
+
+    Args:
+        repo: Git repository.
+        tag_prefix: Tag prefix (e.g., "core-", or "" for single-repo).
+
+    Returns:
+        Sorted list of major version integers (e.g., [1, 2, 3]).
+    """
+    compiled = re.compile(generate_tag_pattern(tag_prefix))
+    majors: set[int] = set()
+    for tag in repo.tags:
+        m = compiled.match(tag.name)
+        if m:
+            parsed = VersionInfo.parse(m.group(1))
+            majors.add(parsed.major)
+    return sorted(majors)
+
+
+def create_branch_from_ref(repo: Repo, *, name: str, ref: str) -> None:
+    """Create and check out a new local branch from a specific ref.
+
+    Args:
+        repo: The Git repository.
+        name: The new branch name.
+        ref: The git ref (commit SHA, tag, branch) to branch from.
+
+    Raises:
+        MissingCliError: If the `git` CLI is not available.
+        GitBranchExistsError: If the local branch already exists.
+    """
+    try:
+        repo.git.rev_parse('--verify', name)
+    except GitCommandNotFound as exc:  # pragma: no cover
+        raise MissingCliError(GIT_BIN) from exc
+    except GitCommandError:
+        repo.git.checkout('-b', name, ref)
+        return
+
+    raise GitBranchExistsError(name)
+
+
+def validate_commit_for_major(
+    repo: Repo,
+    *,
+    commit_ref: str,
+    latest_tag: str,
+    major: int,
+) -> str:
+    """Validate that a commit ref is a valid split point for the given major.
+
+    The commit must be an ancestor of (or equal to) the commit pointed to
+    by the latest N.x.x tag, ensuring it is within the N.x history.
+
+    Args:
+        repo: Git repository.
+        commit_ref: The ref to validate (commit SHA, tag, or branch).
+        latest_tag: The latest tag name for the major (e.g., "1.4.0").
+        major: The major version being validated.
+
+    Returns:
+        The resolved commit SHA.
+
+    Raises:
+        InvalidSupportBranchCommitError: If the ref cannot be resolved or is not
+            an ancestor of the latest N.x.x tag.
+    """
+    try:
+        commit_sha = repo.git.rev_parse(commit_ref + '^{commit}')
+        tag_sha = repo.git.rev_parse(latest_tag + '^{commit}')
+    except GitCommandError as exc:
+        raise InvalidSupportBranchCommitError(
+            commit=commit_ref,
+            major=major,
+            reason=f'ref {commit_ref!r} could not be resolved',
+        ) from exc
+
+    if commit_sha == tag_sha:
+        return commit_sha
+
+    try:
+        repo.git.merge_base('--is-ancestor', commit_sha, tag_sha)
+    except GitCommandError as exc:
+        raise InvalidSupportBranchCommitError(
+            commit=commit_ref,
+            major=major,
+            reason=f'not an ancestor of latest {major}.x.x tag {latest_tag!r}',
+        ) from exc
+
+    return commit_sha
 
 
 def _has_commits_for_path(repo: Repo, range_spec: str, path: str) -> bool:

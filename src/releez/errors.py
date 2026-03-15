@@ -261,3 +261,49 @@ class InvalidPrereleaseTypeError(ReleezError):
         super().__init__(
             f'Prerelease type {prerelease_type!r} is not supported for scheme {scheme!r}.',
         )
+
+
+class NoTagsForMajorError(ReleezError):
+    """Raised when no tags exist for the requested major version."""
+
+    major: int
+    tag_prefix: str
+
+    def __init__(self, *, major: int, tag_prefix: str) -> None:
+        self.major = major
+        self.tag_prefix = tag_prefix
+        prefix_hint = f' (prefix {tag_prefix!r})' if tag_prefix else ''
+        super().__init__(
+            f'No tags found for major version {major}{prefix_hint}. '
+            f'Ensure at least one {major}.x.x release exists before creating a support branch.',
+        )
+
+
+class MajorVersionAlreadyLatestError(ReleezError):
+    """Raised when a support branch is requested for the latest major version."""
+
+    major: int
+    latest_major: int
+
+    def __init__(self, *, major: int, latest_major: int) -> None:
+        self.major = major
+        self.latest_major = latest_major
+        super().__init__(
+            f'Major version {major} is the latest major — no support branch needed. '
+            f'Use the default base branch for ongoing {major}.x development. '
+            f'Support branches are only for maintaining older major lines.',
+        )
+
+
+class InvalidSupportBranchCommitError(ReleezError):
+    """Raised when --commit is not a valid split point for the given major."""
+
+    commit: str
+    major: int
+
+    def __init__(self, *, commit: str, major: int, reason: str) -> None:
+        self.commit = commit
+        self.major = major
+        super().__init__(
+            f'Commit {commit!r} is not a valid split point for major {major}: {reason}',
+        )

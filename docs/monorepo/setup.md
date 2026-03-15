@@ -243,14 +243,17 @@ releez release start --all
 
 ### Release from a Support Branch (Maintenance Releases)
 
-Support branches work in monorepo mode with a project-scoped naming convention.
-For a project with `tag-prefix = "ui-"`, create a branch named
-`support/ui-{major}.x` (e.g. `support/ui-1.x`).
+Support branches in monorepo mode use a project-scoped naming convention:
+`support/{tag-prefix}{major}.x` (e.g. `support/ui-1.x` for a project with
+`tag-prefix = "ui-"`).
+
+Create the branch with Releez, then release from it normally:
 
 ```bash
-git checkout -b support/ui-1.x
+# Create support/ui-1.x from the latest ui-1.x.x tag
+releez release support-branch 1 --project ui
 
-# Run from the support branch, targeting the matching project
+# From the support branch, cut a release for the ui project
 releez release start --project ui
 ```
 
@@ -260,6 +263,10 @@ that would bump to a different major are rejected.
 
 Other projects in the same monorepo are unaffected; their releases run normally
 from the default base branch.
+
+See the
+[Support Branches guide](https://hotdog-werx.github.io/releez/support-branches/)
+for full details.
 
 ### Check Which Projects Changed
 

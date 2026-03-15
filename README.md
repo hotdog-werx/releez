@@ -65,29 +65,24 @@ full configuration, change detection, uv workspace integration, and CI patterns.
 ## Support branches
 
 Support branches are long-lived maintenance lines for shipping hotfixes or
-backported features on older majors (for example, `support/1.x` for the `1.x`
-line). Run `releez release start` from the support branch to cut a release that
-stays on that line.
+backported features on older majors (e.g. `support/1.x` while `2.x` development
+continues on the default branch).
 
-**Single-repo** branches follow `support/{major}.x` (e.g. `support/1.x`).
+**Create** a support branch with:
 
-**Monorepo** branches follow `support/{tag-prefix}{major}.x` where
-`{tag-prefix}` matches the project's `tag-prefix` setting (e.g. `support/ui-1.x`
-for a project with `tag-prefix = "ui-"`).
+```bash
+releez release support-branch 1            # single-repo → support/1.x
+releez release support-branch 1 --project ui  # monorepo  → support/ui-1.x
+```
 
-When on a support branch releez will:
+**Release** from a support branch with the normal `releez release start` command
+— Releez detects the branch automatically and scopes versioning to the correct
+major line.
 
-- Scope git-cliff versioning to tags in the same major line.
-- Use the current support branch as the PR base.
-- Reject versions that would jump to a different major.
-
-Each support branch maintains its own changelog history; releases stay within
-that branch.
-
-If your repo uses a different naming scheme, set `maintenance_branch_regex` in
-config or via `RELEEZ_MAINTENANCE_BRANCH_REGEX`. The regex must include a named
-`major` capture group (applies to single-repo mode only; monorepo branch
-detection is automatic from each project's `tag-prefix`).
+See the
+[Support Branches guide](https://hotdog-werx.github.io/releez/support-branches/)
+for full details including `--commit` overrides, custom naming, and monorepo
+configuration.
 
 ## Configuration
 

@@ -24,16 +24,22 @@ from releez.errors import (
     InvalidMaintenanceBranchRegexError,
     InvalidReleaseVersionError,
     MaintenanceBranchMajorMismatchError,
+    MajorVersionAlreadyLatestError,
+    NoTagsForMajorError,
     ReleezError,
 )
 from releez.git_repo import (
     DetectedRelease,
+    create_branch_from_ref,
     create_tags,
     detect_changed_projects,
     detect_release_from_branch,
     fetch,
+    find_all_major_versions,
+    find_latest_tag_matching_pattern,
     open_repo,
     push_tags,
+    validate_commit_for_major,
 )
 from releez.release import StartReleaseInput, StartReleaseResult, start_release
 from releez.settings import ReleezSettings
@@ -688,6 +694,80 @@ def _maintenance_context(
 def _monorepo_maintenance_tag_pattern(prefix: str, major: int) -> str:
     """Return a git-cliff tag pattern scoped to a prefix and major version."""
     return f'^{re.escape(prefix)}{major}\\.[0-9]+\\.[0-9]+$'
+
+
+def _support_branch_name(*, tag_prefix: str, major: int) -> str:
+    """Return the support branch name for a given tag prefix and major version."""
+    return f'support/{tag_prefix}{major}.x'
+
+
+def _run_support_branch_inner(
+    repo: Repo,
+    *,
+    tag_prefix: str,
+    major: int,
+    commit_ref: str | None,
+    dry_run: bool,
+) -> None:
+    """Validate and create a support branch from the appropriate split point.
+
+    Args:
+        repo: Git repository.
+        tag_prefix: Tag prefix for this project (empty string for single-repo).
+        major: Major version line to support.
+        commit_ref: Optional override commit ref to branch from.
+        dry_run: If true, print what would be done without creating the branch.
+
+    Raises:
+        NoTagsForMajorError: If no tags exist for the requested major.
+        MajorVersionAlreadyLatestError: If major is the current latest.
+        GitBranchExistsError: If the support branch already exists locally.
+        InvalidSupportBranchCommitError: If --commit is not a valid split point.
+    """
+    all_majors = find_all_major_versions(repo, tag_prefix=tag_prefix)
+
+    if major not in all_majors:
+        raise NoTagsForMajorError(major=major, tag_prefix=tag_prefix)
+
+    latest_major = max(all_majors)
+    if major == latest_major:
+        raise MajorVersionAlreadyLatestError(
+            major=major,
+            latest_major=latest_major,
+        )
+
+    latest_tag = find_latest_tag_matching_pattern(
+        repo,
+        pattern=_monorepo_maintenance_tag_pattern(tag_prefix, major),
+    )
+    # Guaranteed non-None: we already confirmed major is in all_majors
+    assert latest_tag is not None  # noqa: S101
+
+    if commit_ref is not None:
+        split_sha = validate_commit_for_major(
+            repo,
+            commit_ref=commit_ref,
+            latest_tag=latest_tag,
+            major=major,
+        )
+        split_label = f'{commit_ref} ({split_sha[:8]})'
+    else:
+        # Resolve the tag to its commit SHA via the tag object we already found.
+        tag_obj = next(t for t in repo.tags if t.name == latest_tag)
+        split_sha = tag_obj.commit.hexsha
+        split_label = f'{latest_tag} ({split_sha[:8]})'
+
+    branch_name = _support_branch_name(tag_prefix=tag_prefix, major=major)
+
+    if dry_run:
+        typer.echo(f"Would create branch '{branch_name}' from {split_label}")
+        return
+
+    create_branch_from_ref(repo, name=branch_name, ref=split_sha)
+    typer.secho(
+        f"Created branch '{branch_name}' from {split_label}",
+        fg=typer.colors.GREEN,
+    )
 
 
 def _monorepo_maintenance_context(
@@ -2003,6 +2083,102 @@ def release_detect_from_branch(
             raise typer.Exit(code=1)
 
         typer.echo(_format_detected_release_json(detected))
+
+    except ReleezError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+
+
+@release_app.command('support-branch')
+def release_support_branch(
+    major: Annotated[
+        int,
+        typer.Argument(
+            help='Major version line to create a support branch for (e.g. 1 creates support/1.x).',
+        ),
+    ],
+    *,
+    project_name: Annotated[
+        str | None,
+        typer.Option(
+            '--project',
+            help='Project name (required in monorepo mode).',
+            show_default=False,
+        ),
+    ] = None,
+    commit_ref: Annotated[
+        str | None,
+        typer.Option(
+            '--commit',
+            help=(
+                'Commit ref to branch from. Defaults to the latest N.x.x tag. '
+                'Must be an ancestor of the latest N.x.x tag.'
+            ),
+            show_default=False,
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            '--dry-run',
+            help='Print what would be done without creating the branch.',
+        ),
+    ] = False,
+) -> None:
+    """Create a support branch for an older major version.
+
+    Finds the latest N.x.x release tag and creates support/N.x from that
+    commit. The major version must not be the current latest.
+
+    Single-repo example (tags 1.4.0 and 2.0.0 exist):
+        releez release support-branch 1
+        → creates support/1.x from 1.4.0
+
+    Monorepo example (project ui with tags ui-1.4.0 and ui-2.0.0):
+        releez release support-branch 1 --project ui
+        → creates support/ui-1.x from ui-1.4.0
+    """
+    try:
+        settings = ReleezSettings()
+        ctx_repo = open_repo()
+        repo = ctx_repo.repo
+        subprojects = _build_subprojects_list(
+            settings,
+            repo_root=ctx_repo.info.root,
+        )
+
+        if not subprojects:
+            # Single-repo mode: --project must not be given
+            if project_name is not None:
+                _exit_with_message(
+                    '--project is only valid in monorepo mode (no projects configured).',
+                )
+            _run_support_branch_inner(
+                repo,
+                tag_prefix='',
+                major=major,
+                commit_ref=commit_ref,
+                dry_run=dry_run,
+            )
+        else:
+            # Monorepo mode: --project is required
+            if project_name is None:
+                _exit_with_message(
+                    f'--project is required in monorepo mode. Available projects: {_project_names_csv(subprojects)}',
+                )
+            assert project_name is not None  # narrowed: _exit_with_message is NoReturn  # noqa: S101
+            selected = _selected_projects_from_names(
+                subprojects=subprojects,
+                project_names=[project_name],
+            )
+            project = selected[0]
+            _run_support_branch_inner(
+                repo,
+                tag_prefix=project.tag_prefix,
+                major=major,
+                commit_ref=commit_ref,
+                dry_run=dry_run,
+            )
 
     except ReleezError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
