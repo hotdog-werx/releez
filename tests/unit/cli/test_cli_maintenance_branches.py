@@ -770,11 +770,21 @@ class TestValidateSupportBranchName:
             maintenance_regex=r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$',
         )
 
-    def test_monorepo_with_prefix_group_regex_mismatch_raises(self) -> None:
-        """Monorepo branch name with wrong prefix raises ReleezError."""
+    def test_monorepo_with_prefix_group_regex_no_match_raises(self) -> None:
+        """Branch name that does not match the prefix-group regex raises ReleezError."""
         with pytest.raises(ReleezError, match='maintenance-branch-regex'):
             _validate_support_branch_name(
                 branch_name='hotfix/ui-1.x',
+                tag_prefix='ui-',
+                major=1,
+                maintenance_regex=r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$',
+            )
+
+    def test_monorepo_with_prefix_group_regex_wrong_prefix_raises(self) -> None:
+        """Branch name matches the regex but captures a different project prefix."""
+        with pytest.raises(ReleezError, match='maintenance-branch-regex'):
+            _validate_support_branch_name(
+                branch_name='support/core-1.x',
                 tag_prefix='ui-',
                 major=1,
                 maintenance_regex=r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$',
