@@ -50,7 +50,7 @@ def test_root_merges_into_existing_default_map(
         run_changelog_format=False,
         alias_versions=cli.AliasVersions.none,
         hooks=hooks,
-        maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
+        effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
     )
     mocker.patch('releez.cli.ReleezSettings', return_value=settings)
 
@@ -173,6 +173,7 @@ def test_run_monorepo_release_start_exits_when_any_project_fails(
             options=_make_start_options(),
             target_projects=[core, ui],
             repo_root=Path('/repo'),
+            maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
         )
 
     exit_with_code.assert_called_once()
@@ -189,6 +190,7 @@ def test_run_monorepo_release_start_no_targets_noops(
         options=_make_start_options(),
         target_projects=[],
         repo_root=Path('/repo'),
+        maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
     )
 
     run_project.assert_not_called()

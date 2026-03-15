@@ -319,8 +319,58 @@ class TestSupportBranchSingleRepo:
         assert result.exit_code == 1
         assert 'badsha' in result.output
 
+    def test_preflight_fails_when_template_regex_mismatch(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Pre-flight rejects a template that generates a name not matching the regex."""
+        runner = CliRunner()
+        tag_obj = mocker.Mock()
+        tag_obj.name = '1.4.0'
+        tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
+        repo_mock = mocker.Mock()
+        repo_mock.tags = [tag_obj]
+        mocker.patch(
+            'releez.cli.open_repo',
+            return_value=mocker.Mock(
+                repo=repo_mock,
+                info=RepoInfo(
+                    root=tmp_path,
+                    remote_url='',
+                    active_branch='master',
+                ),
+            ),
+        )
+        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
+        mocker.patch(
+            'releez.cli.find_latest_tag_matching_pattern',
+            return_value='1.4.0',
+        )
+
+        # Template generates 'hotfix/1.x' but regex expects 'support/N.x'
+        mock_settings = mocker.Mock()
+        mock_settings.effective_maintenance_branch_template = 'hotfix/{prefix}{major}.x'
+        mock_settings.effective_maintenance_branch_regex = r'^support/(?P<major>\d+)\.x$'
+        mock_settings.projects = []
+        mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+
+        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+
+        assert result.exit_code == 1
+        assert 'maintenance-branch-regex' in result.output
+
 
 class TestSupportBranchMonorepo:
+    def _mock_settings(self, mocker: MockerFixture) -> object:
+        """Return a mock settings with monorepo effective maintenance values."""
+        s = mocker.Mock()
+        s.effective_maintenance_branch_template = 'support/{prefix}{major}.x'
+        s.effective_maintenance_branch_regex = r'^support/(?P<major>\d+)\.x$'
+        s.projects = []
+        return s
+
     def _mock_project(
         self,
         mocker: MockerFixture,
@@ -352,6 +402,10 @@ class TestSupportBranchMonorepo:
                     active_branch='master',
                 ),
             ),
+        )
+        mocker.patch(
+            'releez.cli.ReleezSettings',
+            return_value=self._mock_settings(mocker),
         )
         mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
         mocker.patch(
@@ -460,6 +514,10 @@ class TestSupportBranchMonorepo:
                     active_branch='master',
                 ),
             ),
+        )
+        mocker.patch(
+            'releez.cli.ReleezSettings',
+            return_value=self._mock_settings(mocker),
         )
         mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
         mocker.patch(

@@ -69,7 +69,7 @@ def test_forces_filter_unconventional_false(tmp_path: Path) -> None:
     dropped before the match check.
     """
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
-    assert cfg['git']['filter_unconventional'] is False  # type: ignore[index]
+    assert cfg['git']['filter_unconventional'] is False
 
 
 def test_forces_fail_on_unmatched_commit_true(tmp_path: Path) -> None:
@@ -79,7 +79,7 @@ def test_forces_fail_on_unmatched_commit_true(tmp_path: Path) -> None:
     report the message as invalid.
     """
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
-    assert cfg['git']['fail_on_unmatched_commit'] is True  # type: ignore[index]
+    assert cfg['git']['fail_on_unmatched_commit'] is True
 
 
 def test_removes_catchall_parser(tmp_path: Path) -> None:
@@ -90,7 +90,7 @@ def test_removes_catchall_parser(tmp_path: Path) -> None:
     like "half-done something" — making the validation check a no-op.
     """
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
-    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
+    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']
     assert not any(p.get('message') == '.*' for p in parsers)
 
 
@@ -101,7 +101,7 @@ def test_preserves_named_parsers(tmp_path: Path) -> None:
     the catch-all is removed.
     """
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
-    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
+    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']
     messages = [p['message'] for p in parsers]
     assert '^feat' in messages
     assert '^fix' in messages
@@ -115,7 +115,7 @@ def test_preserves_skip_true_parsers(tmp_path: Path) -> None:
     exit 0.
     """
     cfg = _build_validation_config(_write_cliff_toml(tmp_path))
-    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
+    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']
     assert any(p.get('skip') is True for p in parsers)
 
 
@@ -128,9 +128,9 @@ def test_no_git_section_creates_git_section(tmp_path: Path) -> None:
     cfg = _build_validation_config(
         _write_cliff_toml(tmp_path, _NO_GIT_SECTION_TOML),
     )
-    assert cfg['git']['filter_unconventional'] is False  # type: ignore[index]
-    assert cfg['git']['fail_on_unmatched_commit'] is True  # type: ignore[index]
-    assert cfg['git']['commit_parsers'] == []  # type: ignore[index]
+    assert cfg['git']['filter_unconventional'] is False
+    assert cfg['git']['fail_on_unmatched_commit'] is True
+    assert cfg['git']['commit_parsers'] == []
 
 
 def test_output_round_trips_as_valid_toml(tmp_path: Path) -> None:
@@ -154,7 +154,7 @@ def test_no_parsers_in_source_stays_empty(tmp_path: Path) -> None:
     """
     toml = '[git]\nconventional_commits = true\n'
     cfg = _build_validation_config(_write_cliff_toml(tmp_path, toml))
-    assert cfg['git']['commit_parsers'] == []  # type: ignore[index]
+    assert cfg['git']['commit_parsers'] == []
 
 
 def test_multiple_catchalls_all_removed(tmp_path: Path) -> None:
@@ -172,7 +172,7 @@ def test_multiple_catchalls_all_removed(tmp_path: Path) -> None:
         ']\n'
     )
     cfg = _build_validation_config(_write_cliff_toml(tmp_path, toml))
-    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']  # type: ignore[index]
+    parsers: list[dict[str, object]] = cfg['git']['commit_parsers']
     assert len(parsers) == 1
     assert parsers[0]['message'] == '^feat'
 

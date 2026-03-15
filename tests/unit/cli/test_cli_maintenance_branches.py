@@ -15,12 +15,15 @@ from releez.cli import (
     _monorepo_maintenance_context,
     _monorepo_maintenance_tag_pattern,
     _validate_maintenance_version,
+    _validate_support_branch_name,
 )
 from releez.errors import (
     InvalidMaintenanceBranchRegexError,
     MaintenanceBranchMajorMismatchError,
+    ReleezError,
 )
 from releez.git_repo import RepoInfo
+from releez.subproject import SubProject
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -613,37 +616,64 @@ class TestMonorepoMaintenanceContext:
         mocker: MockerFixture,
         name: str,
         tag_prefix: str,
-    ) -> object:
-        p = mocker.MagicMock()
+    ) -> SubProject:
+        p = mocker.MagicMock(spec=SubProject)
         p.name = name
         p.tag_prefix = tag_prefix
         return p
+
+    _DEFAULT_REGEX = r'^support/(?P<major>\d+)\.x$'
 
     def test_returns_none_when_branch_is_none(
         self,
         mocker: MockerFixture,
     ) -> None:
         proj = self._make_project(mocker, 'ui', 'ui-')
-        assert _monorepo_maintenance_context(None, [proj]) is None  # type: ignore[list-item]
+        assert (
+            _monorepo_maintenance_context(
+                None,
+                [proj],
+                regex=self._DEFAULT_REGEX,
+            )
+            is None
+        )
 
     def test_returns_none_when_no_project_matches(
         self,
         mocker: MockerFixture,
     ) -> None:
         proj = self._make_project(mocker, 'ui', 'ui-')
-        assert _monorepo_maintenance_context('support/core-1.x', [proj]) is None  # type: ignore[list-item]
+        assert (
+            _monorepo_maintenance_context(
+                'support/core-1.x',
+                [proj],
+                regex=self._DEFAULT_REGEX,
+            )
+            is None
+        )
 
     def test_returns_none_when_project_has_no_prefix(
         self,
         mocker: MockerFixture,
     ) -> None:
         proj = self._make_project(mocker, 'myapp', '')
-        assert _monorepo_maintenance_context('support/1.x', [proj]) is None  # type: ignore[list-item]
+        assert (
+            _monorepo_maintenance_context(
+                'support/1.x',
+                [proj],
+                regex=self._DEFAULT_REGEX,
+            )
+            is None
+        )
 
     def test_matches_project_by_prefix(self, mocker: MockerFixture) -> None:
         ui = self._make_project(mocker, 'ui', 'ui-')
         core = self._make_project(mocker, 'core', 'core-')
-        result = _monorepo_maintenance_context('support/ui-3.x', [ui, core])  # type: ignore[list-item]
+        result = _monorepo_maintenance_context(
+            'support/ui-3.x',
+            [ui, core],
+            regex=self._DEFAULT_REGEX,
+        )
         assert result is not None
         project, ctx = result
         assert project is ui
@@ -653,10 +683,165 @@ class TestMonorepoMaintenanceContext:
 
     def test_returns_correct_major(self, mocker: MockerFixture) -> None:
         core = self._make_project(mocker, 'core', 'core-')
-        result = _monorepo_maintenance_context('support/core-12.x', [core])  # type: ignore[list-item]
+        result = _monorepo_maintenance_context(
+            'support/core-12.x',
+            [core],
+            regex=self._DEFAULT_REGEX,
+        )
         assert result is not None
         _, ctx = result
         assert ctx.major == 12
+
+    def test_prefix_group_regex_matches_project_by_prefix(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """When regex has (?P<prefix>...) group, uses it to detect the project."""
+        ui = self._make_project(mocker, 'ui', 'ui-')
+        core = self._make_project(mocker, 'core', 'core-')
+        regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$'
+        result = _monorepo_maintenance_context(
+            'support/ui-3.x',
+            [ui, core],
+            regex=regex,
+        )
+        assert result is not None
+        project, ctx = result
+        assert project is ui
+        assert ctx.major == 3
+        assert ctx.branch == 'support/ui-3.x'
+
+    def test_prefix_group_regex_returns_none_when_no_match(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """With prefix-group regex, returns None when branch doesn't match."""
+        ui = self._make_project(mocker, 'ui', 'ui-')
+        regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$'
+        assert _monorepo_maintenance_context('hotfix/ui-1.x', [ui], regex=regex) is None
+
+    def test_prefix_group_regex_returns_none_when_prefix_matches_no_project(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """With prefix-group regex, returns None when extracted prefix doesn't match any project."""
+        ui = self._make_project(mocker, 'ui', 'ui-')
+        regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$'
+        assert _monorepo_maintenance_context('support/core-1.x', [ui], regex=regex) is None
+
+
+class TestValidateSupportBranchName:
+    """Tests for _validate_support_branch_name pre-flight check."""
+
+    def test_single_repo_valid_name_passes(self) -> None:
+        """Default template+regex combination should always pass for single-repo."""
+        _validate_support_branch_name(
+            branch_name='support/1.x',
+            tag_prefix='',
+            major=1,
+            maintenance_regex=r'^support/(?P<major>\d+)\.x$',
+        )
+
+    def test_single_repo_mismatch_raises(self) -> None:
+        """Branch name not matching regex raises ReleezError."""
+        with pytest.raises(ReleezError, match='maintenance-branch-regex'):
+            _validate_support_branch_name(
+                branch_name='hotfix/1.x',
+                tag_prefix='',
+                major=1,
+                maintenance_regex=r'^support/(?P<major>\d+)\.x$',
+            )
+
+    def test_monorepo_valid_name_passes(self) -> None:
+        """Default template+regex produces valid branch name for monorepo."""
+        _validate_support_branch_name(
+            branch_name='support/ui-1.x',
+            tag_prefix='ui-',
+            major=1,
+            maintenance_regex=r'^support/(?P<major>\d+)\.x$',
+        )
+
+    def test_monorepo_with_prefix_group_regex_valid_passes(self) -> None:
+        """Monorepo branch name matches prefix-group regex correctly."""
+        _validate_support_branch_name(
+            branch_name='support/ui-1.x',
+            tag_prefix='ui-',
+            major=1,
+            maintenance_regex=r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$',
+        )
+
+    def test_monorepo_with_prefix_group_regex_mismatch_raises(self) -> None:
+        """Monorepo branch name with wrong prefix raises ReleezError."""
+        with pytest.raises(ReleezError, match='maintenance-branch-regex'):
+            _validate_support_branch_name(
+                branch_name='hotfix/ui-1.x',
+                tag_prefix='ui-',
+                major=1,
+                maintenance_regex=r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$',
+            )
+
+    def test_monorepo_invalid_regex_raises(self) -> None:
+        """Invalid regex in monorepo mode raises InvalidMaintenanceBranchRegexError."""
+        with pytest.raises(InvalidMaintenanceBranchRegexError):
+            _validate_support_branch_name(
+                branch_name='support/ui-1.x',
+                tag_prefix='ui-',
+                major=1,
+                maintenance_regex='[invalid(regex',
+            )
+
+    def test_monorepo_per_project_fallback_mismatch_raises(self) -> None:
+        """Per-project fallback rejects a branch name not matching the project pattern."""
+        with pytest.raises(ReleezError, match='maintenance-branch-regex'):
+            _validate_support_branch_name(
+                branch_name='hotfix/ui-1.x',
+                tag_prefix='ui-',
+                major=1,
+                maintenance_regex=r'^support/(?P<major>\d+)\.x$',  # no prefix group → per-project fallback
+            )
+
+
+class TestMonorepoMaintenanceContextEdgeCases:
+    """Edge-case tests for _monorepo_maintenance_context."""
+
+    def _make_project(
+        self,
+        mocker: MockerFixture,
+        name: str,
+        tag_prefix: str,
+    ) -> SubProject:
+        p = mocker.MagicMock(spec=SubProject)
+        p.name = name
+        p.tag_prefix = tag_prefix
+        return p
+
+    def test_returns_none_when_regex_is_invalid(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """An invalid regex silently returns None (errors surfaced elsewhere)."""
+        ui = self._make_project(mocker, 'ui', 'ui-')
+        result = _monorepo_maintenance_context(
+            'support/ui-1.x',
+            [ui],
+            regex='[invalid(regex',
+        )
+        assert result is None
+
+    def test_returns_none_when_prefix_group_major_is_non_integer(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Prefix-group regex whose major group captures a non-integer returns None."""
+        ui = self._make_project(mocker, 'ui', 'ui-')
+        # This regex has prefix and major groups, but major captures letters
+        regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>[a-z]+)\.x$'
+        result = _monorepo_maintenance_context(
+            'support/ui-abc.x',
+            [ui],
+            regex=regex,
+        )
+        assert result is None
 
 
 class TestMonorepoReleaseStartOnMaintenanceBranch:
@@ -673,7 +858,7 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         p.name = name
         p.tag_prefix = tag_prefix
         p.tag_pattern = f'^{tag_prefix}([0-9]+\\.[0-9]+\\.[0-9]+)$'
-        p.path = tmp_path  # type: ignore[assignment]
+        p.path = tmp_path
         p.alias_versions = mocker.MagicMock()
         p.hooks.post_changelog = []
         p.include_paths = []

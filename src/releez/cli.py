@@ -95,7 +95,7 @@ def _root(
             'create_pr': settings.create_pr,
             'run_changelog_format': settings.run_changelog_format,
             'changelog_format_cmd': settings.hooks.changelog_format,
-            'maintenance_branch_regex': settings.maintenance_branch_regex,
+            'maintenance_branch_regex': settings.effective_maintenance_branch_regex,
         },
         'tag': {
             'remote': settings.git_remote,
@@ -696,18 +696,114 @@ def _monorepo_maintenance_tag_pattern(prefix: str, major: int) -> str:
     return f'^{re.escape(prefix)}{major}\\.[0-9]+\\.[0-9]+$'
 
 
-def _support_branch_name(*, tag_prefix: str, major: int) -> str:
+def _support_branch_name(*, tag_prefix: str, major: int, template: str) -> str:
     """Return the support branch name for a given tag prefix and major version."""
-    return f'support/{tag_prefix}{major}.x'
+    return template.format(prefix=tag_prefix, major=major)
 
 
-def _run_support_branch_inner(
+def _validate_branch_name_prefix_regex(
+    branch_name: str,
+    tag_prefix: str,
+    compiled: re.Pattern[str],
+    mismatch_msg: str,
+) -> None:
+    """Check branch_name via a regex that contains a (?P<prefix>...) group."""
+    m = compiled.match(branch_name)
+    if m is None:
+        raise ReleezError(mismatch_msg)
+    if (m.group('prefix') or '') != tag_prefix:
+        raise ReleezError(mismatch_msg)
+
+
+def _validate_branch_name_per_project(
+    branch_name: str,
+    tag_prefix: str,
+    major: int,
+    mismatch_msg: str,
+) -> None:
+    """Check branch_name via the hardcoded per-project pattern for the given prefix."""
+    per_project = rf'^support/{re.escape(tag_prefix)}(?P<major>\d+)\.x$'
+    m = re.match(per_project, branch_name)
+    if m is None or int(m.group('major')) != major:
+        raise ReleezError(mismatch_msg)
+
+
+def _validate_monorepo_branch_name(
+    *,
+    branch_name: str,
+    tag_prefix: str,
+    major: int,
+    maintenance_regex: str,
+    mismatch_msg: str,
+) -> None:
+    """Monorepo pre-flight: verify branch name is detectable for the given project prefix."""
+    try:
+        compiled = re.compile(maintenance_regex)
+    except re.error as exc:
+        raise InvalidMaintenanceBranchRegexError(
+            maintenance_regex,
+            reason=str(exc),
+        ) from exc
+    if 'prefix' in compiled.groupindex:
+        _validate_branch_name_prefix_regex(
+            branch_name,
+            tag_prefix,
+            compiled,
+            mismatch_msg,
+        )
+    else:
+        _validate_branch_name_per_project(
+            branch_name,
+            tag_prefix,
+            major,
+            mismatch_msg,
+        )
+
+
+def _validate_support_branch_name(
+    *,
+    branch_name: str,
+    tag_prefix: str,
+    major: int,
+    maintenance_regex: str,
+) -> None:
+    """Pre-flight: verify the generated branch name will be detected as a maintenance branch.
+
+    Raises:
+        ReleezError: If the branch name won't be detected by the current configuration.
+        InvalidMaintenanceBranchRegexError: If the regex is invalid.
+    """
+    _mismatch = (
+        f'Branch name {branch_name!r} generated from maintenance-branch-template '
+        f"won't be detected by maintenance-branch-regex {maintenance_regex!r}. "
+        'Ensure maintenance-branch-template and maintenance-branch-regex are consistent.'
+    )
+    if tag_prefix:
+        _validate_monorepo_branch_name(
+            branch_name=branch_name,
+            tag_prefix=tag_prefix,
+            major=major,
+            maintenance_regex=maintenance_regex,
+            mismatch_msg=_mismatch,
+        )
+    else:
+        detected = _maintenance_major(
+            branch=branch_name,
+            regex=maintenance_regex,
+        )
+        if detected != major:
+            raise ReleezError(_mismatch)
+
+
+def _run_support_branch_inner(  # noqa: PLR0913
     repo: Repo,
     *,
     tag_prefix: str,
     major: int,
     commit_ref: str | None,
     dry_run: bool,
+    branch_template: str,
+    maintenance_regex: str,
 ) -> None:
     """Validate and create a support branch from the appropriate split point.
 
@@ -717,12 +813,15 @@ def _run_support_branch_inner(
         major: Major version line to support.
         commit_ref: Optional override commit ref to branch from.
         dry_run: If true, print what would be done without creating the branch.
+        branch_template: Template string for constructing the branch name.
+        maintenance_regex: Regex used to detect maintenance branches.
 
     Raises:
         NoTagsForMajorError: If no tags exist for the requested major.
         MajorVersionAlreadyLatestError: If major is the current latest.
         GitBranchExistsError: If the support branch already exists locally.
         InvalidSupportBranchCommitError: If --commit is not a valid split point.
+        ReleezError: If the generated branch name won't be detected by maintenance_regex.
     """
     all_majors = find_all_major_versions(repo, tag_prefix=tag_prefix)
 
@@ -766,7 +865,17 @@ def _run_support_branch_inner(
         split_sha = tag_obj.commit.hexsha
         split_label = f'{latest_tag} ({split_sha[:8]})'
 
-    branch_name = _support_branch_name(tag_prefix=tag_prefix, major=major)
+    branch_name = _support_branch_name(
+        tag_prefix=tag_prefix,
+        major=major,
+        template=branch_template,
+    )
+    _validate_support_branch_name(
+        branch_name=branch_name,
+        tag_prefix=tag_prefix,
+        major=major,
+        maintenance_regex=maintenance_regex,
+    )
 
     if dry_run:
         typer.echo(f"Would create branch '{branch_name}' from {split_label}")
@@ -779,18 +888,57 @@ def _run_support_branch_inner(
     )
 
 
+def _monorepo_context_from_prefix_regex(
+    branch: str,
+    projects: list[SubProject],
+    compiled: re.Pattern[str],
+) -> tuple[SubProject, MaintenanceContext] | None:
+    """Detect project/major from a compiled regex containing (?P<prefix>...) and (?P<major>...) groups."""
+    m = compiled.match(branch)
+    if m is None:
+        return None
+    prefix_value = m.group('prefix') or ''
+    try:
+        major = int(m.group('major'))
+    except (ValueError, KeyError):
+        return None
+    project = next((p for p in projects if p.tag_prefix == prefix_value), None)
+    if project is None:
+        return None
+    ctx = MaintenanceContext(
+        branch=branch,
+        major=major,
+        tag_pattern=_monorepo_maintenance_tag_pattern(
+            project.tag_prefix,
+            major,
+        ),
+    )
+    return project, ctx
+
+
 def _monorepo_maintenance_context(
     branch: str | None,
     projects: list[SubProject],
+    *,
+    regex: str,
 ) -> tuple[SubProject, MaintenanceContext] | None:
     r"""Detect a maintenance branch in monorepo mode.
 
-    For each project, tries to match ``branch`` against
+    If ``regex`` contains a ``(?P<prefix>...)`` group, uses the global regex to
+    detect both the project (by matching prefix against tag_prefix) and the major.
+    Otherwise falls back to per-project patterns of the form
     ``^support/{re.escape(tag_prefix)}(?P<major>\d+)\.x$``.
+
     Returns the first matching (SubProject, MaintenanceContext) pair, or None.
     """
     if branch is None:
         return None
+    try:
+        compiled = re.compile(regex)
+    except re.error:
+        return None
+    if 'prefix' in compiled.groupindex:
+        return _monorepo_context_from_prefix_regex(branch, projects, compiled)
     for project in projects:
         if not project.tag_prefix:
             continue
@@ -1025,13 +1173,14 @@ def _run_project_release_start(
     return True
 
 
-def _run_monorepo_release_start(
+def _run_monorepo_release_start(  # noqa: PLR0913
     *,
     options: _ReleaseStartOptions,
     target_projects: list[SubProject],
     repo_root: Path,
     active_branch: str | None = None,
     non_interactive: bool = False,
+    maintenance_branch_regex: str,
 ) -> None:
     _require_single_project_override_scope(
         version_override=options.version_override,
@@ -1041,7 +1190,11 @@ def _run_monorepo_release_start(
     if not target_projects:
         return
 
-    monorepo_ctx = _monorepo_maintenance_context(active_branch, target_projects)
+    monorepo_ctx = _monorepo_maintenance_context(
+        active_branch,
+        target_projects,
+        regex=maintenance_branch_regex,
+    )
     maintenance_project = monorepo_ctx[0] if monorepo_ctx else None
     maintenance_ctx = monorepo_ctx[1] if monorepo_ctx else None
 
@@ -1104,6 +1257,7 @@ def _run_release_start_command(  # noqa: PLR0913
         repo_root=resolved.repo_root,
         active_branch=resolved.active_branch,
         non_interactive=non_interactive,
+        maintenance_branch_regex=maintenance_branch_regex,
     )
 
 
@@ -1561,7 +1715,7 @@ def _run_release_tag_command(
 
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.maintenance_branch_regex,
+        regex=resolved.settings.effective_maintenance_branch_regex,
     )
     fetch(resolved.repo, remote_name=options.remote)
     if resolved.target_projects is None:
@@ -1715,7 +1869,7 @@ def _run_release_preview_command(
 
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.maintenance_branch_regex,
+        regex=resolved.settings.effective_maintenance_branch_regex,
     )
     if resolved.target_projects is None:
         tag_pattern = maintenance_ctx.tag_pattern if maintenance_ctx else None
@@ -1828,7 +1982,7 @@ def _run_release_notes_command(
 
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.maintenance_branch_regex,
+        regex=resolved.settings.effective_maintenance_branch_regex,
     )
     cliff = GitCliff(repo_root=resolved.repo_root)
     if resolved.target_projects is None:
@@ -2156,6 +2310,9 @@ def release_support_branch(
             repo_root=ctx_repo.info.root,
         )
 
+        branch_template = settings.effective_maintenance_branch_template
+        maintenance_regex = settings.effective_maintenance_branch_regex
+
         if not subprojects:
             # Single-repo mode: --project must not be given
             if project_name is not None:
@@ -2168,6 +2325,8 @@ def release_support_branch(
                 major=major,
                 commit_ref=commit_ref,
                 dry_run=dry_run,
+                branch_template=branch_template,
+                maintenance_regex=maintenance_regex,
             )
         else:
             # Monorepo mode: --project is required
@@ -2187,6 +2346,8 @@ def release_support_branch(
                 major=major,
                 commit_ref=commit_ref,
                 dry_run=dry_run,
+                branch_template=branch_template,
+                maintenance_regex=maintenance_regex,
             )
 
     except ReleezError as exc:

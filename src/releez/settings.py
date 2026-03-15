@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+from releez.errors import InvalidMaintenanceBranchRegexError, ReleezError
 from releez.version_tags import AliasVersions
 
 
@@ -183,10 +185,88 @@ class ReleezSettings(BaseSettings):
     changelog_path: str = 'CHANGELOG.md'
     create_pr: bool = False
     run_changelog_format: bool = False
-    maintenance_branch_regex: str = r'^support/(?P<major>\d+)\.x$'
+    maintenance_branch_regex: str | None = None
+    maintenance_branch_template: str | None = None
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
     projects: list[ProjectConfig] = Field(default_factory=list)
+
+    @property
+    def _is_monorepo(self) -> bool:
+        return bool(self.projects)
+
+    @property
+    def effective_maintenance_branch_regex(self) -> str:
+        r"""Return the active maintenance branch regex, applying a smart default if unset.
+
+        Single-repo default: ``^support/(?P<major>\d+)\.x$``
+        Monorepo default:    ``^support/(?P<prefix>[^\d]+-)?(?P<major>\d+)\.x$``
+        """
+        if self.maintenance_branch_regex is not None:
+            return self.maintenance_branch_regex
+        if self._is_monorepo:
+            return r'^support/(?P<prefix>[^\d]+-)?(?P<major>\d+)\.x$'
+        return r'^support/(?P<major>\d+)\.x$'
+
+    @property
+    def effective_maintenance_branch_template(self) -> str:
+        """Return the active branch name template, applying a smart default if unset.
+
+        Single-repo default: ``support/{major}.x``
+        Monorepo default:    ``support/{prefix}{major}.x``
+        """
+        if self.maintenance_branch_template is not None:
+            return self.maintenance_branch_template
+        if self._is_monorepo:
+            return 'support/{prefix}{major}.x'
+        return 'support/{major}.x'
+
+    @model_validator(mode='after')
+    def _validate_maintenance_branch_regex(self) -> ReleezSettings:
+        """Validate effective maintenance branch regex.
+
+        Checks the regex is compilable and has a ``(?P<major>...)`` group.
+        In monorepo mode also requires a ``(?P<prefix>...)`` group so branches
+        for different projects can be distinguished.
+        """
+        regex = self.effective_maintenance_branch_regex
+        try:
+            compiled = re.compile(regex)
+        except re.error as exc:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason=str(exc),
+            ) from exc
+        if 'major' not in compiled.groupindex:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason='missing named capture group "major"',
+            )
+        if self._is_monorepo and 'prefix' not in compiled.groupindex:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason='missing named capture group "prefix" (required in monorepo mode)',
+            )
+        return self
+
+    @model_validator(mode='after')
+    def _validate_maintenance_branch_template(self) -> ReleezSettings:
+        """Validate effective maintenance branch template.
+
+        Checks the template contains ``{major}``. In monorepo mode also
+        requires ``{prefix}`` so each project gets a unique branch name.
+        """
+        template = self.effective_maintenance_branch_template
+        if '{major}' not in template:
+            msg = f'maintenance-branch-template {template!r} must contain {{major}}'
+            raise ReleezError(msg)
+        if self._is_monorepo and '{prefix}' not in template:
+            msg = (
+                f'maintenance-branch-template {template!r} must contain {{prefix}} '
+                'in monorepo mode so each project gets a unique branch name'
+            )
+            raise ReleezError(msg)
+        return self
 
     @model_validator(mode='after')
     def _warn_deprecated_settings(self) -> ReleezSettings:

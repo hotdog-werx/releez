@@ -8,7 +8,7 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import tomli_w
 
@@ -41,7 +41,7 @@ class CommitValidationResult:
     reason: str
 
 
-def _build_validation_config(cliff_toml_path: Path) -> dict[str, object]:
+def _build_validation_config(cliff_toml_path: Path) -> dict[str, Any]:
     """Build a cliff.toml config dict suitable for commit message validation.
 
     Reads the project's cliff.toml and applies three overrides to [git]:
