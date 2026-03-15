@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
+import typing
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from git import Repo
 from git.exc import GitCommandError, GitCommandNotFound
@@ -19,7 +19,7 @@ from releez.errors import (
     MissingCliError,
 )
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from releez.subproject import SubProject
 
 GIT_BIN = 'git'

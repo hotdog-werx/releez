@@ -8,6 +8,7 @@ __pycache__/
 .coverage
 .coverage.*
 .coverage-files/
+coverage.xml
 .pytest_cache/*
 
 # Temp files

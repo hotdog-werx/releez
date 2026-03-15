@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+import typing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, NoReturn, cast
+from typing import Annotated, NoReturn, cast
 
 import typer
 from click.core import ParameterSource
@@ -40,7 +41,7 @@ from releez.subapps import changelog_app
 from releez.subproject import SubProject
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from git import Repo
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')

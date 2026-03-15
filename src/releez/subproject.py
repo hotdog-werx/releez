@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import re
+import typing
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from releez.errors import ReleezError
 from releez.settings import ProjectConfig, ReleezHooks, ReleezSettings
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from pathlib import Path
 
     from releez.version_tags import AliasVersions

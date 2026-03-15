@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import releez.release
+from releez.release import StartReleaseInput
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -311,3 +312,25 @@ def test_start_release_monorepo_hooks_receive_bare_semver(
         cwd=tmp_path,
         capture_stdout=False,
     )
+
+
+def test_start_release_input_tag_pattern_uses_maintenance_tag_pattern_when_set() -> None:
+    """maintenance_tag_pattern takes priority over tag_prefix-derived pattern."""
+    release_input = StartReleaseInput(
+        bump='auto',
+        version_override=None,
+        base_branch='master',
+        remote_name='origin',
+        labels=[],
+        title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        post_changelog_hooks=None,
+        run_changelog_format=False,
+        changelog_format_cmd=None,
+        create_pr=False,
+        github_token=None,
+        dry_run=False,
+        maintenance_tag_pattern=r'^1\.[0-9]+\.[0-9]+$',
+    )
+
+    assert release_input.tag_pattern == r'^1\.[0-9]+\.[0-9]+$'

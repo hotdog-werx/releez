@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import typing
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from releez.errors import ChangelogNotFoundError
 from releez.process import run_checked
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from collections.abc import Mapping
 
 
