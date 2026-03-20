@@ -79,6 +79,11 @@ Requires Python 3.11+ and `git-cliff` on PATH (or installed via uv).
 - [Workflow Recipes](./github-actions/workflow-recipes.md) — Copy-pasteable
   workflow examples
 
+### Commands
+
+- [Regenerate Changelog](./changelog-regenerate.md) — Rebuild the full changelog
+  from git history
+
 ### Monorepo
 
 - [Setup Guide](./monorepo/setup.md) — Configure multiple projects, change
