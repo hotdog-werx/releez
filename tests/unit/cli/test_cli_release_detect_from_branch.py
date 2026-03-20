@@ -66,18 +66,16 @@ def test_cli_release_detect_from_branch_monorepo(
 
     mock_repo_info = mocker.MagicMock(root=mocker.MagicMock())
 
+    mock_settings = mocker.MagicMock(projects=[mocker.MagicMock()])
+    mock_settings.get_subprojects.return_value = [mocker.MagicMock()]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[mocker.MagicMock()]),
+        return_value=mock_settings,
     )
 
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_repo_info),
-    )
-    mocker.patch(
-        'releez.cli.SubProject.from_config',
-        return_value=mocker.MagicMock(),
     )
 
     mocker.patch(

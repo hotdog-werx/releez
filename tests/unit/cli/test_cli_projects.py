@@ -125,18 +125,19 @@ def test_projects_changed_text_output_with_changes(
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
+    mock_settings = mocker.MagicMock(
+        projects=[mocker.MagicMock()],
+        base_branch='main',
+    )
+    mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            projects=[mocker.MagicMock()],
-            base_branch='main',
-        ),
+        return_value=mock_settings,
     )
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
-    mocker.patch('releez.cli.SubProject.from_config', return_value=mock_project)
     mocker.patch(
         'releez.cli.detect_changed_projects',
         return_value=[mock_project],
@@ -159,20 +160,18 @@ def test_projects_changed_text_output_no_changes(mocker: MockerFixture) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
+    mock_settings = mocker.MagicMock(
+        projects=[mocker.MagicMock()],
+        base_branch='main',
+    )
+    mock_settings.get_subprojects.return_value = [mocker.MagicMock()]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            projects=[mocker.MagicMock()],
-            base_branch='main',
-        ),
+        return_value=mock_settings,
     )
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
-    )
-    mocker.patch(
-        'releez.cli.SubProject.from_config',
-        return_value=mocker.MagicMock(),
     )
     mocker.patch('releez.cli.detect_changed_projects', return_value=[])
 
@@ -196,18 +195,19 @@ def test_projects_changed_json_output(mocker: MockerFixture) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
+    mock_settings = mocker.MagicMock(
+        projects=[mocker.MagicMock()],
+        base_branch='main',
+    )
+    mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            projects=[mocker.MagicMock()],
-            base_branch='main',
-        ),
+        return_value=mock_settings,
     )
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
-    mocker.patch('releez.cli.SubProject.from_config', return_value=mock_project)
     mocker.patch(
         'releez.cli.detect_changed_projects',
         return_value=[mock_project],
@@ -234,20 +234,18 @@ def test_projects_changed_with_custom_base(mocker: MockerFixture) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
+    mock_settings = mocker.MagicMock(
+        projects=[mocker.MagicMock()],
+        base_branch='main',
+    )
+    mock_settings.get_subprojects.return_value = [mocker.MagicMock()]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            projects=[mocker.MagicMock()],
-            base_branch='main',
-        ),
+        return_value=mock_settings,
     )
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
-    )
-    mocker.patch(
-        'releez.cli.SubProject.from_config',
-        return_value=mocker.MagicMock(),
     )
     mock_detect = mocker.patch(
         'releez.cli.detect_changed_projects',
@@ -273,20 +271,18 @@ def test_projects_changed_handles_releez_error(mocker: MockerFixture) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
+    mock_settings = mocker.MagicMock(
+        projects=[mocker.MagicMock()],
+        base_branch='main',
+    )
+    mock_settings.get_subprojects.return_value = [mocker.MagicMock()]
     mocker.patch(
         'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            projects=[mocker.MagicMock()],
-            base_branch='main',
-        ),
+        return_value=mock_settings,
     )
     mocker.patch(
         'releez.cli.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
-    )
-    mocker.patch(
-        'releez.cli.SubProject.from_config',
-        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         'releez.cli.detect_changed_projects',

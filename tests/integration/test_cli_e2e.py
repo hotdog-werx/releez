@@ -548,8 +548,8 @@ def test_cli_release_commands_reject_unknown_project_name(
     ]:
         result = runner.invoke(cli.app, args)
         assert result.exit_code == 1
-        assert 'Unknown project "does-not-exist"' in result.output
-        assert 'Available projects: core, ui' in result.output
+        assert 'Unknown project(s): does-not-exist' in result.output
+        assert 'Available: core, ui' in result.output
 
 
 def test_cli_release_commands_reject_project_and_all_combination(

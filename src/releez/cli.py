@@ -5,7 +5,7 @@ import re
 import typing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, NoReturn, cast
+from typing import Annotated, NoReturn
 
 import typer
 from click.core import ParameterSource
@@ -44,11 +44,13 @@ from releez.git_repo import (
 from releez.release import StartReleaseInput, StartReleaseResult, start_release
 from releez.settings import ReleezSettings
 from releez.subapps import changelog_app
-from releez.subproject import SubProject
+from releez.utils import handle_releez_errors
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 if typing.TYPE_CHECKING:
     from git import Repo
+
+    from releez.subproject import SubProject
 
 app = typer.Typer(help='CLI tool for helping to manage release processes.')
 release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
@@ -351,133 +353,27 @@ def _project_names_csv(projects: list[SubProject]) -> str:
     return ', '.join(project.name for project in projects)
 
 
-def _selected_projects_from_names(
+def _resolve_target_projects(
     *,
-    subprojects: list[SubProject],
-    project_names: list[str],
-) -> list[SubProject]:
-    projects_by_name = {project.name: project for project in subprojects}
-    selected: list[SubProject] = []
-
-    for name in project_names:
-        project = projects_by_name.get(name)
-        if project is None:
-            available = ', '.join(sorted(projects_by_name))
-            _exit_with_message(
-                f'Unknown project "{name}". Available projects: {available}',
-            )
-        if project not in selected:
-            selected.append(cast('SubProject', project))
-
-    return selected
-
-
-def _validate_project_selection_flags(
-    *,
-    project_names: list[str],
-    all_projects: bool,
-) -> None:
-    if project_names and all_projects:
-        _exit_with_message('Cannot use --project and --all together.')
-
-
-def _resolve_single_repo_targets(
-    *,
-    project_names: list[str],
-    all_projects: bool,
-) -> list[SubProject] | None:
-    if project_names or all_projects:
-        _exit_with_message(
-            'No projects are configured. Remove --project/--all or configure [tool.releez.projects].',
-        )
-    return None
-
-
-def _resolve_explicit_project_targets(
-    *,
-    subprojects: list[SubProject],
-    project_names: list[str],
-    all_projects: bool,
-) -> list[SubProject] | None:
-    if project_names:
-        return _selected_projects_from_names(
-            subprojects=subprojects,
-            project_names=project_names,
-        )
-    if all_projects:
-        return subprojects
-    return None
-
-
-def _detect_changed_project_targets(
-    *,
-    repo: Repo,
-    base_branch: str,
-    subprojects: list[SubProject],
-) -> list[SubProject]:
-    changed = detect_changed_projects(
-        repo=repo,
-        base_branch=base_branch,
-        projects=subprojects,
-    )
-
-    if not changed:
-        typer.secho(
-            'No projects with unreleased changes were detected.',
-            fg=typer.colors.GREEN,
-        )
-        return []
-
-    typer.secho(
-        f'Detected changed projects: {_project_names_csv(changed)}',
-        fg=typer.colors.BLUE,
-    )
-    return changed
-
-
-def _resolve_target_projects(  # noqa: PLR0913
-    *,
-    repo: Repo,
     repo_root: Path,
     settings: ReleezSettings,
     project_names: list[str],
     all_projects: bool,
-    base_branch: str,
-    require_explicit_selection: bool,
 ) -> list[SubProject] | None:
     """Resolve project targets for monorepo-aware commands.
 
     Returns None for single-repo mode, or a concrete project list in monorepo mode.
     """
-    subprojects = _build_subprojects_list(settings, repo_root=repo_root)
-
-    if not subprojects:
-        return _resolve_single_repo_targets(
+    if not settings.is_monorepo:
+        settings.validate_project_flags(
             project_names=project_names,
             all_projects=all_projects,
         )
-
-    _validate_project_selection_flags(
+        return None
+    return settings.select_projects(
+        repo_root=repo_root,
         project_names=project_names,
         all_projects=all_projects,
-    )
-    explicit_targets = _resolve_explicit_project_targets(
-        subprojects=subprojects,
-        project_names=project_names,
-        all_projects=all_projects,
-    )
-    if explicit_targets is not None:
-        return explicit_targets
-
-    if require_explicit_selection:
-        _exit_with_message(
-            'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
-        )
-
-    return _detect_changed_project_targets(
-        repo=repo,
-        base_branch=base_branch,
-        subprojects=subprojects,
     )
 
 
@@ -531,20 +427,15 @@ def _resolve_project_targets_for_command(
     ctx: typer.Context,
     project_names: list[str],
     all_projects: bool,
-    base_branch: str,
-    require_explicit_selection: bool,
 ) -> _ResolvedProjectTargets:
     settings: ReleezSettings = ctx.obj
     ctx_repo = open_repo()
     repo, info = ctx_repo.repo, ctx_repo.info
     target_projects = _resolve_target_projects(
-        repo=repo,
         repo_root=info.root,
         settings=settings,
         project_names=project_names,
         all_projects=all_projects,
-        base_branch=base_branch,
-        require_explicit_selection=require_explicit_selection,
     )
     return _ResolvedProjectTargets(
         settings=settings,
@@ -1235,8 +1126,6 @@ def _run_release_start_command(  # noqa: PLR0913
         ctx=ctx,
         project_names=project_names,
         all_projects=all_projects,
-        base_branch=options.base,
-        require_explicit_selection=True,
     )
     if resolved.target_projects is None:
         _run_single_repo_release_start(
@@ -1274,6 +1163,7 @@ def _alias_versions_for_project(
 
 
 @release_app.command('start')
+@handle_releez_errors
 def release_start(  # noqa: PLR0913
     ctx: typer.Context,
     *,
@@ -1417,21 +1307,14 @@ def release_start(  # noqa: PLR0913
         github_token=github_token,
     )
 
-    try:
-        _run_release_start_command(
-            ctx=ctx,
-            options=options,
-            project_names=_normalize_project_names(project_names),
-            all_projects=all_projects,
-            maintenance_branch_regex=maintenance_branch_regex,
-            non_interactive=non_interactive,
-        )
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
-    except Exception as exc:  # pragma: no cover
-        typer.secho(f'Unexpected error: {exc}', err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    _run_release_start_command(
+        ctx=ctx,
+        options=options,
+        project_names=_normalize_project_names(project_names),
+        all_projects=all_projects,
+        maintenance_branch_regex=maintenance_branch_regex,
+        non_interactive=non_interactive,
+    )
 
 
 def _find_project_for_artifact(
@@ -1485,7 +1368,7 @@ def _resolve_artifact_project_context(
         return '', version_override
 
     info = open_repo().info
-    subprojects = _build_subprojects_list(settings, repo_root=info.root)
+    subprojects = settings.get_subprojects(repo_root=info.root)
     project = _find_project_for_artifact(
         subprojects=subprojects,
         project_name=project_name,
@@ -1506,6 +1389,7 @@ def _resolve_artifact_project_context(
 
 
 @version_app.command('artifact')
+@handle_releez_errors
 def version_artifact(  # noqa: PLR0913
     ctx: typer.Context,
     *,
@@ -1574,48 +1458,44 @@ def version_artifact(  # noqa: PLR0913
     ] = None,
 ) -> None:
     """Compute an artifact version string."""
-    try:
-        settings: ReleezSettings = ctx.obj
-        resolved_tag_prefix, version_override = _resolve_artifact_project_context(
-            settings=settings,
-            project_name=project_name,
-            version_override=version_override,
-        )
+    settings: ReleezSettings = ctx.obj
+    resolved_tag_prefix, version_override = _resolve_artifact_project_context(
+        settings=settings,
+        project_name=project_name,
+        version_override=version_override,
+    )
 
-        if scheme is None:
-            # Output all schemes as JSON
-            _emit_all_artifact_versions_json(
-                version_override=version_override,
-                is_full_release=is_full_release,
-                prerelease_type=prerelease_type,
-                prerelease_number=prerelease_number,
-                build_number=build_number,
-                alias_versions=alias_versions,
-                project_name=project_name,
-                tag_prefix=resolved_tag_prefix,
-            )
-            return
-
-        # Output single scheme (scheme is guaranteed non-None here)
-        artifact_args = _VersionArtifactArgs(
-            scheme=scheme,
+    if scheme is None:
+        # Output all schemes as JSON
+        _emit_all_artifact_versions_json(
             version_override=version_override,
             is_full_release=is_full_release,
             prerelease_type=prerelease_type,
             prerelease_number=prerelease_number,
             build_number=build_number,
-        )
-        artifact_input = _build_artifact_version_input(args=artifact_args)
-        artifact_version = compute_artifact_version(artifact_input)
-        _emit_artifact_version_output(
-            artifact_version=artifact_version,
-            scheme=scheme,
-            is_full_release=is_full_release,
             alias_versions=alias_versions,
+            project_name=project_name,
+            tag_prefix=resolved_tag_prefix,
         )
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        return
+
+    # Output single scheme (scheme is guaranteed non-None here)
+    artifact_args = _VersionArtifactArgs(
+        scheme=scheme,
+        version_override=version_override,
+        is_full_release=is_full_release,
+        prerelease_type=prerelease_type,
+        prerelease_number=prerelease_number,
+        build_number=build_number,
+    )
+    artifact_input = _build_artifact_version_input(args=artifact_args)
+    artifact_version = compute_artifact_version(artifact_input)
+    _emit_artifact_version_output(
+        artifact_version=artifact_version,
+        scheme=scheme,
+        is_full_release=is_full_release,
+        alias_versions=alias_versions,
+    )
 
 
 def _create_and_push_selected_tags(
@@ -1699,13 +1579,10 @@ def _run_release_tag_command(
     project_names: list[str],
     all_projects: bool,
 ) -> None:
-    settings: ReleezSettings = ctx.obj
     resolved = _resolve_project_targets_for_command(
         ctx=ctx,
         project_names=project_names,
         all_projects=all_projects,
-        base_branch=settings.base_branch,
-        require_explicit_selection=True,
     )
     _require_single_project_override_scope(
         version_override=options.version_override,
@@ -1853,13 +1730,10 @@ def _run_release_preview_command(
     project_names: list[str],
     all_projects: bool,
 ) -> None:
-    settings: ReleezSettings = ctx.obj
     resolved = _resolve_project_targets_for_command(
         ctx=ctx,
         project_names=project_names,
         all_projects=all_projects,
-        base_branch=settings.base_branch,
-        require_explicit_selection=True,
     )
     _require_single_project_override_scope(
         version_override=options.version_override,
@@ -1966,13 +1840,10 @@ def _run_release_notes_command(
     project_names: list[str],
     all_projects: bool,
 ) -> None:
-    settings: ReleezSettings = ctx.obj
     resolved = _resolve_project_targets_for_command(
         ctx=ctx,
         project_names=project_names,
         all_projects=all_projects,
-        base_branch=settings.base_branch,
-        require_explicit_selection=True,
     )
     _require_single_project_override_scope(
         version_override=options.version_override,
@@ -2015,6 +1886,7 @@ def _run_release_notes_command(
 
 
 @release_app.command('tag')
+@handle_releez_errors
 def release_tag(  # noqa: PLR0913
     ctx: typer.Context,
     *,
@@ -2066,19 +1938,16 @@ def release_tag(  # noqa: PLR0913
         alias_versions=alias_versions,
         remote=remote,
     )
-    try:
-        _run_release_tag_command(
-            ctx=ctx,
-            options=options,
-            project_names=_normalize_project_names(project_names),
-            all_projects=all_projects,
-        )
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    _run_release_tag_command(
+        ctx=ctx,
+        options=options,
+        project_names=_normalize_project_names(project_names),
+        all_projects=all_projects,
+    )
 
 
 @release_app.command('preview')
+@handle_releez_errors
 def release_preview(  # noqa: PLR0913
     ctx: typer.Context,
     *,
@@ -2130,16 +1999,12 @@ def release_preview(  # noqa: PLR0913
         alias_versions=alias_versions,
         output=output,
     )
-    try:
-        _run_release_preview_command(
-            ctx=ctx,
-            options=options,
-            project_names=_normalize_project_names(project_names),
-            all_projects=all_projects,
-        )
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    _run_release_preview_command(
+        ctx=ctx,
+        options=options,
+        project_names=_normalize_project_names(project_names),
+        all_projects=all_projects,
+    )
 
 
 def _get_branch_name(branch: str | None) -> str:
@@ -2168,25 +2033,6 @@ def _get_branch_name(branch: str | None) -> str:
     return info.active_branch
 
 
-def _build_subprojects_list(
-    settings: ReleezSettings,
-    *,
-    repo_root: Path,
-) -> list[SubProject]:
-    """Build SubProject instances from settings."""
-    if not settings.projects:
-        return []
-
-    return [
-        SubProject.from_config(
-            config,
-            repo_root=repo_root,
-            global_settings=settings,
-        )
-        for config in settings.projects
-    ]
-
-
 def _format_detected_release_json(detected: DetectedRelease) -> str:
     """Format DetectedRelease as JSON string.
 
@@ -2207,6 +2053,7 @@ def _format_detected_release_json(detected: DetectedRelease) -> str:
 
 
 @release_app.command('detect-from-branch')
+@handle_releez_errors
 def release_detect_from_branch(
     *,
     branch: Annotated[
@@ -2226,33 +2073,29 @@ def release_detect_from_branch(
     Single repo format: release/1.2.3
     Monorepo format: release/core-1.2.3
     """
-    try:
-        settings = ReleezSettings()
-        branch_name = _get_branch_name(branch)
-        info = open_repo().info
-        subprojects = _build_subprojects_list(settings, repo_root=info.root)
+    settings = ReleezSettings()
+    branch_name = _get_branch_name(branch)
+    info = open_repo().info
+    subprojects = settings.get_subprojects(repo_root=info.root)
 
-        detected = detect_release_from_branch(
-            branch_name=branch_name,
-            projects=subprojects,
+    detected = detect_release_from_branch(
+        branch_name=branch_name,
+        projects=subprojects,
+    )
+
+    if detected is None:
+        typer.secho(
+            f'Error: Branch "{branch_name}" is not a release branch.',
+            err=True,
+            fg=typer.colors.RED,
         )
+        raise typer.Exit(code=1)
 
-        if detected is None:
-            typer.secho(
-                f'Error: Branch "{branch_name}" is not a release branch.',
-                err=True,
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
-
-        typer.echo(_format_detected_release_json(detected))
-
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    typer.echo(_format_detected_release_json(detected))
 
 
 @release_app.command('support-branch')
+@handle_releez_errors
 def release_support_branch(
     major: Annotated[
         int,
@@ -2301,61 +2144,55 @@ def release_support_branch(
         releez release support-branch 1 --project ui
         → creates support/ui-1.x from ui-1.4.0
     """
-    try:
-        settings = ReleezSettings()
-        ctx_repo = open_repo()
-        repo = ctx_repo.repo
-        subprojects = _build_subprojects_list(
-            settings,
-            repo_root=ctx_repo.info.root,
+    settings = ReleezSettings()
+    ctx_repo = open_repo()
+    repo = ctx_repo.repo
+    subprojects = settings.get_subprojects(repo_root=ctx_repo.info.root)
+
+    branch_template = settings.effective_maintenance_branch_template
+    maintenance_regex = settings.effective_maintenance_branch_regex
+
+    if not subprojects:
+        # Single-repo mode: --project must not be given
+        if project_name is not None:
+            _exit_with_message(
+                '--project is only valid in monorepo mode (no projects configured).',
+            )
+        _run_support_branch_inner(
+            repo,
+            tag_prefix='',
+            major=major,
+            commit_ref=commit_ref,
+            dry_run=dry_run,
+            branch_template=branch_template,
+            maintenance_regex=maintenance_regex,
         )
-
-        branch_template = settings.effective_maintenance_branch_template
-        maintenance_regex = settings.effective_maintenance_branch_regex
-
-        if not subprojects:
-            # Single-repo mode: --project must not be given
-            if project_name is not None:
-                _exit_with_message(
-                    '--project is only valid in monorepo mode (no projects configured).',
-                )
-            _run_support_branch_inner(
-                repo,
-                tag_prefix='',
-                major=major,
-                commit_ref=commit_ref,
-                dry_run=dry_run,
-                branch_template=branch_template,
-                maintenance_regex=maintenance_regex,
+    elif project_name is None:
+        # Monorepo mode: --project is required
+        _exit_with_message(
+            f'--project is required in monorepo mode. Available projects: {_project_names_csv(subprojects)}',
+        )
+    else:
+        # Monorepo mode with explicit project name (narrowed to str)
+        projects_by_name = {p.name: p for p in subprojects}
+        if project_name not in projects_by_name:
+            _exit_with_message(
+                f'Unknown project: {project_name}. Available: {", ".join(sorted(projects_by_name))}',
             )
-        else:
-            # Monorepo mode: --project is required
-            if project_name is None:
-                _exit_with_message(
-                    f'--project is required in monorepo mode. Available projects: {_project_names_csv(subprojects)}',
-                )
-            assert project_name is not None  # narrowed: _exit_with_message is NoReturn  # noqa: S101
-            selected = _selected_projects_from_names(
-                subprojects=subprojects,
-                project_names=[project_name],
-            )
-            project = selected[0]
-            _run_support_branch_inner(
-                repo,
-                tag_prefix=project.tag_prefix,
-                major=major,
-                commit_ref=commit_ref,
-                dry_run=dry_run,
-                branch_template=branch_template,
-                maintenance_regex=maintenance_regex,
-            )
-
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        project = projects_by_name[project_name]
+        _run_support_branch_inner(
+            repo,
+            tag_prefix=project.tag_prefix,
+            major=major,
+            commit_ref=commit_ref,
+            dry_run=dry_run,
+            branch_template=branch_template,
+            maintenance_regex=maintenance_regex,
+        )
 
 
 @release_app.command('notes')
+@handle_releez_errors
 def release_notes(
     ctx: typer.Context,
     *,
@@ -2397,16 +2234,12 @@ def release_notes(
         version_override=version_override,
         output=output,
     )
-    try:
-        _run_release_notes_command(
-            ctx=ctx,
-            options=options,
-            project_names=_normalize_project_names(project_names),
-            all_projects=all_projects,
-        )
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    _run_release_notes_command(
+        ctx=ctx,
+        options=options,
+        project_names=_normalize_project_names(project_names),
+        all_projects=all_projects,
+    )
 
 
 @projects_app.command('list')
@@ -2471,6 +2304,7 @@ def _output_changed_projects(
 
 
 @projects_app.command('changed')
+@handle_releez_errors
 def projects_changed(
     ctx: typer.Context,
     *,
@@ -2492,40 +2326,28 @@ def projects_changed(
     ] = None,
 ) -> None:
     """Detect projects that have unreleased changes."""
-    try:
-        settings: ReleezSettings = ctx.obj
+    settings: ReleezSettings = ctx.obj
 
-        if not settings.projects:
-            typer.secho(
-                'No projects configured. This is a single-repo setup.',
-                err=True,
-                fg=typer.colors.YELLOW,
-            )
-            raise typer.Exit(code=1)
-
-        ctx_repo = open_repo()
-        repo, info = ctx_repo.repo, ctx_repo.info
-        base_branch = base or settings.base_branch
-
-        subprojects = [
-            SubProject.from_config(
-                config,
-                repo_root=info.root,
-                global_settings=settings,
-            )
-            for config in settings.projects
-        ]
-
-        changed = detect_changed_projects(
-            repo=repo,
-            base_branch=base_branch,
-            projects=subprojects,
+    if not settings.projects:
+        typer.secho(
+            'No projects configured. This is a single-repo setup.',
+            err=True,
+            fg=typer.colors.YELLOW,
         )
-        _output_changed_projects(changed, format_output)
+        raise typer.Exit(code=1)
 
-    except ReleezError as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    ctx_repo = open_repo()
+    repo, info = ctx_repo.repo, ctx_repo.info
+    base_branch = base or settings.base_branch
+
+    subprojects = settings.get_subprojects(repo_root=info.root)
+
+    changed = detect_changed_projects(
+        repo=repo,
+        base_branch=base_branch,
+        projects=subprojects,
+    )
+    _output_changed_projects(changed, format_output)
 
 
 @projects_app.command('info')

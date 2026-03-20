@@ -896,7 +896,10 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         )
 
         ui = self._mock_project(mocker, 'ui', 'ui-', tmp_path)
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[ui],
+        )
         mocker.patch('releez.cli._resolve_target_projects', return_value=[ui])
         mocker.patch('releez.cli._project_include_paths', return_value=[])
         mocker.patch(
@@ -950,7 +953,10 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         )
 
         ui = self._mock_project(mocker, 'ui', 'ui-', tmp_path)
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[ui],
+        )
         mocker.patch('releez.cli._resolve_target_projects', return_value=[ui])
         mocker.patch('releez.cli._project_include_paths', return_value=[])
         mocker.patch(
@@ -999,7 +1005,10 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         )
 
         ui = self._mock_project(mocker, 'ui', 'ui-', tmp_path)
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[ui],
+        )
         mocker.patch('releez.cli._resolve_target_projects', return_value=[ui])
         mocker.patch('releez.cli._project_include_paths', return_value=[])
 

@@ -66,62 +66,20 @@ def test_root_merges_into_existing_default_map(
     assert 'release' in default_map
 
 
-def test_selected_projects_from_names_deduplicates_repeated_names(
-    mocker: MockerFixture,
-) -> None:
-    """Regression guard: repeated --project values should resolve to one target project."""
-    project = mocker.MagicMock(name='core')
-    project.name = 'core'
-
-    selected = cli._selected_projects_from_names(
-        subprojects=[project],
-        project_names=['core', 'core'],
-    )
-
-    assert selected == [project]
-
-
 def test_resolve_target_projects_single_repo_returns_none(
     mocker: MockerFixture,
 ) -> None:
-    mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+    settings = mocker.MagicMock()
+    settings.is_monorepo = False
 
     result = cli._resolve_target_projects(
-        repo=mocker.MagicMock(),
         repo_root=Path('/repo'),
-        settings=mocker.MagicMock(),
+        settings=settings,
         project_names=[],
         all_projects=False,
-        base_branch='master',
-        require_explicit_selection=False,
     )
 
     assert result is None
-
-
-def test_resolve_target_projects_autodetects_changed(
-    mocker: MockerFixture,
-) -> None:
-    project = mocker.MagicMock()
-    project.name = 'core'
-    mocker.patch('releez.cli._build_subprojects_list', return_value=[project])
-    detect_changed = mocker.patch(
-        'releez.cli._detect_changed_project_targets',
-        return_value=[project],
-    )
-
-    result = cli._resolve_target_projects(
-        repo=mocker.MagicMock(),
-        repo_root=Path('/repo'),
-        settings=mocker.MagicMock(),
-        project_names=[],
-        all_projects=False,
-        base_branch='master',
-        require_explicit_selection=False,
-    )
-
-    assert result == [project]
-    detect_changed.assert_called_once()
 
 
 def test_create_and_push_selected_tags_splits_exact_and_alias(
@@ -331,68 +289,6 @@ def test_project_names_csv_joins_names_in_order(
     ui.name = 'ui'
 
     assert cli._project_names_csv([core, ui]) == 'core, ui'
-
-
-def test_detect_changed_project_targets_reports_no_changes(
-    mocker: MockerFixture,
-) -> None:
-    """Regression guard: no changed projects should emit a green status and return empty."""
-    repo = mocker.MagicMock()
-    detect_changed = mocker.patch(
-        'releez.cli.detect_changed_projects',
-        return_value=[],
-    )
-    secho = mocker.patch('releez.cli.typer.secho')
-
-    changed = cli._detect_changed_project_targets(
-        repo=repo,
-        base_branch='master',
-        subprojects=[],
-    )
-
-    assert changed == []
-    detect_changed.assert_called_once_with(
-        repo=repo,
-        base_branch='master',
-        projects=[],
-    )
-    secho.assert_called_once_with(
-        'No projects with unreleased changes were detected.',
-        fg=typer.colors.GREEN,
-    )
-
-
-def test_detect_changed_project_targets_reports_detected_names(
-    mocker: MockerFixture,
-) -> None:
-    """Regression guard: autodetect path should announce changed projects and return them."""
-    repo = mocker.MagicMock()
-    core = mocker.MagicMock()
-    core.name = 'core'
-    ui = mocker.MagicMock()
-    ui.name = 'ui'
-    detect_changed = mocker.patch(
-        'releez.cli.detect_changed_projects',
-        return_value=[core, ui],
-    )
-    secho = mocker.patch('releez.cli.typer.secho')
-
-    changed = cli._detect_changed_project_targets(
-        repo=repo,
-        base_branch='master',
-        subprojects=[core, ui],
-    )
-
-    assert changed == [core, ui]
-    detect_changed.assert_called_once_with(
-        repo=repo,
-        base_branch='master',
-        projects=[core, ui],
-    )
-    secho.assert_called_once_with(
-        'Detected changed projects: core, ui',
-        fg=typer.colors.BLUE,
-    )
 
 
 def test_run_release_start_command_exits_when_monorepo_targets_empty(

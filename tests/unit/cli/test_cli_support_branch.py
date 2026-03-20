@@ -14,6 +14,7 @@ from releez.git_repo import RepoInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
 
@@ -58,7 +59,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
@@ -89,7 +93,10 @@ class TestSupportBranchSingleRepo:
             info=RepoInfo(root=tmp_path, remote_url='', active_branch='master'),
         )
         mocker.patch('releez.cli.open_repo', return_value=ctx_mock)
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
@@ -124,7 +131,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
 
         result = runner.invoke(
             cli.app,
@@ -152,7 +162,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '2'])
@@ -178,7 +191,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[2])
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
@@ -209,7 +225,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
@@ -248,7 +267,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         # First call: latest 1.x.x tag; second call: latest 2.x.x tag for validation
         mocker.patch(
@@ -296,7 +318,10 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[],
+        )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
@@ -342,7 +367,6 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[])
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
             'releez.cli.find_latest_tag_matching_pattern',
@@ -354,6 +378,7 @@ class TestSupportBranchSingleRepo:
         mock_settings.effective_maintenance_branch_template = 'hotfix/{prefix}{major}.x'
         mock_settings.effective_maintenance_branch_regex = r'^support/(?P<major>\d+)\.x$'
         mock_settings.projects = []
+        mock_settings.get_subprojects.return_value = []
         mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
@@ -363,7 +388,7 @@ class TestSupportBranchSingleRepo:
 
 
 class TestSupportBranchMonorepo:
-    def _mock_settings(self, mocker: MockerFixture) -> object:
+    def _mock_settings(self, mocker: MockerFixture) -> Mock:
         """Return a mock settings with monorepo effective maintenance values."""
         s = mocker.Mock()
         s.effective_maintenance_branch_template = 'support/{prefix}{major}.x'
@@ -403,14 +428,11 @@ class TestSupportBranchMonorepo:
                 ),
             ),
         )
+        mock_settings = self._mock_settings(mocker)
+        mock_settings.get_subprojects.return_value = [ui]
         mocker.patch(
             'releez.cli.ReleezSettings',
-            return_value=self._mock_settings(mocker),
-        )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
-        mocker.patch(
-            'releez.cli._selected_projects_from_names',
-            return_value=[ui],
+            return_value=mock_settings,
         )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
@@ -447,7 +469,10 @@ class TestSupportBranchMonorepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
+        mocker.patch(
+            'releez.settings.ReleezSettings.get_subprojects',
+            return_value=[ui],
+        )
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
 
@@ -473,9 +498,8 @@ class TestSupportBranchMonorepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
         mocker.patch(
-            'releez.cli._selected_projects_from_names',
+            'releez.settings.ReleezSettings.get_subprojects',
             return_value=[ui],
         )
         mocker.patch(
@@ -515,14 +539,11 @@ class TestSupportBranchMonorepo:
                 ),
             ),
         )
+        mock_settings = self._mock_settings(mocker)
+        mock_settings.get_subprojects.return_value = [ui]
         mocker.patch(
             'releez.cli.ReleezSettings',
-            return_value=self._mock_settings(mocker),
-        )
-        mocker.patch('releez.cli._build_subprojects_list', return_value=[ui])
-        mocker.patch(
-            'releez.cli._selected_projects_from_names',
-            return_value=[ui],
+            return_value=mock_settings,
         )
         mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(

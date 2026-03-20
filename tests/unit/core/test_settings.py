@@ -12,6 +12,8 @@ from releez.version_tags import AliasVersions
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 def test_settings_reads_pyproject_tool_releez_kebab_case(
     tmp_path: Path,
@@ -277,3 +279,136 @@ class TestEffectiveMaintenanceBranchSettings:
         )
         with pytest.raises(InvalidMaintenanceBranchRegexError, match='prefix'):
             ReleezSettings()
+
+
+class TestSelectProjects:
+    """Tests for ReleezSettings.select_projects."""
+
+    def _make_settings(
+        self,
+        mocker: MockerFixture,
+        *,
+        subprojects: list[object],
+    ) -> ReleezSettings:
+        """Return a ReleezSettings instance with get_subprojects mocked."""
+        settings = mocker.MagicMock(spec=ReleezSettings)
+        settings.is_monorepo = bool(subprojects)
+        settings.get_subprojects.return_value = subprojects
+        settings.select_projects = ReleezSettings.select_projects.__get__(
+            settings,
+        )
+        return settings
+
+    def test_single_repo_raises(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Calling select_projects() in single-repo mode (no projects) raises ReleezError."""
+        settings = self._make_settings(mocker, subprojects=[])
+        with pytest.raises(ReleezError, match='requires monorepo mode'):
+            settings.select_projects(
+                repo_root=tmp_path,
+                project_names=[],
+                all_projects=False,
+            )
+
+    def test_all_flag_returns_all_projects(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """--all returns all configured projects."""
+        core = mocker.Mock(name='core')
+        core.name = 'core'
+        ui = mocker.Mock(name='ui')
+        ui.name = 'ui'
+        settings = self._make_settings(mocker, subprojects=[core, ui])
+        result = settings.select_projects(
+            repo_root=tmp_path,
+            project_names=[],
+            all_projects=True,
+        )
+        assert result == [core, ui]
+
+    def test_project_name_returns_matching(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """--project <name> returns only the named project."""
+        core = mocker.Mock()
+        core.name = 'core'
+        ui = mocker.Mock()
+        ui.name = 'ui'
+        settings = self._make_settings(mocker, subprojects=[core, ui])
+        result = settings.select_projects(
+            repo_root=tmp_path,
+            project_names=['core'],
+            all_projects=False,
+        )
+        assert result == [core]
+
+    def test_unknown_project_raises_with_available(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Unknown project name raises ReleezError listing available names."""
+        core = mocker.Mock()
+        core.name = 'core'
+        settings = self._make_settings(mocker, subprojects=[core])
+        with pytest.raises(ReleezError, match='Available'):
+            settings.select_projects(
+                repo_root=tmp_path,
+                project_names=['missing'],
+                all_projects=False,
+            )
+
+    def test_project_and_all_together_raise(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """--project and --all together raises ReleezError."""
+        core = mocker.Mock()
+        core.name = 'core'
+        settings = self._make_settings(mocker, subprojects=[core])
+        with pytest.raises(ReleezError, match='--project and --all'):
+            settings.select_projects(
+                repo_root=tmp_path,
+                project_names=['core'],
+                all_projects=True,
+            )
+
+    def test_no_selection_raises(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """No selection in monorepo mode raises ReleezError."""
+        core = mocker.Mock()
+        core.name = 'core'
+        settings = self._make_settings(mocker, subprojects=[core])
+        with pytest.raises(ReleezError, match='Project selection is required'):
+            settings.select_projects(
+                repo_root=tmp_path,
+                project_names=[],
+                all_projects=False,
+            )
+
+    def test_deduplicates_repeated_project_names(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Repeated project names in --project resolve to a single entry."""
+        core = mocker.Mock()
+        core.name = 'core'
+        settings = self._make_settings(mocker, subprojects=[core])
+        result = settings.select_projects(
+            repo_root=tmp_path,
+            project_names=['core', 'core'],
+            all_projects=False,
+        )
+        assert result == [core]
