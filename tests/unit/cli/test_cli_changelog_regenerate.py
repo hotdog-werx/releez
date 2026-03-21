@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -16,9 +17,14 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-class MonorepoSetupResult(Protocol):
-    """Protocol for monorepo changelog test setup result."""
+@dataclass
+class ChangelogSetup:
+    repo_root: Path
+    cliff: Mock
 
+
+@dataclass
+class MonorepoSetup:
     repo_root: Path
     core: Mock
     ui: Mock
@@ -31,7 +37,7 @@ class ChangelogSetupCallable(Protocol):
     def __call__(
         self,
         changelog_paths: list[str] | None = None,
-    ) -> tuple[Path, Mock]: ...
+    ) -> ChangelogSetup: ...
 
 
 @pytest.fixture
@@ -42,12 +48,12 @@ def mock_changelog_setup(
     """Set up common mocks for changelog tests.
 
     Returns:
-        A callable that accepts optional changelog paths and returns (repo_root, mocked_cliff).
+        A callable that accepts optional changelog paths and returns a ChangelogSetup.
         If changelog_paths is None, creates the default CHANGELOG.md.
         If changelog_paths is an empty list, no changelog files are created.
     """
 
-    def _setup(changelog_paths: list[str] | None = None) -> tuple[Path, Mock]:
+    def _setup(changelog_paths: list[str] | None = None) -> ChangelogSetup:
         repo_root = tmp_path / 'repo'
         repo_root.mkdir()
 
@@ -78,7 +84,7 @@ def mock_changelog_setup(
         cliff = mocker.Mock()
         mocker.patch('releez.subapps.changelog.GitCliff', return_value=cliff)
 
-        return repo_root, cliff
+        return ChangelogSetup(repo_root=repo_root, cliff=cliff)
 
     return _setup
 
@@ -87,7 +93,7 @@ def test_changelog_regenerate_basic(
     mock_changelog_setup: ChangelogSetupCallable,
 ) -> None:
     """Test basic changelog regeneration without formatting."""
-    repo_root, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
+    setup = mock_changelog_setup()
     runner = CliRunner()
 
     result = runner.invoke(
@@ -96,16 +102,16 @@ def test_changelog_regenerate_basic(
     )
 
     assert result.exit_code == 0
-    cliff.regenerate_changelog.assert_called_once()
-    call_args = cliff.regenerate_changelog.call_args
-    assert call_args.kwargs['changelog_path'] == repo_root / 'CHANGELOG.md'
+    setup.cliff.regenerate_changelog.assert_called_once()
+    call_args = setup.cliff.regenerate_changelog.call_args
+    assert call_args.kwargs['changelog_path'] == setup.repo_root / 'CHANGELOG.md'
 
 
 def test_changelog_regenerate_custom_path(
     mock_changelog_setup: ChangelogSetupCallable,
 ) -> None:
     """Test changelog regeneration with custom path."""
-    repo_root, cliff = mock_changelog_setup(['HISTORY.md'])
+    setup = mock_changelog_setup(['HISTORY.md'])
     runner = CliRunner()
 
     result = runner.invoke(
@@ -114,9 +120,9 @@ def test_changelog_regenerate_custom_path(
     )
 
     assert result.exit_code == 0
-    cliff.regenerate_changelog.assert_called_once()
-    call_args = cliff.regenerate_changelog.call_args
-    assert call_args.kwargs['changelog_path'] == repo_root / 'HISTORY.md'
+    setup.cliff.regenerate_changelog.assert_called_once()
+    call_args = setup.cliff.regenerate_changelog.call_args
+    assert call_args.kwargs['changelog_path'] == setup.repo_root / 'HISTORY.md'
 
 
 def test_changelog_regenerate_absolute_path(
@@ -125,7 +131,7 @@ def test_changelog_regenerate_absolute_path(
 ) -> None:
     """Test changelog regeneration with absolute path."""
     changelog_path = tmp_path / 'custom' / 'CHANGELOG.md'
-    _, cliff = mock_changelog_setup([str(changelog_path)])
+    setup = mock_changelog_setup([str(changelog_path)])
     runner = CliRunner()
 
     result = runner.invoke(
@@ -134,8 +140,8 @@ def test_changelog_regenerate_absolute_path(
     )
 
     assert result.exit_code == 0
-    cliff.regenerate_changelog.assert_called_once()
-    call_args = cliff.regenerate_changelog.call_args
+    setup.cliff.regenerate_changelog.assert_called_once()
+    call_args = setup.cliff.regenerate_changelog.call_args
     assert call_args.kwargs['changelog_path'] == changelog_path
 
 
@@ -144,7 +150,7 @@ def test_changelog_regenerate_with_format(
     mocker: MockerFixture,
 ) -> None:
     """Test changelog regeneration with formatting enabled."""
-    repo_root, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
+    setup = mock_changelog_setup()
     runner = CliRunner()
 
     run_checked = mocker.patch('releez.utils.run_checked')
@@ -165,12 +171,12 @@ def test_changelog_regenerate_with_format(
     )
 
     assert result.exit_code == 0
-    cliff.regenerate_changelog.assert_called_once()
+    setup.cliff.regenerate_changelog.assert_called_once()
     run_checked.assert_called_once()
     call_args = run_checked.call_args
-    expected_changelog = repo_root / 'CHANGELOG.md'
+    expected_changelog = setup.repo_root / 'CHANGELOG.md'
     assert call_args.args[0] == ['prettier', '--write', str(expected_changelog)]
-    assert call_args.kwargs['cwd'] == repo_root
+    assert call_args.kwargs['cwd'] == setup.repo_root
     assert call_args.kwargs['capture_stdout'] is False
 
 
@@ -180,7 +186,7 @@ def test_changelog_regenerate_format_without_cmd_raises_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that enabling format without providing cmd raises error."""
-    _, cliff = mock_changelog_setup()  # Uses default CHANGELOG.md
+    setup = mock_changelog_setup()
     runner = CliRunner()
     monkeypatch.chdir(tmp_path)
 
@@ -192,7 +198,7 @@ def test_changelog_regenerate_format_without_cmd_raises_error(
     assert result.exit_code == 1
     assert 'no format command is configured' in result.output.lower()
     # Verify GitCliff was not called since error happens before
-    cliff.regenerate_changelog.assert_not_called()
+    setup.cliff.regenerate_changelog.assert_not_called()
 
 
 def test_changelog_regenerate_handles_releez_error(
@@ -250,11 +256,8 @@ class TestChangelogRegenerateMonorepo:
         self,
         mocker: MockerFixture,
         tmp_path: Path,
-    ) -> tuple[Path, Mock, Mock, Mock]:
-        """Set up mocks for monorepo changelog tests.
-
-        Returns (repo_root, core_project, ui_project, cliff_mock).
-        """
+    ) -> MonorepoSetup:
+        """Set up mocks for monorepo changelog tests."""
         repo_root = tmp_path / 'repo'
         repo_root.mkdir()
 
@@ -298,32 +301,30 @@ class TestChangelogRegenerateMonorepo:
         cliff = mocker.Mock()
         mocker.patch('releez.subapps.changelog.GitCliff', return_value=cliff)
 
-        return repo_root, core, ui, cliff
+        return MonorepoSetup(repo_root=repo_root, core=core, ui=ui, cliff=cliff)
 
     def test_all_projects_regenerates_both(
         self,
-        monorepo_setup: tuple[Path, Mock, Mock, Mock],
+        monorepo_setup: MonorepoSetup,
     ) -> None:
         """--all regenerates changelog for every configured project."""
-        _, core, ui, cliff = monorepo_setup
         runner = CliRunner()
 
         result = runner.invoke(cli.app, ['changelog', 'regenerate', '--all'])
 
         assert result.exit_code == 0
-        assert cliff.regenerate_changelog.call_count == 2
-        calls = cliff.regenerate_changelog.call_args_list
-        assert calls[0].kwargs['changelog_path'] == core.changelog_path
-        assert calls[0].kwargs['tag_pattern'] == core.tag_pattern
-        assert calls[0].kwargs['include_paths'] == core.include_paths
-        assert calls[1].kwargs['changelog_path'] == ui.changelog_path
+        assert monorepo_setup.cliff.regenerate_changelog.call_count == 2
+        calls = monorepo_setup.cliff.regenerate_changelog.call_args_list
+        assert calls[0].kwargs['changelog_path'] == monorepo_setup.core.changelog_path
+        assert calls[0].kwargs['tag_pattern'] == monorepo_setup.core.tag_pattern
+        assert calls[0].kwargs['include_paths'] == monorepo_setup.core.include_paths
+        assert calls[1].kwargs['changelog_path'] == monorepo_setup.ui.changelog_path
 
     def test_specific_project(
         self,
-        monorepo_setup: tuple[Path, Mock, Mock, Mock],
+        monorepo_setup: MonorepoSetup,
     ) -> None:
         """--project <name> regenerates only the named project."""
-        _, core, _ui, cliff = monorepo_setup
         runner = CliRunner()
 
         result = runner.invoke(
@@ -332,15 +333,17 @@ class TestChangelogRegenerateMonorepo:
         )
 
         assert result.exit_code == 0
-        cliff.regenerate_changelog.assert_called_once()
-        assert cliff.regenerate_changelog.call_args.kwargs['changelog_path'] == core.changelog_path
+        monorepo_setup.cliff.regenerate_changelog.assert_called_once()
+        assert (
+            monorepo_setup.cliff.regenerate_changelog.call_args.kwargs['changelog_path']
+            == monorepo_setup.core.changelog_path
+        )
 
     def test_multiple_projects(
         self,
-        monorepo_setup: tuple[Path, Mock, Mock, Mock],
+        monorepo_setup: MonorepoSetup,
     ) -> None:
         """--project can be repeated to select multiple projects."""
-        _, _, _, cliff = monorepo_setup
         runner = CliRunner()
 
         result = runner.invoke(
@@ -349,7 +352,7 @@ class TestChangelogRegenerateMonorepo:
         )
 
         assert result.exit_code == 0
-        assert cliff.regenerate_changelog.call_count == 2
+        assert monorepo_setup.cliff.regenerate_changelog.call_count == 2
 
     @pytest.mark.usefixtures('monorepo_setup')
     def test_no_selection_exits_with_error(self) -> None:
@@ -390,11 +393,10 @@ class TestChangelogRegenerateMonorepo:
 
     def test_regenerate_with_format_runs_formatter(
         self,
-        monorepo_setup: tuple[Path, Mock, Mock, Mock],
+        monorepo_setup: MonorepoSetup,
         mocker: MockerFixture,
     ) -> None:
         """--run-changelog-format runs the formatter for each regenerated project."""
-        _, core, _ui, _cliff = monorepo_setup
         run_checked = mocker.patch('releez.utils.run_checked')
         runner = CliRunner()
 
@@ -417,4 +419,4 @@ class TestChangelogRegenerateMonorepo:
 
         assert result.exit_code == 0
         run_checked.assert_called_once()
-        assert str(core.changelog_path) in run_checked.call_args.args[0]
+        assert str(monorepo_setup.core.changelog_path) in run_checked.call_args.args[0]
