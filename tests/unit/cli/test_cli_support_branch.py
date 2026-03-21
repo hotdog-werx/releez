@@ -479,6 +479,38 @@ class TestSupportBranchMonorepo:
         assert result.exit_code == 1
         assert '--project is required' in result.output
 
+    def test_monorepo_unknown_project_errors(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Monorepo mode with an unrecognised --project name produces a helpful error."""
+        runner = CliRunner()
+        ui = self._mock_project(mocker, 'ui', 'ui-')
+        mocker.patch(
+            'releez.cli.open_repo',
+            return_value=mocker.Mock(
+                repo=mocker.Mock(),
+                info=RepoInfo(
+                    root=tmp_path,
+                    remote_url='',
+                    active_branch='master',
+                ),
+            ),
+        )
+        mock_settings = self._mock_settings(mocker)
+        mock_settings.get_subprojects.return_value = [ui]
+        mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+
+        result = runner.invoke(
+            cli.app,
+            ['release', 'support-branch', '1', '--project', 'nonexistent'],
+        )
+
+        assert result.exit_code == 1
+        assert 'Unknown project' in result.output
+        assert 'nonexistent' in result.output
+
     def test_monorepo_major_is_latest_errors(
         self,
         mocker: MockerFixture,

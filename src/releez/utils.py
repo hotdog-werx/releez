@@ -7,7 +7,7 @@ from typing import ParamSpec, TypeVar
 
 import typer
 
-from releez.errors import ChangelogNotFoundError, ReleezError
+from releez.errors import ReleezError
 from releez.process import run_checked
 
 if typing.TYPE_CHECKING:
@@ -28,7 +28,7 @@ def handle_releez_errors(func: Callable[_P, _R]) -> Callable[_P, _R]:
             typer.secho(str(exc), err=True, fg=typer.colors.RED)
             raise typer.Exit(code=1) from exc
 
-    return wrapper  # type: ignore[return-value]
+    return wrapper
 
 
 def resolve_changelog_path(changelog_path: str, repo_root: Path) -> Path:
@@ -40,15 +40,12 @@ def resolve_changelog_path(changelog_path: str, repo_root: Path) -> Path:
 
     Returns:
         The resolved absolute path to the changelog.
-
-    Raises:
-        ChangelogNotFoundError: If the changelog file doesn't exist.
     """
     changelog = Path(changelog_path)
     if not changelog.is_absolute():
         changelog = repo_root / changelog
     if not changelog.exists():
-        raise ChangelogNotFoundError(changelog)
+        changelog.touch()  # Create an empty changelog if it doesn't exist
     return changelog
 
 
