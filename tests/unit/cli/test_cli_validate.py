@@ -28,7 +28,10 @@ def _mock_validate(mocker: MockerFixture, *, valid: bool) -> None:
     )
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.MagicMock(root='/fake/repo')),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/fake/repo'),
+        ),
     )
 
 
@@ -100,7 +103,10 @@ def test_message_is_passed_to_validate(mocker: MockerFixture) -> None:
     mocker.patch('releez.cli.GitCliff.validate_commit_message', _capture)
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.MagicMock(root='/fake/repo')),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/fake/repo'),
+        ),
     )
 
     runner.invoke(

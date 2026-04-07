@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import (
     AliasChoices,
@@ -19,7 +21,11 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+from releez.errors import InvalidMaintenanceBranchRegexError, ReleezError
 from releez.version_tags import AliasVersions
+
+if TYPE_CHECKING:
+    from releez.subproject import SubProject
 
 
 class _ReleezTomlConfigSettingsSource(TomlConfigSettingsSource):
@@ -157,6 +163,30 @@ class ProjectConfig(BaseModel):
     include_paths: list[str] = Field(default_factory=list)
 
 
+def _filter_projects_by_name(
+    subprojects: list[SubProject],
+    project_names: list[str],
+) -> list[SubProject]:
+    """Return a deduplicated ordered subset of *subprojects* matching *project_names*.
+
+    Raises:
+        ReleezError: If any name in *project_names* is not present in *subprojects*.
+    """
+    projects_by_name = {p.name: p for p in subprojects}
+    unknown = [n for n in project_names if n not in projects_by_name]
+    if unknown:
+        available = ', '.join(sorted(projects_by_name))
+        msg = f'Unknown project(s): {", ".join(sorted(unknown))}. Available: {available}'
+        raise ReleezError(msg)
+    seen: set[str] = set()
+    selected: list[SubProject] = []
+    for name in project_names:
+        if name not in seen:
+            seen.add(name)
+            selected.append(projects_by_name[name])
+    return selected
+
+
 class ReleezSettings(BaseSettings):
     """Settings loaded from CLI args, env vars, and config files.
 
@@ -183,9 +213,161 @@ class ReleezSettings(BaseSettings):
     changelog_path: str = 'CHANGELOG.md'
     create_pr: bool = False
     run_changelog_format: bool = False
+    maintenance_branch_regex: str | None = None
+    maintenance_branch_template: str | None = None
     alias_versions: AliasVersions = AliasVersions.none
     hooks: ReleezHooks = Field(default_factory=ReleezHooks)
     projects: list[ProjectConfig] = Field(default_factory=list)
+
+    @property
+    def is_monorepo(self) -> bool:
+        """Return True if any projects are configured (monorepo mode)."""
+        return bool(self.projects)
+
+    @property
+    def effective_maintenance_branch_regex(self) -> str:
+        r"""Return the active maintenance branch regex, applying a smart default if unset.
+
+        Single-repo default: ``^support/(?P<major>\d+)\.x$``
+        Monorepo default:    ``^support/(?P<prefix>[^\d]+-)?(?P<major>\d+)\.x$``
+        """
+        if self.maintenance_branch_regex is not None:
+            return self.maintenance_branch_regex
+        if self.is_monorepo:
+            return r'^support/(?P<prefix>[^\d]+-)?(?P<major>\d+)\.x$'
+        return r'^support/(?P<major>\d+)\.x$'
+
+    @property
+    def effective_maintenance_branch_template(self) -> str:
+        """Return the active branch name template, applying a smart default if unset.
+
+        Single-repo default: ``support/{major}.x``
+        Monorepo default:    ``support/{prefix}{major}.x``
+        """
+        if self.maintenance_branch_template is not None:
+            return self.maintenance_branch_template
+        if self.is_monorepo:
+            return 'support/{prefix}{major}.x'
+        return 'support/{major}.x'
+
+    @model_validator(mode='after')
+    def _validate_maintenance_branch_regex(self) -> ReleezSettings:
+        """Validate effective maintenance branch regex.
+
+        Checks the regex is compilable and has a ``(?P<major>...)`` group.
+        In monorepo mode also requires a ``(?P<prefix>...)`` group so branches
+        for different projects can be distinguished.
+        """
+        regex = self.effective_maintenance_branch_regex
+        try:
+            compiled = re.compile(regex)
+        except re.error as exc:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason=str(exc),
+            ) from exc
+        if 'major' not in compiled.groupindex:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason='missing named capture group "major"',
+            )
+        if self.is_monorepo and 'prefix' not in compiled.groupindex:
+            raise InvalidMaintenanceBranchRegexError(
+                regex,
+                reason='missing named capture group "prefix" (required in monorepo mode)',
+            )
+        return self
+
+    @model_validator(mode='after')
+    def _validate_maintenance_branch_template(self) -> ReleezSettings:
+        """Validate effective maintenance branch template.
+
+        Checks the template contains ``{major}``. In monorepo mode also
+        requires ``{prefix}`` so each project gets a unique branch name.
+        """
+        template = self.effective_maintenance_branch_template
+        if '{major}' not in template:
+            msg = f'maintenance-branch-template {template!r} must contain {{major}}'
+            raise ReleezError(msg)
+        if self.is_monorepo and '{prefix}' not in template:
+            msg = (
+                f'maintenance-branch-template {template!r} must contain {{prefix}} '
+                'in monorepo mode so each project gets a unique branch name'
+            )
+            raise ReleezError(msg)
+        return self
+
+    def get_subprojects(self, *, repo_root: Path) -> list[SubProject]:
+        """Build SubProject instances from all configured projects.
+
+        Args:
+            repo_root: Absolute path to the repository root.
+
+        Returns:
+            List of SubProject instances; empty list in single-repo mode.
+        """
+        from releez.subproject import SubProject  # noqa: PLC0415 (local import to avoid circular dependency)
+
+        return [
+            SubProject.from_config(
+                config,
+                repo_root=repo_root,
+                global_settings=self,
+            )
+            for config in self.projects
+        ]
+
+    def validate_project_flags(
+        self,
+        *,
+        project_names: list[str],
+        all_projects: bool,
+    ) -> None:
+        """Raise ReleezError if project flags are used in single-repo mode.
+
+        No-op in monorepo mode.
+
+        Raises:
+            ReleezError: If called with project flags when not in monorepo mode.
+        """
+        if not self.is_monorepo and (project_names or all_projects):
+            msg = 'No projects are configured. Remove --project/--all or configure [tool.releez.projects].'
+            raise ReleezError(msg)
+
+    def select_projects(
+        self,
+        *,
+        repo_root: Path,
+        project_names: list[str],
+        all_projects: bool,
+    ) -> list[SubProject]:
+        """Resolve project selection for a monorepo-aware command.
+
+        Only valid in monorepo mode. Callers must check ``is_monorepo`` before
+        calling this method.
+
+        Raises:
+            ReleezError: If called in single-repo mode, or for conflicting flags,
+                unknown project names, or missing selection in monorepo mode.
+        """
+        if not self.is_monorepo:
+            msg = 'select_projects() requires monorepo mode; check is_monorepo first'
+            raise ReleezError(msg)
+
+        subprojects = self.get_subprojects(repo_root=repo_root)
+
+        if project_names and all_projects:
+            msg = 'Cannot use --project and --all together.'
+            raise ReleezError(msg)
+
+        if all_projects:
+            return subprojects
+
+        if project_names:
+            return _filter_projects_by_name(subprojects, project_names)
+
+        msg = 'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.'
+        raise ReleezError(msg)
 
     @model_validator(mode='after')
     def _warn_deprecated_settings(self) -> ReleezSettings:

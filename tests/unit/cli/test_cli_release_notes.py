@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.errors import ReleezError
 from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
 
@@ -17,23 +19,22 @@ def _mock_settings(
     mocker: MockerFixture,
     *,
     projects: list[object],
-) -> None:
+) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[], changelog_format=None)
-    mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            base_branch='master',
-            git_remote='origin',
-            pr_labels='release',
-            pr_title_prefix='chore(release): ',
-            changelog_path='CHANGELOG.md',
-            create_pr=False,
-            run_changelog_format=False,
-            alias_versions=AliasVersions.none,
-            hooks=hooks,
-            projects=projects,
-        ),
+    mock_settings = mocker.MagicMock(
+        base_branch='master',
+        git_remote='origin',
+        pr_labels='release',
+        pr_title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        create_pr=False,
+        run_changelog_format=False,
+        alias_versions=AliasVersions.none,
+        hooks=hooks,
+        projects=projects,
     )
+    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    return mock_settings
 
 
 def test_cli_release_notes_stdout(
@@ -46,7 +47,10 @@ def test_cli_release_notes_stdout(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=object(),
+            info=mocker.Mock(root=repo_root, active_branch=None),
+        ),
     )
     mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
 
@@ -98,7 +102,10 @@ def test_cli_release_notes_writes_file(
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(object(), mocker.Mock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=object(),
+            info=mocker.Mock(root=repo_root, active_branch=None),
+        ),
     )
     mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
 
@@ -121,11 +128,17 @@ def test_cli_release_notes_monorepo_requires_project_selection(
     tmp_path: Path,
 ) -> None:
     runner = CliRunner()
-    _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
+    mock_settings = _mock_settings(
+        mocker,
+        projects=[mocker.MagicMock(name='core-config')],
+    )
 
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',
@@ -138,7 +151,10 @@ def test_cli_release_notes_monorepo_requires_project_selection(
     )
     core.name = 'core'
     core.hooks.post_changelog = []
-    mocker.patch('releez.cli.SubProject.from_config', return_value=core)
+    mock_settings.get_subprojects.return_value = [core]
+    mock_settings.select_projects.side_effect = ReleezError(
+        'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
+    )
 
     result = runner.invoke(cli.app, ['release', 'notes'])
 
@@ -151,12 +167,18 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     tmp_path: Path,
 ) -> None:
     runner = CliRunner()
-    _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
+    mock_settings = _mock_settings(
+        mocker,
+        projects=[mocker.MagicMock(name='core-config')],
+    )
 
     project_path = tmp_path / 'packages' / 'core'
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.Mock(root=tmp_path)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.Mock(root=tmp_path, active_branch=None),
+        ),
     )
     core = mocker.MagicMock(
         name='core',
@@ -169,7 +191,8 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     )
     core.name = 'core'
     core.hooks.post_changelog = []
-    mocker.patch('releez.cli.SubProject.from_config', return_value=core)
+    mock_settings.get_subprojects.return_value = [core]
+    mock_settings.select_projects.return_value = [core]
     mocker.patch('releez.cli._resolve_release_version', return_value='1.2.3')
 
     cliff = mocker.Mock()

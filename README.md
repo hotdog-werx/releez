@@ -62,6 +62,28 @@ See the
 [Monorepo Setup Guide](https://hotdog-werx.github.io/releez/monorepo/setup/) for
 full configuration, change detection, uv workspace integration, and CI patterns.
 
+## Support branches
+
+Support branches are long-lived maintenance lines for shipping hotfixes or
+backported features on older majors (e.g. `support/1.x` while `2.x` development
+continues on the default branch).
+
+**Create** a support branch with:
+
+```bash
+releez release support-branch 1            # single-repo → support/1.x
+releez release support-branch 1 --project ui  # monorepo  → support/ui-1.x
+```
+
+**Release** from a support branch with the normal `releez release start` command
+— Releez detects the branch automatically and scopes versioning to the correct
+major line.
+
+See the
+[Support Branches guide](https://hotdog-werx.github.io/releez/support-branches/)
+for full details including `--commit` overrides, custom naming, and monorepo
+configuration.
+
 ## Configuration
 
 Precedence (highest first): CLI flags → `RELEEZ_*` env vars → `releez.toml` →

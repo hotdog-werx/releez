@@ -154,7 +154,8 @@ tag-prefix = "ui-"
     settings = ReleezSettings()
     assert len(settings.projects) == 2
 
-    repo_obj, info = open_repo(cwd=tmp_path)
+    ctx = open_repo(cwd=tmp_path)
+    repo_obj, info = ctx.repo, ctx.info
     subprojects = [
         SubProject.from_config(
             config,
@@ -238,7 +239,8 @@ tag-prefix = "ui-"
 
     # Detect changes
     settings = ReleezSettings()
-    repo_obj, info = open_repo(cwd=tmp_path)
+    ctx = open_repo(cwd=tmp_path)
+    repo_obj, info = ctx.repo, ctx.info
     subprojects = [
         SubProject.from_config(
             config,
@@ -305,7 +307,8 @@ include-paths = ["pyproject.toml", "uv.lock"]
 
     # Detect changes
     settings = ReleezSettings()
-    repo_obj, info = open_repo(cwd=tmp_path)
+    ctx = open_repo(cwd=tmp_path)
+    repo_obj, info = ctx.repo, ctx.info
     subprojects = [
         SubProject.from_config(
             config,

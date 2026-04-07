@@ -241,6 +241,33 @@ releez release start --project core --project ui
 releez release start --all
 ```
 
+### Release from a Support Branch (Maintenance Releases)
+
+Support branches in monorepo mode use a project-scoped naming convention:
+`support/{tag-prefix}{major}.x` (e.g. `support/ui-1.x` for a project with
+`tag-prefix = "ui-"`).
+
+Create the branch with Releez, then release from it normally:
+
+```bash
+# Create support/ui-1.x from the latest ui-1.x.x tag
+releez release support-branch 1 --project ui
+
+# From the support branch, cut a release for the ui project
+releez release start --project ui
+```
+
+Releez detects the branch, scopes git-cliff to tags in the `ui-1.x` line (e.g.
+`ui-1.0.0`, `ui-1.1.0`), and uses the support branch as the PR base. Versions
+that would bump to a different major are rejected.
+
+Other projects in the same monorepo are unaffected; their releases run normally
+from the default base branch.
+
+See the
+[Support Branches guide](https://hotdog-werx.github.io/releez/support-branches/)
+for full details.
+
 ### Check Which Projects Changed
 
 ```bash
@@ -392,7 +419,7 @@ jobs:
     outputs:
       matrix: ${{ steps.detect.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
@@ -408,7 +435,7 @@ jobs:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build ${{ matrix.project }}
         run: echo "Building ${{ matrix.project }}"
 ```
@@ -425,7 +452,7 @@ jobs:
     outputs:
       projects: ${{ steps.detect.outputs.projects }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 
@@ -439,7 +466,7 @@ jobs:
     if: contains(fromJSON(needs.detect.outputs.projects), 'core')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: pytest packages/core
 
   check-ui:
@@ -447,7 +474,7 @@ jobs:
     if: contains(fromJSON(needs.detect.outputs.projects), 'ui')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: npm test --prefix packages/ui
 ```
 
@@ -485,7 +512,7 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
       - run: uv tool install releez
 

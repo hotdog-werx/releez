@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from releez import cli
+from releez.errors import ReleezError
 from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     import pytest
     from pytest_mock import MockerFixture
@@ -21,7 +23,10 @@ def _mock_repo_context(
 ) -> None:
     mocker.patch(
         'releez.cli.open_repo',
-        return_value=(mocker.MagicMock(), mocker.MagicMock(root=repo_root)),
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root=repo_root, active_branch=None),
+        ),
     )
 
 
@@ -29,23 +34,22 @@ def _mock_settings(
     mocker: MockerFixture,
     *,
     projects: list[object],
-) -> None:
+) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[], changelog_format=None)
-    mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(
-            base_branch='master',
-            git_remote='origin',
-            pr_labels='release',
-            pr_title_prefix='chore(release): ',
-            changelog_path='CHANGELOG.md',
-            create_pr=False,
-            run_changelog_format=False,
-            alias_versions=AliasVersions.none,
-            hooks=hooks,
-            projects=projects,
-        ),
+    mock_settings = mocker.MagicMock(
+        base_branch='master',
+        git_remote='origin',
+        pr_labels='release',
+        pr_title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        create_pr=False,
+        run_changelog_format=False,
+        alias_versions=AliasVersions.none,
+        hooks=hooks,
+        projects=projects,
     )
+    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    return mock_settings
 
 
 def test_cli_release_start_passes_version_override(
@@ -211,7 +215,10 @@ def test_cli_release_start_monorepo_requires_explicit_project_selection(
     """In monorepo mode, release start must fail without --project or --all."""
     runner = CliRunner()
     _mock_repo_context(mocker, repo_root=tmp_path)
-    _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
+    mock_settings = _mock_settings(
+        mocker,
+        projects=[mocker.MagicMock(name='core-config')],
+    )
 
     project_path = tmp_path / 'packages' / 'core'
     project_path.mkdir(parents=True)
@@ -228,7 +235,10 @@ def test_cli_release_start_monorepo_requires_explicit_project_selection(
     )
     project.name = 'core'
 
-    mocker.patch('releez.cli.SubProject.from_config', return_value=project)
+    mock_settings.get_subprojects.return_value = [project]
+    mock_settings.select_projects.side_effect = ReleezError(
+        'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
+    )
     start_release = mocker.patch('releez.cli.start_release')
 
     result = runner.invoke(cli.app, ['release', 'start', '--dry-run'])
@@ -245,7 +255,10 @@ def test_cli_release_start_monorepo_with_project_flag(
     """In monorepo mode, release start succeeds when --project is specified."""
     runner = CliRunner()
     _mock_repo_context(mocker, repo_root=tmp_path)
-    _mock_settings(mocker, projects=[mocker.MagicMock(name='core-config')])
+    mock_settings = _mock_settings(
+        mocker,
+        projects=[mocker.MagicMock(name='core-config')],
+    )
 
     project_path = tmp_path / 'packages' / 'core'
     project_path.mkdir(parents=True)
@@ -260,7 +273,8 @@ def test_cli_release_start_monorepo_with_project_flag(
     project.name = 'core'
     project.hooks.post_changelog = []
 
-    mocker.patch('releez.cli.SubProject.from_config', return_value=project)
+    mock_settings.get_subprojects.return_value = [project]
+    mock_settings.select_projects.return_value = [project]
 
     start_release = mocker.patch(
         'releez.cli.start_release',
@@ -293,7 +307,7 @@ def test_cli_release_start_monorepo_override_requires_single_project(
 ) -> None:
     runner = CliRunner()
     _mock_repo_context(mocker, repo_root=tmp_path)
-    _mock_settings(
+    mock_settings = _mock_settings(
         mocker,
         projects=[
             mocker.MagicMock(name='core-config'),
@@ -328,7 +342,8 @@ def test_cli_release_start_monorepo_override_requires_single_project(
     ui.name = 'ui'
     ui.hooks.post_changelog = []
 
-    mocker.patch('releez.cli.SubProject.from_config', side_effect=[core, ui])
+    mock_settings.get_subprojects.return_value = [core, ui]
+    mock_settings.select_projects.return_value = [core, ui]
     start_release = mocker.patch('releez.cli.start_release')
 
     result = runner.invoke(
