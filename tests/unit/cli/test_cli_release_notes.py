@@ -46,17 +46,20 @@ def test_cli_release_notes_stdout(
     repo_root.mkdir()
 
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
             repo=object(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
-    mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
+    mocker.patch(
+        'releez.subapps.release._resolve_release_version',
+        return_value='2.3.4',
+    )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n\n- Change\n'
-    mocker.patch('releez.cli.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
 
     result = runner.invoke(cli.app, ['release', 'notes'])
 
@@ -68,7 +71,9 @@ def test_cli_release_notes_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
     runner = CliRunner()
-    run_command = mocker.patch('releez.cli._run_release_notes_command')
+    run_command = mocker.patch(
+        'releez.subapps.release._run_release_notes_command',
+    )
 
     result = runner.invoke(
         cli.app,
@@ -101,17 +106,20 @@ def test_cli_release_notes_writes_file(
     repo_root.mkdir()
 
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
             repo=object(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
-    mocker.patch('releez.cli._resolve_release_version', return_value='2.3.4')
+    mocker.patch(
+        'releez.subapps.release._resolve_release_version',
+        return_value='2.3.4',
+    )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n'
-    mocker.patch('releez.cli.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
 
     output = tmp_path / 'notes.md'
     result = runner.invoke(
@@ -134,7 +142,7 @@ def test_cli_release_notes_monorepo_requires_project_selection(
     )
 
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root=tmp_path, active_branch=None),
@@ -174,7 +182,7 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
 
     project_path = tmp_path / 'packages' / 'core'
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root=tmp_path, active_branch=None),
@@ -193,11 +201,14 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     core.hooks.post_changelog = []
     mock_settings.get_subprojects.return_value = [core]
     mock_settings.select_projects.return_value = [core]
-    mocker.patch('releez.cli._resolve_release_version', return_value='1.2.3')
+    mocker.patch(
+        'releez.subapps.release._resolve_release_version',
+        return_value='1.2.3',
+    )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 1.2.3\n\n- Change\n'
-    mocker.patch('releez.cli.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
 
     result = runner.invoke(cli.app, ['release', 'notes', '--project', 'core'])
 

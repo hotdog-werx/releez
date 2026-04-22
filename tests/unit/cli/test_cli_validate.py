@@ -23,11 +23,11 @@ def _mock_validate(mocker: MockerFixture, *, valid: bool) -> None:
         else ('Invalid: does not match any commit parser (expected: type(scope?): subject)')
     )
     mocker.patch(
-        'releez.cli.GitCliff.validate_commit_message',
+        'releez.subapps.validate.GitCliff.validate_commit_message',
         return_value=CommitValidationResult(valid=valid, reason=reason),
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.validate.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.MagicMock(root='/fake/repo'),
@@ -100,9 +100,12 @@ def test_message_is_passed_to_validate(mocker: MockerFixture) -> None:
         captured.append(message)
         return CommitValidationResult(valid=True, reason=reason)
 
-    mocker.patch('releez.cli.GitCliff.validate_commit_message', _capture)
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.validate.GitCliff.validate_commit_message',
+        _capture,
+    )
+    mocker.patch(
+        'releez.subapps.validate.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.MagicMock(root='/fake/repo'),

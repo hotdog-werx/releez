@@ -31,7 +31,7 @@ def test_cli_release_detect_from_branch_single_repo(
     )
 
     mocker.patch(
-        'releez.cli.detect_release_from_branch',
+        'releez.subapps.release_support.detect_release_from_branch',
         return_value=DetectedRelease(
             version='1.2.3',
             semver_version='1.2.3',
@@ -74,12 +74,12 @@ def test_cli_release_detect_from_branch_monorepo(
     )
 
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_repo_info),
     )
 
     mocker.patch(
-        'releez.cli.detect_release_from_branch',
+        'releez.subapps.release_support.detect_release_from_branch',
         return_value=DetectedRelease(
             version='core-1.2.3',
             semver_version='1.2.3',
@@ -118,7 +118,10 @@ def test_cli_release_detect_from_branch_not_release_branch(
         return_value=mocker.MagicMock(projects=[]),
     )
 
-    mocker.patch('releez.cli.detect_release_from_branch', return_value=None)
+    mocker.patch(
+        'releez.subapps.release_support.detect_release_from_branch',
+        return_value=None,
+    )
 
     result = runner.invoke(
         cli.app,
@@ -146,12 +149,12 @@ def test_cli_release_detect_from_branch_uses_current_branch(
 
     mock_info = mocker.MagicMock(active_branch='release/1.2.3')
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
 
     mocker.patch(
-        'releez.cli.detect_release_from_branch',
+        'releez.subapps.release_support.detect_release_from_branch',
         return_value=DetectedRelease(
             version='1.2.3',
             semver_version='1.2.3',
@@ -184,7 +187,7 @@ def test_cli_release_detect_from_branch_detached_head_error(
 
     mock_info = mocker.MagicMock(active_branch=None)
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
 
@@ -205,7 +208,7 @@ def test_cli_release_detect_from_branch_handles_releez_error(
         return_value=mocker.MagicMock(projects=[]),
     )
     mocker.patch(
-        'releez.cli.detect_release_from_branch',
+        'releez.subapps.release_support.detect_release_from_branch',
         side_effect=DirtyWorkingTreeError,
     )
 
