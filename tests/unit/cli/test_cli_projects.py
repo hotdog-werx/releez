@@ -135,11 +135,11 @@ def test_projects_changed_text_output_with_changes(
         return_value=mock_settings,
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.projects.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
-        'releez.cli.detect_changed_projects',
+        'releez.subapps.projects.detect_changed_projects',
         return_value=[mock_project],
     )
 
@@ -170,10 +170,13 @@ def test_projects_changed_text_output_no_changes(mocker: MockerFixture) -> None:
         return_value=mock_settings,
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.projects.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
-    mocker.patch('releez.cli.detect_changed_projects', return_value=[])
+    mocker.patch(
+        'releez.subapps.projects.detect_changed_projects',
+        return_value=[],
+    )
 
     result = runner.invoke(cli.app, ['projects', 'changed'])
 
@@ -205,11 +208,11 @@ def test_projects_changed_json_output(mocker: MockerFixture) -> None:
         return_value=mock_settings,
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.projects.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
-        'releez.cli.detect_changed_projects',
+        'releez.subapps.projects.detect_changed_projects',
         return_value=[mock_project],
     )
 
@@ -244,11 +247,11 @@ def test_projects_changed_with_custom_base(mocker: MockerFixture) -> None:
         return_value=mock_settings,
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.projects.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mock_detect = mocker.patch(
-        'releez.cli.detect_changed_projects',
+        'releez.subapps.projects.detect_changed_projects',
         return_value=[],
     )
 
@@ -281,11 +284,11 @@ def test_projects_changed_handles_releez_error(mocker: MockerFixture) -> None:
         return_value=mock_settings,
     )
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.projects.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
     mocker.patch(
-        'releez.cli.detect_changed_projects',
+        'releez.subapps.projects.detect_changed_projects',
         side_effect=DirtyWorkingTreeError,
     )
 

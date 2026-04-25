@@ -49,7 +49,7 @@ class TestSupportBranchSingleRepo:
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -63,12 +63,17 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='1.4.0',
         )
-        create_branch = mocker.patch('releez.cli.create_branch_from_ref')
+        create_branch = mocker.patch(
+            'releez.subapps.release_support.create_branch_from_ref',
+        )
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
 
@@ -92,17 +97,25 @@ class TestSupportBranchSingleRepo:
             repo=repo_mock,
             info=RepoInfo(root=tmp_path, remote_url='', active_branch='master'),
         )
-        mocker.patch('releez.cli.open_repo', return_value=ctx_mock)
+        mocker.patch(
+            'releez.subapps.release_support.open_repo',
+            return_value=ctx_mock,
+        )
         mocker.patch(
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='1.4.0',
         )
-        create_branch = mocker.patch('releez.cli.create_branch_from_ref')
+        create_branch = mocker.patch(
+            'releez.subapps.release_support.create_branch_from_ref',
+        )
 
         result = runner.invoke(
             cli.app,
@@ -121,7 +134,7 @@ class TestSupportBranchSingleRepo:
         """--project is not valid in single-repo mode."""
         runner = CliRunner()
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -152,7 +165,7 @@ class TestSupportBranchSingleRepo:
         """Requesting a support branch for the latest major is an error."""
         runner = CliRunner()
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -166,7 +179,10 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
+        mocker.patch(
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '2'])
 
@@ -181,7 +197,7 @@ class TestSupportBranchSingleRepo:
         """No tags for the requested major is an error."""
         runner = CliRunner()
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -195,7 +211,10 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[2])
+        mocker.patch(
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[2],
+        )
 
         result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
 
@@ -215,7 +234,7 @@ class TestSupportBranchSingleRepo:
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -229,13 +248,16 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='1.4.0',
         )
         mocker.patch(
-            'releez.cli.create_branch_from_ref',
+            'releez.subapps.release_support.create_branch_from_ref',
             side_effect=GitBranchExistsError('support/1.x'),
         )
 
@@ -257,7 +279,7 @@ class TestSupportBranchSingleRepo:
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -271,18 +293,23 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
+        mocker.patch(
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
         # First call: latest 1.x.x tag; second call: latest 2.x.x tag for validation
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             side_effect=['1.4.0', '2.0.0'],
         )
         custom_sha = 'deadbeef' * 4 + 'deadbeef'
         validate = mocker.patch(
-            'releez.cli.validate_commit_for_major',
+            'releez.subapps.release_support.validate_commit_for_major',
             return_value=custom_sha,
         )
-        create_branch = mocker.patch('releez.cli.create_branch_from_ref')
+        create_branch = mocker.patch(
+            'releez.subapps.release_support.create_branch_from_ref',
+        )
 
         result = runner.invoke(
             cli.app,
@@ -308,7 +335,7 @@ class TestSupportBranchSingleRepo:
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -322,13 +349,16 @@ class TestSupportBranchSingleRepo:
             'releez.settings.ReleezSettings.get_subprojects',
             return_value=[],
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             side_effect=['1.4.0', '2.0.0'],
         )
         mocker.patch(
-            'releez.cli.validate_commit_for_major',
+            'releez.subapps.release_support.validate_commit_for_major',
             side_effect=InvalidSupportBranchCommitError(
                 commit='badsha',
                 major=1,
@@ -357,7 +387,7 @@ class TestSupportBranchSingleRepo:
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -367,9 +397,12 @@ class TestSupportBranchSingleRepo:
                 ),
             ),
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='1.4.0',
         )
 
@@ -418,7 +451,7 @@ class TestSupportBranchMonorepo:
         repo_mock.tags = [tag_obj]
         ui = self._mock_project(mocker, 'ui', 'ui-')
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -434,12 +467,17 @@ class TestSupportBranchMonorepo:
             'releez.cli.ReleezSettings',
             return_value=mock_settings,
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='ui-1.4.0',
         )
-        create_branch = mocker.patch('releez.cli.create_branch_from_ref')
+        create_branch = mocker.patch(
+            'releez.subapps.release_support.create_branch_from_ref',
+        )
 
         result = runner.invoke(
             cli.app,
@@ -459,7 +497,7 @@ class TestSupportBranchMonorepo:
         runner = CliRunner()
         ui = self._mock_project(mocker, 'ui', 'ui-')
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -488,7 +526,7 @@ class TestSupportBranchMonorepo:
         runner = CliRunner()
         ui = self._mock_project(mocker, 'ui', 'ui-')
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -520,7 +558,7 @@ class TestSupportBranchMonorepo:
         runner = CliRunner()
         ui = self._mock_project(mocker, 'ui', 'ui-')
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=mocker.Mock(),
                 info=RepoInfo(
@@ -535,7 +573,7 @@ class TestSupportBranchMonorepo:
             return_value=[ui],
         )
         mocker.patch(
-            'releez.cli.find_all_major_versions',
+            'releez.subapps.release_support.find_all_major_versions',
             side_effect=MajorVersionAlreadyLatestError(major=2, latest_major=2),
         )
 
@@ -561,7 +599,7 @@ class TestSupportBranchMonorepo:
         repo_mock.tags = [tag_obj]
         ui = self._mock_project(mocker, 'ui', 'ui-')
         mocker.patch(
-            'releez.cli.open_repo',
+            'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
                 repo=repo_mock,
                 info=RepoInfo(
@@ -577,12 +615,17 @@ class TestSupportBranchMonorepo:
             'releez.cli.ReleezSettings',
             return_value=mock_settings,
         )
-        mocker.patch('releez.cli.find_all_major_versions', return_value=[1, 2])
         mocker.patch(
-            'releez.cli.find_latest_tag_matching_pattern',
+            'releez.subapps.release_support.find_all_major_versions',
+            return_value=[1, 2],
+        )
+        mocker.patch(
+            'releez.subapps.release_support.find_latest_tag_matching_pattern',
             return_value='ui-1.4.0',
         )
-        create_branch = mocker.patch('releez.cli.create_branch_from_ref')
+        create_branch = mocker.patch(
+            'releez.subapps.release_support.create_branch_from_ref',
+        )
 
         result = runner.invoke(
             cli.app,

@@ -57,7 +57,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
         return '1.2.3'
 
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version.compute_artifact_version',
         side_effect=_fake_compute,
     )
 
@@ -84,10 +84,13 @@ def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     mocker: MockerFixture,
 ) -> None:
     runner = CliRunner()
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.2.3',
+    )
 
     compute_tags = mocker.patch(
-        'releez.cli.compute_version_tags',
+        'releez.subapps.version.compute_version_tags',
         return_value=VersionTags(exact='1.2.3', major='v1', minor='v1.2'),
     )
 
@@ -137,8 +140,11 @@ def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     mocker: MockerFixture,
 ) -> None:
     runner = CliRunner()
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
-    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.2.3',
+    )
+    compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
 
     result = runner.invoke(
         cli.app,
@@ -165,8 +171,11 @@ def test_cli_version_artifact_pep440_without_aliases(
 ) -> None:
     """Regression guard: pep440 output with no aliases should emit plain version only."""
     runner = CliRunner()
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
-    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.2.3',
+    )
+    compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
     secho = mocker.patch('releez.cli.typer.secho')
 
     result = runner.invoke(
@@ -195,10 +204,10 @@ def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
 ) -> None:
     runner = CliRunner()
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3-alpha1-2',
     )
-    compute_tags = mocker.patch('releez.cli.compute_version_tags')
+    compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
 
     result = runner.invoke(
         cli.app,
@@ -244,7 +253,7 @@ def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specifi
         return '1.2.3a123.dev456'  # pep440
 
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version.compute_artifact_version',
         side_effect=_fake_compute,
     )
 
@@ -282,9 +291,12 @@ def test_cli_version_artifact_json_output_with_alias_versions(
         mocker: pytest-mock fixture for creating mocks.
     """
     runner = CliRunner()
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
     mocker.patch(
-        'releez.cli.compute_version_tags',
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.2.3',
+    )
+    mocker.patch(
+        'releez.subapps.version.compute_version_tags',
         return_value=VersionTags(exact='1.2.3', major='v1', minor='v1.2'),
     )
 
@@ -319,7 +331,10 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
         mocker: pytest-mock fixture for creating mocks.
     """
     runner = CliRunner()
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.2.3')
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.2.3',
+    )
 
     result = runner.invoke(
         cli.app,
@@ -358,15 +373,18 @@ def test_cli_version_artifact_with_project_includes_metadata_in_json(
     mock_settings = _mock_settings(mocker, projects=[mocker.MagicMock()])
     mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.version.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root='/repo'),
         ),
     )
-    mocker.patch('releez.cli._resolve_release_version', return_value='0.2.0')
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version._resolve_release_version',
+        return_value='0.2.0',
+    )
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
         return_value='0.2.0-beta1+5',
     )
 
@@ -411,22 +429,22 @@ def test_cli_version_artifact_with_project_uses_project_scoped_version_resolutio
     mock_settings = _mock_settings(mocker, projects=[mocker.MagicMock()])
     mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.version.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root='/repo'),
         ),
     )
     resolve = mocker.patch(
-        'releez.cli._resolve_release_version',
+        'releez.subapps.version._resolve_release_version',
         return_value='0.2.0',
     )
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version.compute_artifact_version',
         return_value='0.2.0-rc1+3',
     )
     mocker.patch(
-        'releez.cli._project_include_paths',
+        'releez.subapps.version._project_include_paths',
         return_value=['packages/core/**', 'pyproject.toml'],
     )
 
@@ -468,7 +486,7 @@ def test_cli_version_artifact_with_unknown_project_exits_with_error(
     mock_settings = _mock_settings(mocker, projects=[mocker.MagicMock()])
     mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.version.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root='/repo'),
@@ -493,7 +511,7 @@ def test_cli_version_artifact_with_project_no_projects_configured_exits_with_err
     mock_settings = _mock_settings(mocker, projects=[])
     mock_settings.get_subprojects.return_value = []
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.version.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root='/repo'),
@@ -524,14 +542,17 @@ def test_cli_version_artifact_with_project_version_override_skips_resolution(
     mock_settings = _mock_settings(mocker, projects=[mocker.MagicMock()])
     mock_settings.get_subprojects.return_value = [mock_project]
     mocker.patch(
-        'releez.cli.open_repo',
+        'releez.subapps.version.open_repo',
         return_value=mocker.Mock(
             repo=mocker.MagicMock(),
             info=mocker.Mock(root='/repo'),
         ),
     )
-    resolve = mocker.patch('releez.cli._resolve_release_version')
-    mocker.patch('releez.cli.compute_artifact_version', return_value='1.0.0')
+    resolve = mocker.patch('releez.subapps.version._resolve_release_version')
+    mocker.patch(
+        'releez.subapps.version.compute_artifact_version',
+        return_value='1.0.0',
+    )
 
     result = runner.invoke(
         cli.app,
@@ -580,7 +601,7 @@ def test_cli_version_artifact_handles_releez_error(
     """Regression guard: version-artifact command must surface ReleezError as exit code 1."""
     runner = CliRunner()
     mocker.patch(
-        'releez.cli.compute_artifact_version',
+        'releez.subapps.version.compute_artifact_version',
         side_effect=ReleezError('broken'),
     )
 
