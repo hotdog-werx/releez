@@ -12,7 +12,7 @@ from semver import VersionInfo
 from releez import cli
 from releez.errors import ReleezError
 from releez.release import StartReleaseResult
-from releez.subapps import release
+from releez.subapps import release, release_preview, release_start, release_tag
 from releez.subapps.release_maintenance import MaintenanceContext
 from releez.version_tags import AliasVersions
 
@@ -88,10 +88,10 @@ def test_create_and_push_selected_tags_splits_exact_and_alias(
     mocker: MockerFixture,
 ) -> None:
     repo = mocker.MagicMock()
-    create_tags = mocker.patch('releez.subapps.release.create_tags')
-    push_tags = mocker.patch('releez.subapps.release.push_tags')
+    create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
+    push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
-    release._create_and_push_selected_tags(
+    release_tag._create_and_push_selected_tags(
         repo=repo,
         remote='origin',
         selected_tags=['1.2.3', 'v1', 'v1.2'],
@@ -120,16 +120,16 @@ def test_run_monorepo_release_start_exits_when_any_project_fails(
     ui = mocker.MagicMock(name='ui')
     ui.name = 'ui'
     mocker.patch(
-        'releez.subapps.release._run_project_release_start',
+        'releez.subapps.release_start._run_project_release_start',
         side_effect=[True, False],
     )
     exit_mock = mocker.patch(
-        'releez.subapps.release._exit',
+        'releez.subapps.release_start._exit',
         return_value=typer.Exit(code=1),
     )
 
     with pytest.raises(typer.Exit):
-        release._run_monorepo_release_start(
+        release_start._run_monorepo_release_start(
             options=_make_start_options(),
             target_projects=[core, ui],
             repo_root=Path('/repo'),
@@ -144,11 +144,11 @@ def test_run_monorepo_release_start_no_targets_noops(
 ) -> None:
     """Regression guard: empty project lists should short-circuit without side effects."""
     run_project = mocker.patch(
-        'releez.subapps.release._run_project_release_start',
+        'releez.subapps.release_start._run_project_release_start',
     )
     exit_mock = mocker.patch('releez.subapps.release._exit')
 
-    release._run_monorepo_release_start(
+    release_start._run_monorepo_release_start(
         options=_make_start_options(),
         target_projects=[],
         repo_root=Path('/repo'),
@@ -166,16 +166,16 @@ def test_run_project_release_start_handles_releez_error(
     project = mocker.MagicMock(name='core')
     project.name = 'core'
     mocker.patch(
-        'releez.subapps.release._build_release_start_input_project',
+        'releez.subapps.release_start._build_release_start_input_project',
         return_value=object(),
     )
     mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         side_effect=ReleezError('boom'),
     )
     secho = mocker.patch('releez.cli.typer.secho')
 
-    ok = release._run_project_release_start(
+    ok = release_start._run_project_release_start(
         options=_make_start_options(),
         project=project,
         repo_root=Path('/repo'),
@@ -195,7 +195,7 @@ def test_emit_release_start_result_prints_pr_url_when_present(
     """Regression guard: successful releases with PRs must print the PR URL."""
     echo = mocker.patch('releez.cli.typer.echo')
 
-    release._emit_release_start_result(
+    release_start._emit_release_start_result(
         result=StartReleaseResult(
             version='core-1.2.3',
             release_notes_markdown='notes',
@@ -247,16 +247,18 @@ def test_run_release_preview_command_uses_single_repo_builder(
         target_projects=None,
     )
     mocker.patch(
-        'releez.subapps.release._resolve_project_targets_for_command',
+        'releez.subapps.release_preview._resolve_project_targets_for_command',
         return_value=resolved,
     )
     build_single = mocker.patch(
-        'releez.subapps.release._build_release_preview_markdown_single_repo',
+        'releez.subapps.release_preview._build_release_preview_markdown_single_repo',
         return_value='preview',
     )
-    emit_output = mocker.patch('releez.subapps.release._emit_or_write_output')
+    emit_output = mocker.patch(
+        'releez.subapps.release_preview._emit_or_write_output',
+    )
 
-    release._run_release_preview_command(
+    release_preview._run_release_preview_command(
         ctx=ctx,
         options=release._ReleasePreviewOptions(
             version_override='1.2.3',
@@ -313,22 +315,22 @@ def test_run_release_start_command_exits_when_monorepo_targets_empty(
         target_projects=[],
     )
     mocker.patch(
-        'releez.subapps.release._resolve_project_targets_for_command',
+        'releez.subapps.release_start._resolve_project_targets_for_command',
         return_value=resolved,
     )
     run_single = mocker.patch(
-        'releez.subapps.release._run_single_repo_release_start',
+        'releez.subapps.release_start._run_single_repo_release_start',
     )
     run_mono = mocker.patch(
-        'releez.subapps.release._run_monorepo_release_start',
+        'releez.subapps.release_start._run_monorepo_release_start',
     )
     exit_mock = mocker.patch(
-        'releez.subapps.release._exit',
+        'releez.subapps.release_start._exit',
         return_value=typer.Exit(code=1),
     )
 
     with pytest.raises(typer.Exit):
-        release._run_release_start_command(
+        release_start._run_release_start_command(
             ctx=ctx,
             options=_make_start_options(),
             project_names=[],
@@ -370,16 +372,18 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
     )
 
     mocker.patch(
-        'releez.subapps.release._resolve_project_release_version',
+        'releez.subapps.release_start._resolve_project_release_version',
         return_value=VersionInfo.parse('1.5.0'),
     )
-    confirm = mocker.patch('releez.subapps.release._confirm_release_start')
+    confirm = mocker.patch(
+        'releez.subapps.release_start._confirm_release_start',
+    )
     mocker.patch(
-        'releez.subapps.release._build_release_start_input_project',
+        'releez.subapps.release_start._build_release_start_input_project',
         return_value=object(),
     )
     mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='ui-1.5.0',
             release_notes_markdown='notes',
@@ -405,7 +409,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
         github_token=None,
     )
 
-    release._run_project_release_start(
+    release_start._run_project_release_start(
         options=options,
         project=project,
         repo_root=Path('/repo'),

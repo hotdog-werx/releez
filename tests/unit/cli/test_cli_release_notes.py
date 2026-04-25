@@ -53,13 +53,13 @@ def test_cli_release_notes_stdout(
         ),
     )
     mocker.patch(
-        'releez.subapps.release._resolve_release_version',
+        'releez.subapps.release_notes._resolve_release_version',
         return_value='2.3.4',
     )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n\n- Change\n'
-    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
     result = runner.invoke(cli.app, ['release', 'notes'])
 
@@ -72,7 +72,7 @@ def test_cli_release_notes_delegates_to_command_helper(
 ) -> None:
     runner = CliRunner()
     run_command = mocker.patch(
-        'releez.subapps.release._run_release_notes_command',
+        'releez.subapps.release_notes._run_release_notes_command',
     )
 
     result = runner.invoke(
@@ -113,13 +113,13 @@ def test_cli_release_notes_writes_file(
         ),
     )
     mocker.patch(
-        'releez.subapps.release._resolve_release_version',
+        'releez.subapps.release_notes._resolve_release_version',
         return_value='2.3.4',
     )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n'
-    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
     output = tmp_path / 'notes.md'
     result = runner.invoke(
@@ -202,13 +202,13 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     mock_settings.get_subprojects.return_value = [core]
     mock_settings.select_projects.return_value = [core]
     mocker.patch(
-        'releez.subapps.release._resolve_release_version',
+        'releez.subapps.release_notes._resolve_project_release_version',
         return_value='1.2.3',
     )
 
     cliff = mocker.Mock()
     cliff.generate_unreleased_notes.return_value = '## 1.2.3\n\n- Change\n'
-    mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
+    mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
     result = runner.invoke(cli.app, ['release', 'notes', '--project', 'core'])
 

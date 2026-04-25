@@ -48,17 +48,17 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
             info=mocker.Mock(root=Path.cwd(), active_branch=None),
         ),
     )
-    mocker.patch('releez.subapps.release.fetch')
+    mocker.patch('releez.subapps.release_tag.fetch')
     mocker.patch(
-        'releez.subapps.release.compute_version_tags',
+        'releez.subapps.release_tag.compute_version_tags',
         return_value=VersionTags(exact='2.3.4', major='v2', minor='v2.3'),
     )
     mocker.patch(
-        'releez.subapps.release.select_tags',
+        'releez.subapps.release_tag.select_tags',
         return_value=['2.3.4', 'v2', 'v2.3'],
     )
-    create_tags = mocker.patch('releez.subapps.release.create_tags')
-    push_tags = mocker.patch('releez.subapps.release.push_tags')
+    create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
+    push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
     result = runner.invoke(
         cli.app,
@@ -94,7 +94,7 @@ def test_cli_release_tag_delegates_to_command_helper(
 ) -> None:
     runner = CliRunner()
     run_command = mocker.patch(
-        'releez.subapps.release._run_release_tag_command',
+        'releez.subapps.release_tag._run_release_tag_command',
     )
 
     result = runner.invoke(
@@ -139,19 +139,22 @@ def test_cli_release_tag_defaults_to_git_cliff(
             info=mocker.Mock(root=tmp_path, active_branch=None),
         ),
     )
-    mocker.patch('releez.subapps.release.fetch')
+    mocker.patch('releez.subapps.release_tag.fetch')
 
     cliff = mocker.Mock()
     cliff.compute_next_version.return_value = '2.3.4'
     mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
     mocker.patch(
-        'releez.subapps.release.compute_version_tags',
+        'releez.subapps.release_tag.compute_version_tags',
         return_value=VersionTags(exact='2.3.4', major='v2', minor='v2.3'),
     )
-    mocker.patch('releez.subapps.release.select_tags', return_value=['2.3.4'])
-    create_tags = mocker.patch('releez.subapps.release.create_tags')
-    push_tags = mocker.patch('releez.subapps.release.push_tags')
+    mocker.patch(
+        'releez.subapps.release_tag.select_tags',
+        return_value=['2.3.4'],
+    )
+    create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
+    push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
     result = runner.invoke(cli.app, ['release', 'tag'])
 
@@ -243,13 +246,13 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
     mock_settings.get_subprojects.return_value = [core]
     mock_settings.select_projects.return_value = [core]
 
-    mocker.patch('releez.subapps.release.fetch')
+    mocker.patch('releez.subapps.release_tag.fetch')
     resolve_release_version = mocker.patch(
         'releez.subapps.release._resolve_release_version',
         return_value='1.2.3',
     )
-    create_tags = mocker.patch('releez.subapps.release.create_tags')
-    push_tags = mocker.patch('releez.subapps.release.push_tags')
+    create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
+    push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
     result = runner.invoke(cli.app, ['release', 'tag', '--project', 'core'])
 

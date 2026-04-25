@@ -82,7 +82,7 @@ def test_cli_release_preview_delegates_to_command_helper(
 ) -> None:
     runner = CliRunner()
     run_command = mocker.patch(
-        'releez.subapps.release._run_release_preview_command',
+        'releez.subapps.release_preview._run_release_preview_command',
     )
 
     result = runner.invoke(
@@ -217,7 +217,7 @@ def test_cli_release_preview_monorepo_project_outputs_prefixed_tags(
     mock_settings.get_subprojects.return_value = [core]
     mock_settings.select_projects.return_value = [core]
     mocker.patch(
-        'releez.subapps.release._resolve_release_version',
+        'releez.subapps.release_preview._resolve_project_release_version',
         return_value='1.2.3',
     )
 

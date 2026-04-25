@@ -60,7 +60,7 @@ def test_cli_release_start_passes_version_override(
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     start_release = mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='1.2.3',
             release_notes_markdown='notes',
@@ -93,7 +93,7 @@ def test_cli_release_start_delegates_to_command_helper(
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     run_command = mocker.patch(
-        'releez.subapps.release._run_release_start_command',
+        'releez.subapps.release_start._run_release_start_command',
     )
     result = runner.invoke(
         cli.app,
@@ -127,7 +127,7 @@ def test_cli_release_start_defaults_version_override_to_none(
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     start_release = mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='1.2.3',
             release_notes_markdown='notes',
@@ -158,7 +158,7 @@ def test_cli_release_start_run_changelog_format_uses_configured_command(
     )
 
     start_release = mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='1.2.3',
             release_notes_markdown='notes',
@@ -192,7 +192,7 @@ def test_cli_release_start_run_changelog_format_requires_command(
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='1.2.3',
             release_notes_markdown='notes',
@@ -241,7 +241,7 @@ def test_cli_release_start_monorepo_requires_explicit_project_selection(
     mock_settings.select_projects.side_effect = ReleezError(
         'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
     )
-    start_release = mocker.patch('releez.subapps.release.start_release')
+    start_release = mocker.patch('releez.subapps.release_start.start_release')
 
     result = runner.invoke(cli.app, ['release', 'start', '--dry-run'])
 
@@ -279,7 +279,7 @@ def test_cli_release_start_monorepo_with_project_flag(
     mock_settings.select_projects.return_value = [project]
 
     start_release = mocker.patch(
-        'releez.subapps.release.start_release',
+        'releez.subapps.release_start.start_release',
         return_value=mocker.Mock(
             version='core-1.2.3',
             release_notes_markdown='notes',
@@ -346,7 +346,7 @@ def test_cli_release_start_monorepo_override_requires_single_project(
 
     mock_settings.get_subprojects.return_value = [core, ui]
     mock_settings.select_projects.return_value = [core, ui]
-    start_release = mocker.patch('releez.subapps.release.start_release')
+    start_release = mocker.patch('releez.subapps.release_start.start_release')
 
     result = runner.invoke(
         cli.app,

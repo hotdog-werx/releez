@@ -15,7 +15,6 @@ from releez.errors import (
 )
 from releez.git_repo import RepoInfo
 from releez.subapps import release
-from releez.subapps.release import _confirm_release_start
 from releez.subapps.release_maintenance import (
     MaintenanceContext,
     _maintenance_major,
@@ -23,6 +22,7 @@ from releez.subapps.release_maintenance import (
     _monorepo_maintenance_tag_pattern,
     _validate_maintenance_version,
 )
+from releez.subapps.release_start import _confirm_release_start
 from releez.subapps.release_support import _validate_support_branch_name
 from releez.subproject import SubProject
 
@@ -154,7 +154,7 @@ class TestReleaseStartConfirmInteractive:
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
         mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='1.5.0',
                 release_notes_markdown='notes',
@@ -209,7 +209,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
         start_release = mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='1.5.0',
                 release_notes_markdown='notes',
@@ -260,7 +260,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
         start_release = mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='2.1.0',
                 release_notes_markdown='notes',
@@ -309,7 +309,7 @@ class TestReleaseStartOnMaintenanceBranch:
         )
 
         start_release = mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='3.0.0',
                 release_notes_markdown='notes',
@@ -399,19 +399,19 @@ class TestReleaseTagOnMaintenanceBranch:
             'releez.subapps.release.open_repo',
             return_value=mocker.Mock(repo=repo, info=repo_info),
         )
-        mocker.patch('releez.subapps.release.fetch')
+        mocker.patch('releez.subapps.release_tag.fetch')
 
         cliff = mocker.Mock()
         cliff.compute_next_version.return_value = '1.5.0'
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
-        mocker.patch('releez.subapps.release.compute_version_tags')
+        mocker.patch('releez.subapps.release_tag.compute_version_tags')
         mocker.patch(
-            'releez.subapps.release.select_tags',
+            'releez.subapps.release_tag.select_tags',
             return_value=['1.5.0'],
         )
-        mocker.patch('releez.subapps.release.create_tags')
-        mocker.patch('releez.subapps.release.push_tags')
+        mocker.patch('releez.subapps.release_tag.create_tags')
+        mocker.patch('releez.subapps.release_tag.push_tags')
 
         result = runner.invoke(cli.app, ['release', 'tag'])
 
@@ -440,16 +440,16 @@ class TestReleaseTagOnMaintenanceBranch:
             'releez.subapps.release.open_repo',
             return_value=mocker.Mock(repo=repo, info=repo_info),
         )
-        mocker.patch('releez.subapps.release.fetch')
+        mocker.patch('releez.subapps.release_tag.fetch')
 
         # Mock git-cliff to return version with wrong major
         cliff = mocker.Mock()
         cliff.compute_next_version.return_value = '2.0.0'
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
-        mocker.patch('releez.subapps.release.compute_version_tags')
+        mocker.patch('releez.subapps.release_tag.compute_version_tags')
         mocker.patch(
-            'releez.subapps.release.select_tags',
+            'releez.subapps.release_tag.select_tags',
             return_value=['2.0.0'],
         )
 
@@ -557,7 +557,10 @@ class TestReleaseNotesOnMaintenanceBranch:
         cliff.compute_next_version.return_value = '2.7.0'
         cliff.generate_unreleased_notes.return_value = '## 2.7.0\n\n- Fix\n'
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
-        mocker.patch('releez.subapps.release.GitCliff', return_value=cliff)
+        mocker.patch(
+            'releez.subapps.release_notes.GitCliff',
+            return_value=cliff,
+        )
 
         result = runner.invoke(cli.app, ['release', 'notes'])
 
@@ -926,7 +929,7 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
         start_release = mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='ui-1.5.0',
                 release_notes_markdown='notes',
@@ -985,7 +988,7 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         )
 
         start_release = mocker.patch(
-            'releez.subapps.release.start_release',
+            'releez.subapps.release_start.start_release',
             return_value=mocker.Mock(
                 version='ui-2.0.0',
                 release_notes_markdown='notes',
