@@ -1408,8 +1408,6 @@ def test_start_release_monorepo_selective_staging_behavior(
                     ),
                 ],
             ],
-            run_changelog_format=False,
-            changelog_format_cmd=None,
             create_pr=False,
             github_token=None,
             dry_run=False,

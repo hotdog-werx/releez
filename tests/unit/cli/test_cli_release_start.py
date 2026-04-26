@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    import pytest
     from pytest_mock import MockerFixture
 
 
@@ -35,7 +34,7 @@ def _mock_settings(
     *,
     projects: list[object],
 ) -> MagicMock:
-    hooks = mocker.MagicMock(post_changelog=[], changelog_format=None)
+    hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
         base_branch='master',
         git_remote='origin',
@@ -43,7 +42,6 @@ def _mock_settings(
         pr_title_prefix='chore(release): ',
         changelog_path='CHANGELOG.md',
         create_pr=False,
-        run_changelog_format=False,
         alias_versions=AliasVersions.none,
         hooks=hooks,
         projects=projects,
@@ -141,73 +139,6 @@ def test_cli_release_start_defaults_version_override_to_none(
     assert result.exit_code == 0
     release_input = start_release.call_args.args[0]
     assert release_input.version_override is None
-
-
-def test_cli_release_start_run_changelog_format_uses_configured_command(
-    mocker: MockerFixture,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runner = CliRunner()
-    monkeypatch.chdir(tmp_path)
-    _mock_repo_context(mocker, repo_root=tmp_path)
-
-    monkeypatch.setenv(
-        'RELEEZ_HOOKS__CHANGELOG_FORMAT',
-        '["dprint", "fmt", "{changelog}"]',
-    )
-
-    start_release = mocker.patch(
-        'releez.subapps.release_start.start_release',
-        return_value=mocker.Mock(
-            version='1.2.3',
-            release_notes_markdown='notes',
-            release_branch=None,
-            pr_url=None,
-        ),
-    )
-
-    result = runner.invoke(
-        cli.app,
-        ['release', 'start', '--dry-run', '--run-changelog-format'],
-    )
-
-    assert result.exit_code == 0
-    release_input = start_release.call_args.args[0]
-    assert release_input.run_changelog_format is True
-    assert release_input.changelog_format_cmd == [
-        'dprint',
-        'fmt',
-        '{changelog}',
-    ]
-
-
-def test_cli_release_start_run_changelog_format_requires_command(
-    mocker: MockerFixture,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runner = CliRunner()
-    monkeypatch.chdir(tmp_path)
-    _mock_repo_context(mocker, repo_root=tmp_path)
-
-    mocker.patch(
-        'releez.subapps.release_start.start_release',
-        return_value=mocker.Mock(
-            version='1.2.3',
-            release_notes_markdown='notes',
-            release_branch=None,
-            pr_url=None,
-        ),
-    )
-
-    result = runner.invoke(
-        cli.app,
-        ['release', 'start', '--dry-run', '--run-changelog-format'],
-    )
-
-    assert result.exit_code == 1
-    assert 'no format command is configured' in result.output.lower()
 
 
 def test_cli_release_start_monorepo_requires_explicit_project_selection(

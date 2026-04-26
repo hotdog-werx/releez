@@ -13,7 +13,6 @@ from releez.cli_utils import (
     _resolve_release_version,
 )
 from releez.cliff import GitCliffBump  # noqa: TC001
-from releez.errors import ChangelogFormatCommandRequiredError
 from releez.git_repo import open_repo
 
 if TYPE_CHECKING:
@@ -30,14 +29,6 @@ release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
 # ---------------------------------------------------------------------------
 # Shared infrastructure
 # ---------------------------------------------------------------------------
-
-
-def _raise_changelog_format_command_required() -> None:
-    """Raise ChangelogFormatCommandRequiredError.
-
-    Extracted to reduce cyclomatic complexity in callers.
-    """
-    raise ChangelogFormatCommandRequiredError
 
 
 def _project_changelog_path(
@@ -191,8 +182,6 @@ def _emit_or_write_output(
 class _ReleaseStartOptions:
     bump: GitCliffBump
     version_override: str | None
-    run_changelog_format: bool
-    changelog_format_cmd: list[str] | None
     create_pr: bool
     dry_run: bool
     base: str

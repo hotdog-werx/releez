@@ -104,8 +104,6 @@ class ReleezHooks(BaseModel):
               {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
               {project_version} Full project version as tagged (e.g. "core-1.2.3").
               {changelog}       Absolute path to the changelog file.
-        changelog_format: (DEPRECATED) Use post_changelog instead. Optional argv
-            list used to format the changelog.
     """
 
     model_config = ConfigDict(
@@ -114,26 +112,6 @@ class ReleezHooks(BaseModel):
     )
 
     post_changelog: list[list[str]] = Field(default_factory=list)
-    changelog_format: list[str] | None = None
-
-    @model_validator(mode='after')
-    def _migrate_changelog_format(self) -> ReleezHooks:
-        """Migrate deprecated changelog_format to post_changelog."""
-        if self.changelog_format is not None:
-            warnings.warn(
-                'The `changelog_format` hook is deprecated. '
-                'Use `post_changelog` instead:\n'
-                '  [tool.releez.hooks]\n'
-                '  post-changelog = [\n'
-                '    ["prettier", "--write", "{changelog}"],\n'
-                '  ]',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if not self.post_changelog:
-                # Auto-migrate: wrap single command in list
-                self.post_changelog = [self.changelog_format]
-        return self
 
 
 class ProjectConfig(BaseModel):
@@ -212,7 +190,6 @@ class ReleezSettings(BaseSettings):
     pr_title_prefix: str = 'chore(release): '
     changelog_path: str = 'CHANGELOG.md'
     create_pr: bool = False
-    run_changelog_format: bool = False
     maintenance_branch_regex: str | None = None
     maintenance_branch_template: str | None = None
     alias_versions: AliasVersions = AliasVersions.none
@@ -368,23 +345,6 @@ class ReleezSettings(BaseSettings):
 
         msg = 'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.'
         raise ReleezError(msg)
-
-    @model_validator(mode='after')
-    def _warn_deprecated_settings(self) -> ReleezSettings:
-        """Warn about deprecated settings."""
-        if self.run_changelog_format:
-            warnings.warn(
-                'The `run_changelog_format` setting is deprecated. '
-                'Remove it from your config and use `post_changelog` hooks instead:\n'
-                '  [tool.releez.hooks]\n'
-                '  post-changelog = [\n'
-                '    ["prettier", "--write", "{changelog}"],\n'
-                '  ]\n'
-                'Hooks will run automatically when configured.',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return self
 
     @classmethod
     def settings_customise_sources(
