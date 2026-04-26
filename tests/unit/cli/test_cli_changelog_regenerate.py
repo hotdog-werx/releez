@@ -145,62 +145,6 @@ def test_changelog_regenerate_absolute_path(
     assert call_args.kwargs['changelog_path'] == changelog_path
 
 
-def test_changelog_regenerate_with_format(
-    mock_changelog_setup: ChangelogSetupCallable,
-    mocker: MockerFixture,
-) -> None:
-    """Test changelog regeneration with formatting enabled."""
-    setup = mock_changelog_setup()
-    runner = CliRunner()
-
-    run_checked = mocker.patch('releez.utils.run_checked')
-
-    result = runner.invoke(
-        cli.app,
-        [
-            'changelog',
-            'regenerate',
-            '--run-changelog-format',
-            '--changelog-format-cmd',
-            'prettier',
-            '--changelog-format-cmd',
-            '--write',
-            '--changelog-format-cmd',
-            '{changelog}',
-        ],
-    )
-
-    assert result.exit_code == 0
-    setup.cliff.regenerate_changelog.assert_called_once()
-    run_checked.assert_called_once()
-    call_args = run_checked.call_args
-    expected_changelog = setup.repo_root / 'CHANGELOG.md'
-    assert call_args.args[0] == ['prettier', '--write', str(expected_changelog)]
-    assert call_args.kwargs['cwd'] == setup.repo_root
-    assert call_args.kwargs['capture_stdout'] is False
-
-
-def test_changelog_regenerate_format_without_cmd_raises_error(
-    mock_changelog_setup: ChangelogSetupCallable,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that enabling format without providing cmd raises error."""
-    setup = mock_changelog_setup()
-    runner = CliRunner()
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(
-        cli.app,
-        ['changelog', 'regenerate', '--run-changelog-format'],
-    )
-
-    assert result.exit_code == 1
-    assert 'no format command is configured' in result.output.lower()
-    # Verify GitCliff was not called since error happens before
-    setup.cliff.regenerate_changelog.assert_not_called()
-
-
 def test_changelog_regenerate_handles_releez_error(
     mocker: MockerFixture,
     tmp_path: Path,
@@ -390,33 +334,3 @@ class TestChangelogRegenerateMonorepo:
         assert result.exit_code == 1
         assert '--project' in result.output
         assert '--all' in result.output
-
-    def test_regenerate_with_format_runs_formatter(
-        self,
-        monorepo_setup: MonorepoSetup,
-        mocker: MockerFixture,
-    ) -> None:
-        """--run-changelog-format runs the formatter for each regenerated project."""
-        run_checked = mocker.patch('releez.utils.run_checked')
-        runner = CliRunner()
-
-        result = runner.invoke(
-            cli.app,
-            [
-                'changelog',
-                'regenerate',
-                '--project',
-                'core',
-                '--run-changelog-format',
-                '--changelog-format-cmd',
-                'prettier',
-                '--changelog-format-cmd',
-                '--write',
-                '--changelog-format-cmd',
-                '{changelog}',
-            ],
-        )
-
-        assert result.exit_code == 0
-        run_checked.assert_called_once()
-        assert str(monorepo_setup.core.changelog_path) in run_checked.call_args.args[0]

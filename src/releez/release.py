@@ -10,7 +10,6 @@ if typing.TYPE_CHECKING:
 
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
-    ChangelogFormatCommandRequiredError,
     GitHubTokenRequiredError,
     GitRemoteUrlRequiredError,
 )
@@ -26,7 +25,6 @@ from releez.github import PullRequestCreateRequest, create_pull_request
 from releez.subproject import generate_tag_pattern
 from releez.utils import (
     resolve_changelog_path,
-    run_changelog_formatter,
     run_post_changelog_hooks,
 )
 
@@ -62,8 +60,6 @@ class StartReleaseInput:
         changelog_path: Changelog file to prepend to.
         post_changelog_hooks: List of hooks to run after changelog generation.
             Hooks run automatically if provided.
-        run_changelog_format: (DEPRECATED) Use post_changelog_hooks instead.
-        changelog_format_cmd: (DEPRECATED) Use post_changelog_hooks instead.
         create_pr: If true, create a GitHub pull request.
         github_token: GitHub token for PR creation.
         dry_run: If true, do not modify the repo; just output version and notes.
@@ -86,8 +82,6 @@ class StartReleaseInput:
     title_prefix: str
     changelog_path: str
     post_changelog_hooks: list[list[str]] | None
-    run_changelog_format: bool
-    changelog_format_cmd: list[str] | None
     create_pr: bool
     github_token: str | None
     dry_run: bool
@@ -207,24 +201,6 @@ def _resolve_release_version(
     return version
 
 
-def _format_changelog_if_requested(
-    *,
-    repo_root: Path,
-    changelog_path: Path,
-    release_input: StartReleaseInput,
-) -> None:
-    """DEPRECATED: Use _run_post_changelog_hooks_if_requested instead."""
-    if not release_input.run_changelog_format:  # pragma: no cover
-        return
-    if not release_input.changelog_format_cmd:
-        raise ChangelogFormatCommandRequiredError
-    run_changelog_formatter(
-        changelog_path=changelog_path,
-        repo_root=repo_root,
-        changelog_format_cmd=release_input.changelog_format_cmd,
-    )
-
-
 def _run_post_changelog_hooks_if_requested(
     *,
     repo_root: Path,
@@ -233,9 +209,6 @@ def _run_post_changelog_hooks_if_requested(
     release_input: StartReleaseInput,
 ) -> None:
     """Run post-changelog hooks if configured.
-
-    Hooks run automatically if post_changelog_hooks is provided.
-    Falls back to legacy changelog_format_cmd if needed.
 
     Provides template variables to hooks:
       {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
@@ -248,28 +221,19 @@ def _run_post_changelog_hooks_if_requested(
         version: Release version string (may include tag prefix, e.g. "core-1.2.3").
         release_input: Release configuration.
     """
-    # New hooks take precedence - run automatically if defined
-    if release_input.post_changelog_hooks:
-        semver_version = version.removeprefix(release_input.tag_prefix)
-        template_vars = {
-            'version': semver_version,
-            'project_version': version,
-            'changelog': str(changelog_path),
-        }
-        run_post_changelog_hooks(
-            hooks=release_input.post_changelog_hooks,
-            repo_root=repo_root,
-            template_vars=template_vars,
-        )
+    if not release_input.post_changelog_hooks:
         return
-
-    # Legacy fallback
-    if release_input.run_changelog_format:
-        _format_changelog_if_requested(
-            repo_root=repo_root,
-            changelog_path=changelog_path,
-            release_input=release_input,
-        )
+    semver_version = version.removeprefix(release_input.tag_prefix)
+    template_vars = {
+        'version': semver_version,
+        'project_version': version,
+        'changelog': str(changelog_path),
+    }
+    run_post_changelog_hooks(
+        hooks=release_input.post_changelog_hooks,
+        repo_root=repo_root,
+        template_vars=template_vars,
+    )
 
 
 def start_release(

@@ -24,8 +24,6 @@ def _make_start_options() -> release._ReleaseStartOptions:
     return release._ReleaseStartOptions(
         bump='auto',
         version_override=None,
-        run_changelog_format=False,
-        changelog_format_cmd=None,
         create_pr=False,
         dry_run=True,
         base='master',
@@ -41,7 +39,7 @@ def test_root_merges_into_existing_default_map(
     mocker: MockerFixture,
 ) -> None:
     """Regression guard: root callback must merge, not clobber, an existing default map."""
-    hooks = SimpleNamespace(changelog_format=['fmt'])
+    hooks = SimpleNamespace()
     settings = SimpleNamespace(
         base_branch='master',
         git_remote='origin',
@@ -49,7 +47,6 @@ def test_root_merges_into_existing_default_map(
         pr_title_prefix='chore(release): ',
         changelog_path='CHANGELOG.md',
         create_pr=False,
-        run_changelog_format=False,
         alias_versions=AliasVersions.none,
         hooks=hooks,
         effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
@@ -397,8 +394,6 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
     options = release._ReleaseStartOptions(
         bump='auto',
         version_override=None,
-        run_changelog_format=False,
-        changelog_format_cmd=None,
         create_pr=False,
         dry_run=False,
         base='master',

@@ -20,7 +20,7 @@ def _mock_settings(
     *,
     projects: list[object],
 ) -> MagicMock:
-    hooks = mocker.MagicMock(post_changelog=[], changelog_format=None)
+    hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
         base_branch='master',
         git_remote='origin',
@@ -28,7 +28,6 @@ def _mock_settings(
         pr_title_prefix='chore(release): ',
         changelog_path='CHANGELOG.md',
         create_pr=False,
-        run_changelog_format=False,
         alias_versions=AliasVersions.none,
         hooks=hooks,
         projects=projects,

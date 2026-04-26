@@ -114,25 +114,6 @@ class ChangelogNotFoundError(ReleezError):
         super().__init__(f'Changelog file does not exist: {changelog_path}')
 
 
-class ChangelogFormatCommandRequiredError(ReleezError):
-    """Raised when changelog formatting is requested but not configured.
-
-    DEPRECATED: Use PostChangelogHooksRequiredError instead.
-    """
-
-    def __init__(self) -> None:
-        super().__init__(  # pragma: no cover
-            'Changelog formatting was requested, but no format command is configured.\n'
-            'Configure it via `releez.toml`:\n'
-            '  [hooks]\n'
-            '  changelog_format = ["dprint", "fmt", "{changelog}"]\n'
-            'Or via `pyproject.toml`:\n'
-            '  [tool.releez.hooks]\n'
-            '  changelog_format = ["dprint", "fmt", "{changelog}"]\n'
-            'Or pass `--changelog-format-cmd` (repeatable) on the CLI.',
-        )
-
-
 class GitHubTokenRequiredError(ReleezError):
     """Raised when a GitHub token is required but not provided."""
 

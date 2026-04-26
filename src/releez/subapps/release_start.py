@@ -17,7 +17,6 @@ from releez.subapps.release import (
     _comma_separated_labels,
     _normalize_project_names,
     _project_changelog_path,
-    _raise_changelog_format_command_required,
     _ReleaseStartOptions,
     _require_single_project_override_scope,
     _resolve_project_release_version,
@@ -81,8 +80,6 @@ def _build_release_start_input_single_repo(
         title_prefix=options.title_prefix,
         changelog_path=options.changelog_path,
         post_changelog_hooks=settings.hooks.post_changelog or None,
-        run_changelog_format=options.run_changelog_format,
-        changelog_format_cmd=options.changelog_format_cmd,
         create_pr=options.create_pr,
         github_token=options.github_token,
         dry_run=options.dry_run,
@@ -110,8 +107,6 @@ def _build_release_start_input_project(
             repo_root=repo_root,
         ),
         post_changelog_hooks=project.hooks.post_changelog or None,
-        run_changelog_format=options.run_changelog_format,
-        changelog_format_cmd=options.changelog_format_cmd,
         create_pr=options.create_pr,
         github_token=options.github_token,
         dry_run=options.dry_run,
@@ -286,9 +281,6 @@ def _run_release_start_command(  # noqa: PLR0913
     maintenance_branch_regex: str,
     non_interactive: bool,
 ) -> None:
-    if options.run_changelog_format and not options.changelog_format_cmd:
-        _raise_changelog_format_command_required()
-
     resolved = _resolve_project_targets_for_command(
         ctx=ctx,
         project_names=project_names,
@@ -340,22 +332,6 @@ def release_start(  # noqa: PLR0913
         typer.Option(
             '--version-override',
             help='Override version instead of computing via git-cliff.',
-            show_default=False,
-        ),
-    ] = None,
-    run_changelog_format: Annotated[
-        bool,
-        typer.Option(
-            '--run-changelog-format',
-            help='(DEPRECATED) Use post-changelog hooks instead.',
-            show_default=True,
-        ),
-    ] = False,
-    changelog_format_cmd: Annotated[
-        list[str] | None,
-        typer.Option(
-            '--changelog-format-cmd',
-            help='(DEPRECATED: use --post-changelog-hook) Override changelog format command argv (repeatable).',
             show_default=False,
         ),
     ] = None,
@@ -455,8 +431,6 @@ def release_start(  # noqa: PLR0913
     options = _ReleaseStartOptions(
         bump=bump,
         version_override=version_override,
-        run_changelog_format=run_changelog_format,
-        changelog_format_cmd=changelog_format_cmd,
         create_pr=create_pr,
         dry_run=dry_run,
         base=base,

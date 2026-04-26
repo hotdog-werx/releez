@@ -103,8 +103,6 @@ class TestConfirmReleaseStart:
         options = release._ReleaseStartOptions(
             bump='auto',
             version_override=None,
-            run_changelog_format=False,
-            changelog_format_cmd=None,
             create_pr=False,
             dry_run=False,
             base='master',

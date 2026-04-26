@@ -54,8 +54,6 @@ def _root(
             'title_prefix': settings.pr_title_prefix,
             'changelog_path': settings.changelog_path,
             'create_pr': settings.create_pr,
-            'run_changelog_format': settings.run_changelog_format,
-            'changelog_format_cmd': settings.hooks.changelog_format,
             'maintenance_branch_regex': settings.effective_maintenance_branch_regex,
         },
         'tag': {
@@ -74,8 +72,6 @@ def _root(
     default_map['changelog'] = {
         'regenerate': {
             'changelog_path': settings.changelog_path,
-            'run_changelog_format': settings.run_changelog_format,
-            'changelog_format_cmd': settings.hooks.changelog_format,
         },
     }
 
