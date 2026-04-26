@@ -126,7 +126,7 @@ def fetch(repo: Repo, *, remote_name: str) -> None:
         _ = repo.remotes[remote_name]
     except IndexError as exc:
         raise GitRemoteNotFoundError(remote_name) from exc
-    repo.git.fetch(remote_name, '--tags', '--prune')
+    repo.git.fetch(remote_name, '--tags', '--prune', '--force')
 
 
 def checkout_remote_branch(
