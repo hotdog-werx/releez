@@ -142,6 +142,18 @@ outputs:
     description: 'Newline-separated PEP 440 versions. First line is the exact version (aliases not supported by PEP 440).'
     value: ${{ steps.set-outputs.outputs.pep440-versions }}
 
+  semver-version:
+    description: 'Primary (exact) semver version only, without any alias tags (e.g. "1.2.3").'
+    value: ${{ steps.set-outputs.outputs.semver-version }}
+
+  docker-version:
+    description: 'Primary (exact) docker-safe version only, without any alias tags (e.g. "1.2.3").'
+    value: ${{ steps.set-outputs.outputs.docker-version }}
+
+  pep440-version:
+    description: 'Primary (exact) PEP 440 version only (always identical to the first entry of pep440-versions).'
+    value: ${{ steps.set-outputs.outputs.pep440-version }}
+
 runs:
   using: 'composite'
   steps:
@@ -525,11 +537,17 @@ runs:
         SEMVER_VERSIONS=""
         DOCKER_VERSIONS=""
         PEP440_VERSIONS=""
+        SEMVER_VERSION=""
+        DOCKER_VERSION=""
+        PEP440_VERSION=""
 
         if [ -n "$VERSIONS_JSON" ]; then
           SEMVER_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.semver | join("\n")')
           DOCKER_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.docker | join("\n")')
           PEP440_VERSIONS=$(printf '%s' "$VERSIONS_JSON" | jq -r '.pep440 | join("\n")')
+          SEMVER_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.semver[0] // empty')
+          DOCKER_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.docker[0] // empty')
+          PEP440_VERSION=$(printf '%s' "$VERSIONS_JSON" | jq -r '.pep440[0] // empty')
         fi
 
         {
@@ -537,5 +555,8 @@ runs:
           printf 'docker-versions<<EOF\n%s\nEOF\n' "$DOCKER_VERSIONS"
           printf 'pep440-versions<<EOF\n%s\nEOF\n' "$PEP440_VERSIONS"
         } >> "$GITHUB_OUTPUT"
+        echo "semver-version=$SEMVER_VERSION" >> "$GITHUB_OUTPUT"
+        echo "docker-version=$DOCKER_VERSION" >> "$GITHUB_OUTPUT"
+        echo "pep440-version=$PEP440_VERSION" >> "$GITHUB_OUTPUT"
 
         echo "validation-status=success" >> "$GITHUB_OUTPUT"
