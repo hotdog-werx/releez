@@ -108,19 +108,17 @@ subsequent lines when aliases are enabled.
 
 | Output            | Description                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------------- |
-| `semver-versions` | Newline-separated semver version strings                                                    |
+| `semver-versions` | Newline-separated semver version strings. First line is the exact version; aliases follow.  |
 | `docker-versions` | Newline-separated Docker-safe version strings (no `+` in build metadata — uses `-` instead) |
 | `pep440-versions` | Newline-separated PEP 440 version strings (aliases not supported for PEP 440)               |
+| `semver-version`  | Exact semver version only — first entry of `semver-versions`, no aliases                    |
+| `docker-version`  | Exact Docker-safe version only — first entry of `docker-versions`, no aliases               |
+| `pep440-version`  | Exact PEP 440 version only — always identical to the first entry of `pep440-versions`       |
 
-To get just the first version in a shell step, pass the output through an env
-var and use `head -1`:
-
-```bash
-env:
-  VERSIONS: ${{ steps.releez.outputs.semver-versions }}
-run: |
-  VERSION=$(echo "$VERSIONS" | head -1)
-```
+Use `semver-version` / `docker-version` / `pep440-version` when downstream steps
+should never receive alias tags (e.g. PyPI uploads, GitHub releases). Use the
+`*-versions` plural outputs when you need the full alias list (e.g. Docker
+multi-tag pushes).
 
 ---
 

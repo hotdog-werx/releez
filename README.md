@@ -161,7 +161,9 @@ version is installed automatically.
 ```
 
 Key outputs: `release-version`, `semver-versions`, `docker-versions`,
-`pep440-versions`, `release-notes`, `project` (monorepo).
+`pep440-versions`, `semver-version`, `docker-version`, `pep440-version`
+(singular = exact version only, no aliases), `release-notes`, `project`
+(monorepo).
 
 For the full input/output reference and workflow recipes see the
 [Action Reference](https://hotdog-werx.github.io/releez/github-actions/action/)

@@ -93,6 +93,9 @@ jobs:
           assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '1.1.0\nv1')"
           assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
+          assert_eq "semver-version"   "${{ steps.releez.outputs.semver-version }}"   "1.1.0"
+          assert_eq "docker-version"   "${{ steps.releez.outputs.docker-version }}"   "1.1.0"
+          assert_eq "pep440-version"   "${{ steps.releez.outputs.pep440-version }}"   "1.1.0"
 
           # Release notes should be non-empty (passed via env to avoid shell injection)
           if [ -z "$RELEASE_NOTES" ]; then

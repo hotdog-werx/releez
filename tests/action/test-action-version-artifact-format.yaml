@@ -192,6 +192,11 @@ jobs:
           assert_eq "semver-versions[0] is exact" "$(echo "$ACTUAL_SEMVER" | head -1)" "${{ matrix.version-override }}"
           assert_eq "docker-versions[0] is exact" "$(echo "$ACTUAL_DOCKER" | head -1)" "${{ matrix.version-override }}"
 
+          # Singular outputs must always be the exact version, regardless of alias settings
+          assert_eq "semver-version" "${{ steps.version.outputs.semver-version }}" "${{ matrix.version-override }}"
+          assert_eq "docker-version" "${{ steps.version.outputs.docker-version }}" "${{ matrix.version-override }}"
+          assert_eq "pep440-version" "${{ steps.version.outputs.pep440-version }}" "${{ matrix.version-override }}"
+
           exit $fail
         shell: bash
 
@@ -240,6 +245,9 @@ jobs:
           assert_eq "semver-versions" "$ACTUAL_SEMVER" "$(printf '7.8.9\nv7')"
           assert_eq "docker-versions" "$ACTUAL_DOCKER" "$(printf '7.8.9\nv7')"
           assert_eq "pep440-versions" "$ACTUAL_PEP440" "7.8.9"
+          assert_eq "semver-version"  "${{ steps.version.outputs.semver-version }}" "7.8.9"
+          assert_eq "docker-version"  "${{ steps.version.outputs.docker-version }}" "7.8.9"
+          assert_eq "pep440-version"  "${{ steps.version.outputs.pep440-version }}" "7.8.9"
 
           exit $fail
         shell: bash
