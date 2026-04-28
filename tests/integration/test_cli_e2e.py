@@ -8,7 +8,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from git import Repo
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.release import StartReleaseInput, start_release
@@ -105,7 +105,6 @@ def test_cli_projects_changed_integration_with_real_repo(
 ) -> None:
     """Test `projects changed` against a real monorepo checkout."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     ui_dir = tmp_path / 'packages' / 'ui'
@@ -145,7 +144,7 @@ tag-prefix = "ui-"
     repo.index.add(['packages/core/main.py'])
     repo.index.commit('feat(core): add feature')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['projects', 'changed', '--format', 'json', '--base', 'HEAD'],
     )
@@ -162,7 +161,6 @@ def test_cli_release_detect_from_branch_integration_with_projects_config(
 ) -> None:
     """Test `release detect-from-branch` with real monorepo config and repo."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -194,7 +192,7 @@ tag-prefix = "core-"
     )
     repo.index.commit('feat(core): initial commit')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'detect-from-branch', '--branch', 'release/core-1.2.3'],
     )
@@ -212,7 +210,6 @@ def test_cli_release_start_dry_run_integration(
 ) -> None:
     """Test dry-run release start via CLI against a real repository."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -237,7 +234,7 @@ create-pr = false
 
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -262,7 +259,6 @@ def test_cli_release_start_creates_and_pushes_release_branch(
 ) -> None:
     """Test non-dry-run release start creates and pushes release branch via CLI."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -287,7 +283,7 @@ create-pr = false
 
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'start', '--no-create-pr', '--version-override', '1.1.0'],
     )
@@ -308,7 +304,6 @@ def test_cli_release_start_monorepo_project_creates_project_branch(
 ) -> None:
     """Test `release start --project` runs a real scoped monorepo release."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     ui_dir = tmp_path / 'packages' / 'ui'
@@ -363,7 +358,7 @@ tag-prefix = "ui-"
     repo.index.commit('feat(core): new feature')
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -390,7 +385,6 @@ def test_cli_release_start_monorepo_autodetects_multiple_projects(
 ) -> None:
     """Test monorepo `release start` auto-detects and releases all changed projects."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     ui_dir = tmp_path / 'packages' / 'ui'
@@ -448,7 +442,7 @@ tag-prefix = "ui-"
     repo.index.commit('feat(ui): new feature')
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'start', '--no-create-pr', '--all'],
     )
@@ -471,7 +465,6 @@ def test_cli_release_start_monorepo_requires_explicit_project_selection(
 ) -> None:
     """Test monorepo `release start` requires --project or --all; no silent auto-detect."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     ui_dir = tmp_path / 'packages' / 'ui'
@@ -521,7 +514,7 @@ tag-prefix = "ui-"
     repo.create_tag('core-1.0.0')
     repo.create_tag('ui-1.0.0')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'start', '--no-create-pr'],
     )
@@ -537,7 +530,6 @@ def test_cli_release_commands_reject_unknown_project_name(
 ) -> None:
     """Regression guard: unknown --project values must hard fail across release commands."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
     _init_two_project_monorepo_repo(tmp_path)
 
     for args in [
@@ -546,7 +538,7 @@ def test_cli_release_commands_reject_unknown_project_name(
         ['release', 'preview', '--project', 'does-not-exist'],
         ['release', 'notes', '--project', 'does-not-exist'],
     ]:
-        result = runner.invoke(cli.app, args)
+        result = invoke(cli.app, args)
         assert result.exit_code == 1
         assert 'Unknown project(s): does-not-exist' in result.output
         assert 'Available: core, ui' in result.output
@@ -558,7 +550,6 @@ def test_cli_release_commands_reject_project_and_all_combination(
 ) -> None:
     """Regression guard: --project and --all together must fail to prevent ambiguous targeting."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
     _init_two_project_monorepo_repo(tmp_path)
 
     for args in [
@@ -567,7 +558,7 @@ def test_cli_release_commands_reject_project_and_all_combination(
         ['release', 'preview', '--project', 'core', '--all'],
         ['release', 'notes', '--project', 'core', '--all'],
     ]:
-        result = runner.invoke(cli.app, args)
+        result = invoke(cli.app, args)
         assert result.exit_code == 1
         assert 'Cannot use --project and --all together.' in result.output
 
@@ -578,7 +569,6 @@ def test_cli_release_commands_reject_monorepo_flags_in_single_repo_mode(
 ) -> None:
     """Regression guard: monorepo-only selectors must fail clearly when projects are not configured."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -604,7 +594,7 @@ create-pr = false
         ['release', 'notes', '--project', 'core'],
         ['release', 'notes', '--all'],
     ]:
-        result = runner.invoke(cli.app, args)
+        result = invoke(cli.app, args)
         assert result.exit_code == 1
         assert 'No projects are configured. Remove --project/--all' in result.output
 
@@ -615,7 +605,6 @@ def test_cli_release_detect_from_branch_single_repo_current_branch(
 ) -> None:
     """Test single-repo branch detection using the real current git branch."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -632,7 +621,7 @@ create-pr = false
     repo.index.commit('feat: initial commit')
     repo.git.checkout('-b', 'release/1.2.3')
 
-    result = runner.invoke(cli.app, ['release', 'detect-from-branch'])
+    result = invoke(cli.app, ['release', 'detect-from-branch'])
 
     assert result.exit_code == 0
     output = json.loads(result.stdout)
@@ -647,7 +636,6 @@ def test_cli_projects_changed_single_repo_reports_not_configured(
 ) -> None:
     """Test `projects changed` exits in single-repo mode with no project config."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -663,7 +651,7 @@ create-pr = false
     repo.index.add(['app.py', 'pyproject.toml'])
     repo.index.commit('feat: initial commit')
 
-    result = runner.invoke(cli.app, ['projects', 'changed'])
+    result = invoke(cli.app, ['projects', 'changed'])
 
     assert result.exit_code == 1
     assert 'No projects configured' in result.output
@@ -675,7 +663,6 @@ def test_cli_projects_changed_include_paths_integration(
 ) -> None:
     """Test `projects changed` detects changes from include-paths via CLI."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -706,7 +693,7 @@ include-paths = ["uv.lock"]
     repo.index.add(['uv.lock'])
     repo.index.commit('chore: update lock')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['projects', 'changed', '--format', 'json', '--base', 'HEAD'],
     )
@@ -722,7 +709,6 @@ def test_cli_release_tag_creates_and_pushes_alias_tags(
 ) -> None:
     """Test `release tag` creates and pushes exact + alias tags."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -740,7 +726,7 @@ create-pr = false
     repo.index.commit('feat: initial commit')
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -766,7 +752,6 @@ def test_cli_release_tag_monorepo_project_creates_prefixed_tags(
 ) -> None:
     """Test `release tag --project` with real monorepo tag prefixes."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -804,7 +789,7 @@ alias-versions = "major"
     repo.index.commit('feat(core): initial commit')
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -829,7 +814,6 @@ def test_cli_release_tag_monorepo_all_creates_tags_for_each_project(
 ) -> None:
     """Test `release tag --all` creates tags for each configured project."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     ui_dir = tmp_path / 'packages' / 'ui'
@@ -891,7 +875,7 @@ alias-versions = "major"
 
     existing_tags = {tag.name for tag in repo.tags}
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'tag', '--all'],
     )
@@ -914,7 +898,6 @@ def test_cli_release_tag_monorepo_all_fails_fast_when_a_project_tag_exists(
 ) -> None:
     """Regression guard: --all tagging should fail deterministically and avoid partial retagging."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     repo, core_dir, ui_dir = _init_two_project_monorepo_repo(
         tmp_path,
@@ -926,11 +909,11 @@ def test_cli_release_tag_monorepo_all_fails_fast_when_a_project_tag_exists(
     repo.index.commit('feat: change both projects')
     _add_origin_remote(repo, tmp_path)
 
-    first = runner.invoke(cli.app, ['release', 'tag', '--all'])
+    first = invoke(cli.app, ['release', 'tag', '--all'])
     assert first.exit_code == 0
     tags_after_first = {tag.name for tag in repo.tags}
 
-    second = runner.invoke(cli.app, ['release', 'tag', '--all'])
+    second = invoke(cli.app, ['release', 'tag', '--all'])
     assert second.exit_code == 1
     assert 'already exists' in second.output.lower()
     assert {tag.name for tag in repo.tags} == tags_after_first
@@ -942,7 +925,6 @@ def test_cli_release_tag_monorepo_project_accepts_prefixed_version_override(
 ) -> None:
     """Regression guard: prefixed overrides like core-1.2.3 must be accepted for project tagging."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     repo, _, _ = _init_two_project_monorepo_repo(
         tmp_path,
@@ -950,7 +932,7 @@ def test_cli_release_tag_monorepo_project_accepts_prefixed_version_override(
     )
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -975,14 +957,13 @@ def test_cli_release_preview_and_notes_reject_invalid_monorepo_override(
 ) -> None:
     """Regression guard: invalid project overrides must fail for both preview and notes commands."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     repo, core_dir, _ = _init_two_project_monorepo_repo(tmp_path)
     (core_dir / 'main.py').write_text('print("core v2")\n', encoding='utf-8')
     repo.index.add(['packages/core/main.py'])
     repo.index.commit('feat(core): update')
 
-    preview_result = runner.invoke(
+    preview_result = invoke(
         cli.app,
         [
             'release',
@@ -996,7 +977,7 @@ def test_cli_release_preview_and_notes_reject_invalid_monorepo_override(
     assert preview_result.exit_code == 1
     assert 'Expected a full release version like' in preview_result.output
 
-    notes_result = runner.invoke(
+    notes_result = invoke(
         cli.app,
         [
             'release',
@@ -1017,7 +998,6 @@ def test_cli_release_preview_and_notes_write_output_files(
 ) -> None:
     """Test `release preview` and `release notes` write output files."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -1041,7 +1021,7 @@ create-pr = false
     preview_path = tmp_path / 'preview.md'
     notes_path = tmp_path / 'notes.md'
 
-    preview_result = runner.invoke(
+    preview_result = invoke(
         cli.app,
         [
             'release',
@@ -1060,7 +1040,7 @@ create-pr = false
     assert '2.0.0' in preview_text
     assert 'v2' in preview_text
 
-    notes_result = runner.invoke(
+    notes_result = invoke(
         cli.app,
         [
             'release',
@@ -1082,7 +1062,6 @@ def test_cli_release_preview_and_notes_monorepo_project(
 ) -> None:
     """Test monorepo `release preview/notes --project` end-to-end."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -1121,7 +1100,7 @@ alias-versions = "major"
     repo.index.add(['packages/core/main.py'])
     repo.index.commit('feat(core): update')
 
-    preview_result = runner.invoke(
+    preview_result = invoke(
         cli.app,
         [
             'release',
@@ -1136,7 +1115,7 @@ alias-versions = "major"
     assert '### `core`' in preview_result.output
     assert '`core-1.1.0`' in preview_result.output
 
-    notes_result = runner.invoke(
+    notes_result = invoke(
         cli.app,
         ['release', 'notes', '--project', 'core'],
     )
@@ -1156,7 +1135,6 @@ def test_cli_version_artifact_monorepo_project_no_existing_tags_falls_back_to_0_
     so the first release of a new monorepo project succeeds without manual bootstrapping.
     """
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -1181,7 +1159,7 @@ tag-prefix = "core-"
     repo.index.commit('feat(core): initial commit')
     # Intentionally no core-* tag
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -1220,7 +1198,6 @@ def test_cli_version_artifact_monorepo_project_no_double_prefix(
     "core-core-1.1.0" and semver tags contain the prefix too.
     """
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     core_dir = tmp_path / 'packages' / 'core'
     core_dir.mkdir(parents=True)
@@ -1249,7 +1226,7 @@ tag-prefix = "core-"
     repo.index.add(['packages/core/main.py'])
     repo.index.commit('feat(core): new feature')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -1283,7 +1260,6 @@ def test_cli_changelog_regenerate_updates_changelog_file(
 ) -> None:
     """Test `changelog regenerate` updates the changelog in a real repo."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -1306,7 +1282,7 @@ create-pr = false
     repo.index.commit('feat: add feature')
 
     original_text = changelog_path.read_text(encoding='utf-8')
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['changelog', 'regenerate', '--changelog-path', 'CHANGELOG.md'],
     )
@@ -1323,7 +1299,6 @@ def test_cli_release_start_fails_when_remote_base_branch_missing(
 ) -> None:
     """Test `release start` fails clearly if remote base branch is missing."""
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
 
     (tmp_path / 'pyproject.toml').write_text(
         """
@@ -1342,7 +1317,7 @@ create-pr = false
     repo.index.commit('feat: initial release')
     _add_origin_remote(repo, tmp_path)
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',

@@ -3,13 +3,14 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
-import typer
+from cyclopts import Parameter
 
 from releez.cli_utils import _resolve_release_version
+from releez.settings import ReleezSettings
 from releez.subapps.release import (
+    ProjectSelection,
     _alias_versions_for_project,
     _emit_or_write_output,
-    _normalize_project_names,
     _project_semver_version,
     _ReleasePreviewOptions,
     _require_single_project_override_scope,
@@ -55,22 +56,17 @@ def _build_release_preview_markdown_single_repo(
     version_str = str(version)
     tags = select_tags(
         tags=compute_version_tags(version=version_str),
-        aliases=options.alias_versions,
+        aliases=options.alias_versions or AliasVersions.none,
     )
     lines = ['## `releez` release preview', '']
     lines.extend(
-        _render_preview_section(
-            title=None,
-            version=version_str,
-            tags=tags,
-        ),
+        _render_preview_section(title=None, version=version_str, tags=tags),
     )
     return '\n'.join(lines)
 
 
 def _build_release_preview_markdown_monorepo(
     *,
-    ctx: typer.Context,
     options: _ReleasePreviewOptions,
     repo_root: Path,
     projects: list[SubProject],
@@ -92,7 +88,6 @@ def _build_release_preview_markdown_monorepo(
                 tag_prefix=project.tag_prefix,
             ),
             aliases=_alias_versions_for_project(
-                ctx=ctx,
                 cli_alias_versions=options.alias_versions,
                 project=project,
             ),
@@ -109,13 +104,13 @@ def _build_release_preview_markdown_monorepo(
 
 def _run_release_preview_command(
     *,
-    ctx: typer.Context,
+    settings: ReleezSettings,
     options: _ReleasePreviewOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
     resolved = _resolve_project_targets_for_command(
-        ctx=ctx,
+        settings=settings,
         project_names=project_names,
         all_projects=all_projects,
     )
@@ -127,8 +122,11 @@ def _run_release_preview_command(
 
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.effective_maintenance_branch_regex,
+        regex=settings.effective_maintenance_branch_regex,
     )
+    # Resolve alias_versions for single-repo path (settings fallback needed there).
+    # For monorepo, each project supplies its own default via _alias_versions_for_project.
+    resolved_alias = options.alias_versions if options.alias_versions is not None else settings.alias_versions
     if resolved.target_projects is None:
         tag_pattern = maintenance_ctx.tag_pattern if maintenance_ctx else None
         if maintenance_ctx:
@@ -139,80 +137,37 @@ def _run_release_preview_command(
             )
             maintenance_ctx.ensure_version_matches(version)
         markdown = _build_release_preview_markdown_single_repo(
-            options=options,
+            options=options.model_copy(
+                update={'alias_versions': resolved_alias},
+            ),
             repo_root=resolved.repo_root,
             tag_pattern=tag_pattern,
         )
     else:
         markdown = _build_release_preview_markdown_monorepo(
-            ctx=ctx,
             options=options,
             repo_root=resolved.repo_root,
             projects=resolved.target_projects,
         )
 
-    _emit_or_write_output(
-        output=options.output,
-        content=markdown,
-    )
+    _emit_or_write_output(output=options.output, content=markdown)
 
 
-@release_app.command('preview')
+@release_app.command
 @handle_releez_errors
-def release_preview(  # noqa: PLR0913
-    ctx: typer.Context,
-    *,
-    version_override: Annotated[
-        str | None,
-        typer.Option(
-            '--version-override',
-            help='Override release version to preview (x.y.z).',
-            show_default=False,
-        ),
-    ] = None,
-    alias_versions: Annotated[
-        AliasVersions,
-        typer.Option(
-            '--alias-versions',
-            help='Include major/minor tags in the preview.',
-            show_default=True,
-            case_sensitive=False,
-        ),
-    ] = AliasVersions.none,
-    output: Annotated[
-        Path | None,
-        typer.Option(
-            '--output',
-            help='Write markdown preview to a file instead of stdout.',
-            show_default=False,
-        ),
-    ] = None,
-    project_names: Annotated[
-        list[str] | None,
-        typer.Option(
-            '--project',
-            help='Project name to preview (repeatable, monorepo only).',
-            show_default=False,
-        ),
-    ] = None,
-    all_projects: Annotated[
-        bool,
-        typer.Option(
-            '--all',
-            help='Preview all configured projects (monorepo only).',
-            show_default=True,
-        ),
-    ] = False,
+def preview(
+    options: Annotated[_ReleasePreviewOptions, Parameter(name='*')] | None = None,
+    selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
     """Preview the version and tags that would be published."""
-    options = _ReleasePreviewOptions(
-        version_override=version_override,
-        alias_versions=alias_versions,
-        output=output,
-    )
+    if options is None:
+        options = _ReleasePreviewOptions()
+    if selection is None:
+        selection = ProjectSelection()
+    settings = ReleezSettings()
     _run_release_preview_command(
-        ctx=ctx,
+        settings=settings,
         options=options,
-        project_names=_normalize_project_names(project_names),
-        all_projects=all_projects,
+        project_names=selection.project_names,
+        all_projects=selection.all_projects,
     )

@@ -3,19 +3,15 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
-import typer
+from cyclopts import Parameter
 
-from releez.cli_utils import (
-    _resolve_release_version,
-)
-from releez.git_repo import (
-    create_tags,
-    fetch,
-    push_tags,
-)
+from releez.cli_utils import _resolve_release_version
+from releez.console import console
+from releez.git_repo import create_tags, fetch, push_tags
+from releez.settings import ReleezSettings
 from releez.subapps.release import (
+    ProjectSelection,
     _alias_versions_for_project,
-    _normalize_project_names,
     _project_semver_version,
     _ReleaseTagOptions,
     _require_single_project_override_scope,
@@ -52,12 +48,7 @@ def _create_and_push_selected_tags(
         return
 
     create_tags(repo, tags=alias_only_tags, force=True)
-    push_tags(
-        repo,
-        remote_name=remote,
-        tags=alias_only_tags,
-        force=True,
-    )
+    push_tags(repo, remote_name=remote, tags=alias_only_tags, force=True)
 
 
 def _selected_tags_for_single_repo(
@@ -72,7 +63,10 @@ def _selected_tags_for_single_repo(
         tag_pattern=tag_pattern,
     )
     tags = compute_version_tags(version=str(version))
-    return select_tags(tags=tags, aliases=options.alias_versions)
+    return select_tags(
+        tags=tags,
+        aliases=options.alias_versions or AliasVersions.none,
+    )
 
 
 def _selected_tags_for_project(
@@ -80,7 +74,6 @@ def _selected_tags_for_project(
     repo_root: Path,
     options: _ReleaseTagOptions,
     project: SubProject,
-    ctx: typer.Context,
 ) -> list[str]:
     version = _resolve_project_release_version(
         repo_root=repo_root,
@@ -93,7 +86,6 @@ def _selected_tags_for_project(
         tag_prefix=project.tag_prefix,
     )
     aliases = _alias_versions_for_project(
-        ctx=ctx,
         cli_alias_versions=options.alias_versions,
         project=project,
     )
@@ -107,18 +99,18 @@ def _emit_tags(
 ) -> None:
     prefix = f'[{project_name}] ' if project_name else ''
     for tag in selected_tags:
-        typer.echo(f'{prefix}{tag}')
+        console.print(f'{prefix}{tag}', markup=False)
 
 
 def _run_release_tag_command(
     *,
-    ctx: typer.Context,
+    settings: ReleezSettings,
     options: _ReleaseTagOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
     resolved = _resolve_project_targets_for_command(
-        ctx=ctx,
+        settings=settings,
         project_names=project_names,
         all_projects=all_projects,
     )
@@ -128,11 +120,12 @@ def _run_release_tag_command(
         action_label='tagging',
     )
 
+    effective_remote = options.remote or settings.git_remote
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.effective_maintenance_branch_regex,
+        regex=settings.effective_maintenance_branch_regex,
     )
-    fetch(resolved.repo, remote_name=options.remote)
+    fetch(resolved.repo, remote_name=effective_remote)
     if resolved.target_projects is None:
         selected = _selected_tags_for_single_repo(
             repo_root=resolved.repo_root,
@@ -146,7 +139,7 @@ def _run_release_tag_command(
             )
         _create_and_push_selected_tags(
             repo=resolved.repo,
-            remote=options.remote,
+            remote=effective_remote,
             selected_tags=selected,
         )
         _emit_tags(selected_tags=selected)
@@ -157,72 +150,30 @@ def _run_release_tag_command(
             repo_root=resolved.repo_root,
             options=options,
             project=project,
-            ctx=ctx,
         )
         _create_and_push_selected_tags(
             repo=resolved.repo,
-            remote=options.remote,
+            remote=effective_remote,
             selected_tags=selected,
         )
         _emit_tags(selected_tags=selected, project_name=project.name)
 
 
-@release_app.command('tag')
+@release_app.command
 @handle_releez_errors
-def release_tag(  # noqa: PLR0913
-    ctx: typer.Context,
-    *,
-    version_override: Annotated[
-        str | None,
-        typer.Option(
-            '--version-override',
-            help='Override release version to tag (x.y.z).',
-            show_default=False,
-        ),
-    ] = None,
-    alias_versions: Annotated[
-        AliasVersions,
-        typer.Option(
-            '--alias-versions',
-            help='Also create major/minor tags (v2, v2.3).',
-            show_default=True,
-            case_sensitive=False,
-        ),
-    ] = AliasVersions.none,
-    remote: Annotated[
-        str,
-        typer.Option(
-            '--remote',
-            help='Remote to push tags to.',
-            show_default=True,
-        ),
-    ] = 'origin',
-    project_names: Annotated[
-        list[str] | None,
-        typer.Option(
-            '--project',
-            help='Project name to tag (repeatable, monorepo only).',
-            show_default=False,
-        ),
-    ] = None,
-    all_projects: Annotated[
-        bool,
-        typer.Option(
-            '--all',
-            help='Tag all configured projects (monorepo only).',
-            show_default=True,
-        ),
-    ] = False,
+def tag(
+    options: Annotated[_ReleaseTagOptions, Parameter(name='*')] | None = None,
+    selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
-    """Create git tag(s) for a release and push them."""
-    options = _ReleaseTagOptions(
-        version_override=version_override,
-        alias_versions=alias_versions,
-        remote=remote,
-    )
+    """Tag a release commit and push the tags to the remote."""
+    if options is None:
+        options = _ReleaseTagOptions()
+    if selection is None:
+        selection = ProjectSelection()
+    settings = ReleezSettings()
     _run_release_tag_command(
-        ctx=ctx,
+        settings=settings,
         options=options,
-        project_names=_normalize_project_names(project_names),
-        all_projects=all_projects,
+        project_names=selection.project_names,
+        all_projects=selection.all_projects,
     )

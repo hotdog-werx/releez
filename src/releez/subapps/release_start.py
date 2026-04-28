@@ -3,19 +3,20 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
-import typer
+from cyclopts import Parameter
+from rich.prompt import Confirm
 
 from releez.cli_utils import (
     _exit,
     _project_include_paths,
     _resolve_release_version,
 )
-from releez.cliff import GitCliffBump  # noqa: TC001
+from releez.console import console, err_console
 from releez.errors import ReleezError
 from releez.release import StartReleaseInput, StartReleaseResult, start_release
+from releez.settings import ReleezSettings
 from releez.subapps.release import (
-    _comma_separated_labels,
-    _normalize_project_names,
+    ProjectSelection,
     _project_changelog_path,
     _ReleaseStartOptions,
     _require_single_project_override_scope,
@@ -33,7 +34,6 @@ from releez.utils import handle_releez_errors
 if TYPE_CHECKING:
     from semver import VersionInfo
 
-    from releez.settings import ReleezSettings
     from releez.subproject import SubProject
 
 
@@ -51,17 +51,18 @@ def _confirm_release_start(
     """Show a confirmation prompt before starting a release.
 
     Raises:
-        typer.Abort: If the user declines.
+        SystemExit: If the user declines.
     """
-    typer.secho('Release summary:', fg=typer.colors.BLUE)
-    typer.echo(f'  Current branch : {active_branch}')
-    typer.echo(f'  Base branch    : {options.base}')
-    typer.echo(f'  Version        : {version}')
-    typer.echo(f'  Release branch : release/{version}')
-    typer.echo(f'  Create PR      : {options.create_pr}')
-    typer.echo(f'  Changelog      : {options.changelog_path}')
-    typer.echo(f'  Dry run        : {options.dry_run}')
-    typer.confirm('Proceed?', abort=True)
+    console.print('Release summary:', style='blue')
+    console.print(f'  Current branch : {active_branch}', markup=False)
+    console.print(f'  Base branch    : {options.base}', markup=False)
+    console.print(f'  Version        : {version}', markup=False)
+    console.print(f'  Release branch : release/{version}', markup=False)
+    console.print(f'  Create PR      : {options.create_pr}', markup=False)
+    console.print(f'  Changelog      : {options.changelog_path}', markup=False)
+    console.print(f'  Dry run        : {options.dry_run}', markup=False)
+    if not Confirm.ask('Proceed?'):
+        raise SystemExit(1)
 
 
 def _build_release_start_input_single_repo(
@@ -70,17 +71,17 @@ def _build_release_start_input_single_repo(
     settings: ReleezSettings,
     maintenance_ctx: MaintenanceContext | None = None,
 ) -> StartReleaseInput:
-    base_branch = maintenance_ctx.branch if maintenance_ctx else options.base
+    base_branch = maintenance_ctx.branch if maintenance_ctx else (options.base or settings.base_branch)
     return StartReleaseInput(
         bump=options.bump,
         version_override=options.version_override,
         base_branch=base_branch,
-        remote_name=options.remote,
-        labels=options.labels,
-        title_prefix=options.title_prefix,
-        changelog_path=options.changelog_path,
+        remote_name=options.remote or settings.git_remote,
+        labels=options.labels_list,
+        title_prefix=options.title_prefix or settings.pr_title_prefix,
+        changelog_path=options.changelog_path or settings.changelog_path,
         post_changelog_hooks=settings.hooks.post_changelog or None,
-        create_pr=options.create_pr,
+        create_pr=options.create_pr if options.create_pr is not None else settings.create_pr,
         github_token=options.github_token,
         dry_run=options.dry_run,
         maintenance_tag_pattern=maintenance_ctx.tag_pattern if maintenance_ctx else None,
@@ -90,24 +91,25 @@ def _build_release_start_input_single_repo(
 def _build_release_start_input_project(
     *,
     options: _ReleaseStartOptions,
+    settings: ReleezSettings,
     project: SubProject,
     repo_root: Path,
     maintenance_ctx: MaintenanceContext | None = None,
 ) -> StartReleaseInput:
-    base_branch = maintenance_ctx.branch if maintenance_ctx else options.base
+    base_branch = maintenance_ctx.branch if maintenance_ctx else (options.base or settings.base_branch)
     return StartReleaseInput(
         bump=options.bump,
         version_override=options.version_override,
         base_branch=base_branch,
-        remote_name=options.remote,
-        labels=options.labels,
-        title_prefix=options.title_prefix,
+        remote_name=options.remote or settings.git_remote,
+        labels=options.labels_list,
+        title_prefix=options.title_prefix or settings.pr_title_prefix,
         changelog_path=_project_changelog_path(
             project=project,
             repo_root=repo_root,
         ),
         post_changelog_hooks=project.hooks.post_changelog or None,
-        create_pr=options.create_pr,
+        create_pr=options.create_pr if options.create_pr is not None else settings.create_pr,
         github_token=options.github_token,
         dry_run=options.dry_run,
         project_name=project.name,
@@ -128,16 +130,20 @@ def _emit_release_start_result(
     project_name: str | None = None,
 ) -> None:
     prefix = f'[{project_name}] ' if project_name else ''
-    typer.secho(
+    console.print(
         f'{prefix}Next version: {result.version}',
-        fg=typer.colors.GREEN,
+        style='green',
+        markup=False,
     )
     if dry_run:
-        typer.echo(result.release_notes_markdown)
+        console.print(result.release_notes_markdown, markup=False)
         return
-    typer.echo(f'{prefix}Release branch: {result.release_branch}')
+    console.print(
+        f'{prefix}Release branch: {result.release_branch}',
+        markup=False,
+    )
     if result.pr_url:
-        typer.echo(f'{prefix}PR created: {result.pr_url}')
+        console.print(f'{prefix}PR created: {result.pr_url}', markup=False)
 
 
 def _run_single_repo_release_start(  # noqa: PLR0913
@@ -180,9 +186,10 @@ def _run_single_repo_release_start(  # noqa: PLR0913
     )
 
 
-def _run_project_release_start(
+def _run_project_release_start(  # noqa: PLR0913
     *,
     options: _ReleaseStartOptions,
+    settings: ReleezSettings,
     project: SubProject,
     repo_root: Path,
     maintenance_ctx: MaintenanceContext | None = None,
@@ -204,6 +211,7 @@ def _run_project_release_start(
 
     release_input = _build_release_start_input_project(
         options=options,
+        settings=settings,
         project=project,
         repo_root=repo_root,
         maintenance_ctx=maintenance_ctx,
@@ -211,10 +219,10 @@ def _run_project_release_start(
     try:
         result = start_release(release_input)
     except ReleezError as exc:
-        typer.secho(
+        err_console.print(
             f'[{project.name}] {exc}',
-            err=True,
-            fg=typer.colors.RED,
+            style='bold red',
+            markup=False,
         )
         return False
 
@@ -229,6 +237,7 @@ def _run_project_release_start(
 def _run_monorepo_release_start(  # noqa: PLR0913
     *,
     options: _ReleaseStartOptions,
+    settings: ReleezSettings,
     target_projects: list[SubProject],
     repo_root: Path,
     active_branch: str | None = None,
@@ -256,6 +265,7 @@ def _run_monorepo_release_start(  # noqa: PLR0913
         ctx = maintenance_ctx if project is maintenance_project else None
         if _run_project_release_start(
             options=options,
+            settings=settings,
             project=project,
             repo_root=repo_root,
             maintenance_ctx=ctx,
@@ -264,9 +274,9 @@ def _run_monorepo_release_start(  # noqa: PLR0913
             succeeded += 1
 
     failed = len(target_projects) - succeeded
-    typer.secho(
+    console.print(
         f'Release summary: {succeeded} succeeded, {failed} failed.',
-        fg=typer.colors.BLUE,
+        style='blue',
     )
     if failed:
         raise _exit()
@@ -274,7 +284,7 @@ def _run_monorepo_release_start(  # noqa: PLR0913
 
 def _run_release_start_command(  # noqa: PLR0913
     *,
-    ctx: typer.Context,
+    settings: ReleezSettings,
     options: _ReleaseStartOptions,
     project_names: list[str],
     all_projects: bool,
@@ -282,14 +292,14 @@ def _run_release_start_command(  # noqa: PLR0913
     non_interactive: bool,
 ) -> None:
     resolved = _resolve_project_targets_for_command(
-        ctx=ctx,
+        settings=settings,
         project_names=project_names,
         all_projects=all_projects,
     )
     if resolved.target_projects is None:
         _run_single_repo_release_start(
             options=options,
-            settings=resolved.settings,
+            settings=settings,
             repo_root=resolved.repo_root,
             active_branch=resolved.active_branch,
             non_interactive=non_interactive,
@@ -301,6 +311,7 @@ def _run_release_start_command(  # noqa: PLR0913
 
     _run_monorepo_release_start(
         options=options,
+        settings=settings,
         target_projects=resolved.target_projects,
         repo_root=resolved.repo_root,
         active_branch=resolved.active_branch,
@@ -314,113 +325,23 @@ def _run_release_start_command(  # noqa: PLR0913
 # ---------------------------------------------------------------------------
 
 
-@release_app.command('start')
+@release_app.command
 @handle_releez_errors
-def release_start(  # noqa: PLR0913
-    ctx: typer.Context,
+def start(
+    options: Annotated[_ReleaseStartOptions, Parameter(name='*')] | None = None,
+    selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
     *,
-    bump: Annotated[
-        GitCliffBump,
-        typer.Option(
-            help='Bump mode passed to git-cliff.',
-            show_default=True,
-            case_sensitive=False,
-        ),
-    ] = 'auto',
-    version_override: Annotated[
-        str | None,
-        typer.Option(
-            '--version-override',
-            help='Override version instead of computing via git-cliff.',
-            show_default=False,
-        ),
-    ] = None,
-    create_pr: Annotated[
-        bool,
-        typer.Option(
-            '--create-pr/--no-create-pr',
-            help='Create a GitHub PR (requires token).',
-            show_default=True,
-        ),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            help='Compute version and notes without changing the repo.',
-        ),
-    ] = False,
-    base: Annotated[
-        str,
-        typer.Option(
-            help='Base branch for the release PR.',
-            show_default=True,
-        ),
-    ] = 'master',
-    remote: Annotated[
-        str,
-        typer.Option(
-            help='Remote name to use.',
-            show_default=True,
-        ),
-    ] = 'origin',
-    labels: Annotated[
-        str,
-        typer.Option(
-            help='Comma-separated label(s) to add to the PR (repeatable).',
-            show_default=True,
-        ),
-    ] = 'release',
-    title_prefix: Annotated[
-        str,
-        typer.Option(
-            help='Prefix for PR title.',
-            show_default=True,
-        ),
-    ] = 'chore(release): ',
-    changelog_path: Annotated[
-        str,
-        typer.Option(
-            '--changelog-path',
-            '--changelog',
-            help='Changelog file to prepend to.',
-            show_default=True,
-        ),
-    ] = 'CHANGELOG.md',
-    project_names: Annotated[
-        list[str] | None,
-        typer.Option(
-            '--project',
-            help='Project name to release (repeatable, monorepo only).',
-            show_default=False,
-        ),
-    ] = None,
-    all_projects: Annotated[
-        bool,
-        typer.Option(
-            '--all',
-            help='Release all configured projects (monorepo only).',
-            show_default=True,
-        ),
-    ] = False,
-    github_token: Annotated[
-        str | None,
-        typer.Option(
-            envvar=['RELEEZ_GITHUB_TOKEN', 'GITHUB_TOKEN'],
-            help='GitHub token for PR creation (prefer RELEEZ_GITHUB_TOKEN; falls back to GITHUB_TOKEN).',
-            show_default=False,
-        ),
-    ] = None,
     maintenance_branch_regex: Annotated[
-        str,
-        typer.Option(
+        str | None,
+        Parameter(
             '--maintenance-branch-regex',
-            help='Regex to detect maintenance branches (must have a named "major" capture group).',
-            show_default=True,
+            help='Regex to detect maintenance branches (named "major" group required). [default: from config]',
+            show_default=False,
         ),
-    ] = r'^support/(?P<major>\d+)\.x$',
+    ] = None,
     non_interactive: Annotated[
         bool,
-        typer.Option(
+        Parameter(
             '--non-interactive',
             help='Skip confirmation prompt (useful in CI).',
             show_default=True,
@@ -428,24 +349,18 @@ def release_start(  # noqa: PLR0913
     ] = False,
 ) -> None:
     """Start release branch workflows for single-repo or monorepo projects."""
-    options = _ReleaseStartOptions(
-        bump=bump,
-        version_override=version_override,
-        create_pr=create_pr,
-        dry_run=dry_run,
-        base=base,
-        remote=remote,
-        labels=_comma_separated_labels(labels),
-        title_prefix=title_prefix,
-        changelog_path=changelog_path,
-        github_token=github_token,
-    )
+    if options is None:
+        options = _ReleaseStartOptions()
+    if selection is None:
+        selection = ProjectSelection()
+    settings = ReleezSettings()
+    effective_regex = maintenance_branch_regex or settings.effective_maintenance_branch_regex
 
     _run_release_start_command(
-        ctx=ctx,
+        settings=settings,
         options=options,
-        project_names=_normalize_project_names(project_names),
-        all_projects=all_projects,
-        maintenance_branch_regex=maintenance_branch_regex,
+        project_names=selection.project_names,
+        all_projects=selection.all_projects,
+        maintenance_branch_regex=effective_regex,
         non_interactive=non_interactive,
     )

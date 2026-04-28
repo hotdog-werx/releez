@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
-
 from releez import cli
 from releez.artifact_version import (
     ArtifactVersionInput,
@@ -15,8 +13,10 @@ from releez.errors import ReleezError
 from releez.version_tags import AliasVersions, VersionTags
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from unittest.mock import MagicMock
 
+    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -37,15 +37,17 @@ def _mock_settings(
         hooks=hooks,
         projects=projects,
     )
-    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    mocker.patch(
+        'releez.subapps.version.ReleezSettings',
+        return_value=mock_settings,
+    )
     return mock_settings
 
 
 def test_cli_version_artifact_builds_input_and_prints_result(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    runner = CliRunner()
-
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         assert artifact_input.scheme == ArtifactVersionScheme.semver
         assert artifact_input.version_override == '1.2.3'
@@ -60,7 +62,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
         side_effect=_fake_compute,
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -81,8 +83,8 @@ def test_cli_version_artifact_builds_input_and_prints_result(
 
 def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -93,7 +95,7 @@ def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
         return_value=VersionTags(exact='1.2.3', major='v1', minor='v1.2'),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -113,10 +115,10 @@ def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     assert result.stdout == '1.2.3\nv1\n'
 
 
-def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
-    runner = CliRunner()
-
-    result = runner.invoke(
+def test_cli_version_artifact_rejects_invalid_prerelease_type(
+    invoke: Callable[[object, list[str]], InvokeResult],
+) -> None:
+    result = invoke(
         cli.app,
         [
             'version',
@@ -137,15 +139,15 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
 
 def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
     )
     compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -167,17 +169,16 @@ def test_cli_version_artifact_ignores_alias_versions_for_pep440(
 
 def test_cli_version_artifact_pep440_without_aliases(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Regression guard: pep440 output with no aliases should emit plain version only."""
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
     )
     compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
-    secho = mocker.patch('releez.cli.typer.secho')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -195,20 +196,19 @@ def test_cli_version_artifact_pep440_without_aliases(
     assert result.exit_code == 0
     assert result.stdout == '1.2.3\n'
     compute_tags.assert_not_called()
-    secho.assert_not_called()
 
 
 def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3-alpha1-2',
     )
     compute_tags = mocker.patch('releez.subapps.version.compute_version_tags')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -235,15 +235,8 @@ def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
 
 def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specified(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test JSON output when --scheme is not provided.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
-    # Mock compute_artifact_version to return different values for each scheme
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         if artifact_input.scheme == ArtifactVersionScheme.semver:
             return '1.2.3-alpha123+456'
@@ -256,7 +249,7 @@ def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specifi
         side_effect=_fake_compute,
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -283,13 +276,8 @@ def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specifi
 
 def test_cli_version_artifact_json_output_with_alias_versions(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test JSON output includes alias versions for full releases.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -299,7 +287,7 @@ def test_cli_version_artifact_json_output_with_alias_versions(
         return_value=VersionTags(exact='1.2.3', major='v1', minor='v1.2'),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -323,19 +311,14 @@ def test_cli_version_artifact_json_output_with_alias_versions(
 
 def test_cli_version_artifact_json_output_full_release_no_aliases(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test JSON output for full release without alias versions.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -359,10 +342,8 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
 
 def test_cli_version_artifact_with_project_includes_metadata_in_json(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test --project adds release_version and project keys to JSON output."""
-    runner = CliRunner()
-
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'
@@ -387,7 +368,7 @@ def test_cli_version_artifact_with_project_includes_metadata_in_json(
         return_value='0.2.0-beta1+5',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -414,10 +395,8 @@ def test_cli_version_artifact_with_project_includes_metadata_in_json(
 
 def test_cli_version_artifact_with_project_uses_project_scoped_version_resolution(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test --project passes tag_pattern and include_paths to _resolve_release_version."""
-    runner = CliRunner()
-
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'
@@ -447,7 +426,7 @@ def test_cli_version_artifact_with_project_uses_project_scoped_version_resolutio
         return_value=['packages/core/**', 'pyproject.toml'],
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -475,10 +454,8 @@ def test_cli_version_artifact_with_project_uses_project_scoped_version_resolutio
 
 def test_cli_version_artifact_with_unknown_project_exits_with_error(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test --project with an unknown name exits with code 1."""
-    runner = CliRunner()
-
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
 
@@ -492,7 +469,7 @@ def test_cli_version_artifact_with_unknown_project_exits_with_error(
         ),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['version', 'artifact', '--project', 'nonexistent'],
     )
@@ -503,10 +480,8 @@ def test_cli_version_artifact_with_unknown_project_exits_with_error(
 
 def test_cli_version_artifact_with_project_no_projects_configured_exits_with_error(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test --project when no projects are configured exits with code 1."""
-    runner = CliRunner()
-
     mock_settings = _mock_settings(mocker, projects=[])
     mock_settings.get_subprojects.return_value = []
     mocker.patch(
@@ -517,10 +492,7 @@ def test_cli_version_artifact_with_project_no_projects_configured_exits_with_err
         ),
     )
 
-    result = runner.invoke(
-        cli.app,
-        ['version', 'artifact', '--project', 'core'],
-    )
+    result = invoke(cli.app, ['version', 'artifact', '--project', 'core'])
 
     assert result.exit_code == 1
     assert 'No projects configured' in result.output
@@ -528,10 +500,8 @@ def test_cli_version_artifact_with_project_no_projects_configured_exits_with_err
 
 def test_cli_version_artifact_with_project_version_override_skips_resolution(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
-    """Test --project with --version-override skips git-cliff resolution."""
-    runner = CliRunner()
-
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'
@@ -553,7 +523,7 @@ def test_cli_version_artifact_with_project_version_override_skips_resolution(
         return_value='1.0.0',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -574,12 +544,12 @@ def test_cli_version_artifact_with_project_version_override_skips_resolution(
 
 def test_cli_version_artifact_requires_project_in_monorepo_mode(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """In monorepo mode, version artifact must fail without --project."""
-    runner = CliRunner()
     _mock_settings(mocker, projects=[mocker.MagicMock()])
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',
@@ -596,15 +566,15 @@ def test_cli_version_artifact_requires_project_in_monorepo_mode(
 
 def test_cli_version_artifact_handles_releez_error(
     mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Regression guard: version-artifact command must surface ReleezError as exit code 1."""
-    runner = CliRunner()
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         side_effect=ReleezError('broken'),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'version',

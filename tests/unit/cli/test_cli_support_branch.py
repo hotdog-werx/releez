@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
-
 from releez import cli
 from releez.errors import (
     GitBranchExistsError,
@@ -13,9 +11,11 @@ from releez.errors import (
 from releez.git_repo import RepoInfo
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
     from unittest.mock import Mock
 
+    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -39,10 +39,10 @@ class TestSupportBranchSingleRepo:
     def test_happy_path_creates_branch(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Single-repo: creates support/1.x from the latest 1.x.x tag."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
@@ -75,7 +75,7 @@ class TestSupportBranchSingleRepo:
             'releez.subapps.release_support.create_branch_from_ref',
         )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+        result = invoke(cli.app, ['release', 'support-branch', '1'])
 
         assert result.exit_code == 0, result.output
         create_branch.assert_called_once()
@@ -84,22 +84,25 @@ class TestSupportBranchSingleRepo:
     def test_dry_run_does_not_create_branch(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--dry-run prints intent but does not call create_branch_from_ref."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
-        ctx_mock = mocker.Mock(
-            repo=repo_mock,
-            info=RepoInfo(root=tmp_path, remote_url='', active_branch='master'),
-        )
         mocker.patch(
             'releez.subapps.release_support.open_repo',
-            return_value=ctx_mock,
+            return_value=mocker.Mock(
+                repo=repo_mock,
+                info=RepoInfo(
+                    root=tmp_path,
+                    remote_url='',
+                    active_branch='master',
+                ),
+            ),
         )
         mocker.patch(
             'releez.settings.ReleezSettings.get_subprojects',
@@ -117,7 +120,7 @@ class TestSupportBranchSingleRepo:
             'releez.subapps.release_support.create_branch_from_ref',
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--dry-run'],
         )
@@ -129,10 +132,10 @@ class TestSupportBranchSingleRepo:
     def test_project_flag_in_single_repo_mode_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--project is not valid in single-repo mode."""
-        runner = CliRunner()
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -149,7 +152,7 @@ class TestSupportBranchSingleRepo:
             return_value=[],
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--project', 'core'],
         )
@@ -160,10 +163,10 @@ class TestSupportBranchSingleRepo:
     def test_major_is_latest_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Requesting a support branch for the latest major is an error."""
-        runner = CliRunner()
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -184,7 +187,7 @@ class TestSupportBranchSingleRepo:
             return_value=[1, 2],
         )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '2'])
+        result = invoke(cli.app, ['release', 'support-branch', '2'])
 
         assert result.exit_code == 1
         assert 'latest major' in result.output
@@ -192,10 +195,10 @@ class TestSupportBranchSingleRepo:
     def test_no_tags_for_major_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """No tags for the requested major is an error."""
-        runner = CliRunner()
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -216,7 +219,7 @@ class TestSupportBranchSingleRepo:
             return_value=[2],
         )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+        result = invoke(cli.app, ['release', 'support-branch', '1'])
 
         assert result.exit_code == 1
         assert '1' in result.output
@@ -224,10 +227,10 @@ class TestSupportBranchSingleRepo:
     def test_branch_already_exists_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """GitBranchExistsError propagates as an exit code 1."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
@@ -261,7 +264,7 @@ class TestSupportBranchSingleRepo:
             side_effect=GitBranchExistsError('support/1.x'),
         )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+        result = invoke(cli.app, ['release', 'support-branch', '1'])
 
         assert result.exit_code == 1
         assert 'support/1.x' in result.output
@@ -269,10 +272,10 @@ class TestSupportBranchSingleRepo:
     def test_commit_override_valid(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """A valid --commit uses the provided SHA as the split point."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'tag1234' * 4 + 'tag12345'
@@ -297,7 +300,6 @@ class TestSupportBranchSingleRepo:
             'releez.subapps.release_support.find_all_major_versions',
             return_value=[1, 2],
         )
-        # First call: latest 1.x.x tag; second call: latest 2.x.x tag for validation
         mocker.patch(
             'releez.subapps.release_support.find_latest_tag_matching_pattern',
             side_effect=['1.4.0', '2.0.0'],
@@ -311,13 +313,12 @@ class TestSupportBranchSingleRepo:
             'releez.subapps.release_support.create_branch_from_ref',
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--commit', 'deadbeef'],
         )
 
         assert result.exit_code == 0, result.output
-        # Validation uses the next major's tag, not the current major's
         assert validate.call_args.kwargs['latest_tag'] == '2.0.0'
         create_branch.assert_called_once()
         assert create_branch.call_args.kwargs['ref'] == custom_sha
@@ -325,10 +326,10 @@ class TestSupportBranchSingleRepo:
     def test_commit_override_invalid_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """An invalid --commit produces exit code 1."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
@@ -366,7 +367,7 @@ class TestSupportBranchSingleRepo:
             ),
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--commit', 'badsha'],
         )
@@ -377,10 +378,10 @@ class TestSupportBranchSingleRepo:
     def test_preflight_fails_when_template_regex_mismatch(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Pre-flight rejects a template that generates a name not matching the regex."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = '1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
@@ -406,15 +407,17 @@ class TestSupportBranchSingleRepo:
             return_value='1.4.0',
         )
 
-        # Template generates 'hotfix/1.x' but regex expects 'support/N.x'
         mock_settings = mocker.Mock()
         mock_settings.effective_maintenance_branch_template = 'hotfix/{prefix}{major}.x'
         mock_settings.effective_maintenance_branch_regex = r'^support/(?P<major>\d+)\.x$'
         mock_settings.projects = []
         mock_settings.get_subprojects.return_value = []
-        mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+        mocker.patch(
+            'releez.subapps.release_support.ReleezSettings',
+            return_value=mock_settings,
+        )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+        result = invoke(cli.app, ['release', 'support-branch', '1'])
 
         assert result.exit_code == 1
         assert 'maintenance-branch-regex' in result.output
@@ -422,34 +425,25 @@ class TestSupportBranchSingleRepo:
 
 class TestSupportBranchMonorepo:
     def _mock_settings(self, mocker: MockerFixture) -> Mock:
-        """Return a mock settings with monorepo effective maintenance values."""
         s = mocker.Mock()
         s.effective_maintenance_branch_template = 'support/{prefix}{major}.x'
         s.effective_maintenance_branch_regex = r'^support/(?P<major>\d+)\.x$'
         s.projects = []
         return s
 
-    def _mock_project(
-        self,
-        mocker: MockerFixture,
-        name: str,
-        tag_prefix: str,
-    ) -> object:
-        return _make_project_mock(mocker, name, tag_prefix)
-
     def test_monorepo_happy_path(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo: --project ui creates support/ui-1.x from ui-1.4.0."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = 'ui-1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
-        ui = self._mock_project(mocker, 'ui', 'ui-')
+        ui = _make_project_mock(mocker, 'ui', 'ui-')
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -464,7 +458,7 @@ class TestSupportBranchMonorepo:
         mock_settings = self._mock_settings(mocker)
         mock_settings.get_subprojects.return_value = [ui]
         mocker.patch(
-            'releez.cli.ReleezSettings',
+            'releez.subapps.release_support.ReleezSettings',
             return_value=mock_settings,
         )
         mocker.patch(
@@ -479,7 +473,7 @@ class TestSupportBranchMonorepo:
             'releez.subapps.release_support.create_branch_from_ref',
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--project', 'ui'],
         )
@@ -491,11 +485,11 @@ class TestSupportBranchMonorepo:
     def test_monorepo_missing_project_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo mode without --project produces a helpful error."""
-        runner = CliRunner()
-        ui = self._mock_project(mocker, 'ui', 'ui-')
+        ui = _make_project_mock(mocker, 'ui', 'ui-')
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -512,7 +506,7 @@ class TestSupportBranchMonorepo:
             return_value=[ui],
         )
 
-        result = runner.invoke(cli.app, ['release', 'support-branch', '1'])
+        result = invoke(cli.app, ['release', 'support-branch', '1'])
 
         assert result.exit_code == 1
         assert '--project is required' in result.output
@@ -520,11 +514,11 @@ class TestSupportBranchMonorepo:
     def test_monorepo_unknown_project_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo mode with an unrecognised --project name produces a helpful error."""
-        runner = CliRunner()
-        ui = self._mock_project(mocker, 'ui', 'ui-')
+        ui = _make_project_mock(mocker, 'ui', 'ui-')
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -538,9 +532,12 @@ class TestSupportBranchMonorepo:
         )
         mock_settings = self._mock_settings(mocker)
         mock_settings.get_subprojects.return_value = [ui]
-        mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+        mocker.patch(
+            'releez.subapps.release_support.ReleezSettings',
+            return_value=mock_settings,
+        )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--project', 'nonexistent'],
         )
@@ -552,11 +549,11 @@ class TestSupportBranchMonorepo:
     def test_monorepo_major_is_latest_errors(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """MajorVersionAlreadyLatestError propagates from monorepo path."""
-        runner = CliRunner()
-        ui = self._mock_project(mocker, 'ui', 'ui-')
+        ui = _make_project_mock(mocker, 'ui', 'ui-')
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -577,7 +574,7 @@ class TestSupportBranchMonorepo:
             side_effect=MajorVersionAlreadyLatestError(major=2, latest_major=2),
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '2', '--project', 'ui'],
         )
@@ -588,16 +585,16 @@ class TestSupportBranchMonorepo:
     def test_monorepo_dry_run(
         self,
         mocker: MockerFixture,
+        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--dry-run in monorepo mode does not create the branch."""
-        runner = CliRunner()
         tag_obj = mocker.Mock()
         tag_obj.name = 'ui-1.4.0'
         tag_obj.commit.hexsha = 'abc1234def5678901234abcd'
         repo_mock = mocker.Mock()
         repo_mock.tags = [tag_obj]
-        ui = self._mock_project(mocker, 'ui', 'ui-')
+        ui = _make_project_mock(mocker, 'ui', 'ui-')
         mocker.patch(
             'releez.subapps.release_support.open_repo',
             return_value=mocker.Mock(
@@ -612,7 +609,7 @@ class TestSupportBranchMonorepo:
         mock_settings = self._mock_settings(mocker)
         mock_settings.get_subprojects.return_value = [ui]
         mocker.patch(
-            'releez.cli.ReleezSettings',
+            'releez.subapps.release_support.ReleezSettings',
             return_value=mock_settings,
         )
         mocker.patch(
@@ -627,7 +624,7 @@ class TestSupportBranchMonorepo:
             'releez.subapps.release_support.create_branch_from_ref',
         )
 
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['release', 'support-branch', '1', '--project', 'ui', '--dry-run'],
         )

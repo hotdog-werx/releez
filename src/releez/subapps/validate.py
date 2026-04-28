@@ -1,30 +1,35 @@
 from __future__ import annotations
 
-from typing import Annotated
-
-import typer
+from cyclopts import App
 
 from releez.cliff import GitCliff
+from releez.console import console, err_console
 from releez.git_repo import open_repo
 
-validate_app = typer.Typer(
+validate_app = App(
+    name='validate',
     help='Validate commit messages against cliff.toml rules.',
 )
 
 
-@validate_app.command('commit-message')
-def validate_commit_message(
-    message: Annotated[str, typer.Argument(help='Commit message to validate.')],
+@validate_app.command
+def commit_message(
+    message: str,
 ) -> None:
     """Check if a commit message matches a configured commit parser.
 
     Exits 0 if valid, 1 if the message does not match any parser.
     Useful for validating PR titles before merge.
+
+    Parameters
+    ----------
+    message
+        Commit message to validate.
     """
     repo_info = open_repo().info
     result = GitCliff(repo_root=repo_info.root).validate_commit_message(message)
     if result.valid:
-        typer.secho(f'✓ {result.reason}', fg=typer.colors.GREEN)
+        console.print(f'✓ {result.reason}', style='green')
     else:
-        typer.secho(f'✗ {result.reason}', err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        err_console.print(f'✗ {result.reason}', style='bold red', markup=False)
+        raise SystemExit(1)
