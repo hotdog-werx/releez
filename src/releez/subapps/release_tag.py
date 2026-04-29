@@ -120,7 +120,8 @@ def _run_release_tag_command(
         action_label='tagging',
     )
 
-    effective_remote = options.remote or settings.git_remote
+    resolved_options = options.resolve(settings)
+    effective_remote = resolved_options.remote or settings.git_remote
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
         regex=settings.effective_maintenance_branch_regex,
@@ -129,7 +130,7 @@ def _run_release_tag_command(
     if resolved.target_projects is None:
         selected = _selected_tags_for_single_repo(
             repo_root=resolved.repo_root,
-            options=options,
+            options=resolved_options,
             tag_pattern=maintenance_ctx.tag_pattern if maintenance_ctx else None,
         )
         if maintenance_ctx:
@@ -148,7 +149,7 @@ def _run_release_tag_command(
     for project in resolved.target_projects:
         selected = _selected_tags_for_project(
             repo_root=resolved.repo_root,
-            options=options,
+            options=options,  # raw options: per-project alias_versions fallback applies
             project=project,
         )
         _create_and_push_selected_tags(

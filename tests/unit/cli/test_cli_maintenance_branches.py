@@ -119,6 +119,36 @@ class TestConfirmReleaseStart:
         assert 'Release summary' in captured.out
         confirm.assert_called_once_with('Proceed?')
 
+    def test_confirm_release_start_raises_on_decline(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test that _confirm_release_start raises SystemExit when user declines."""
+        mocker.patch(
+            'releez.subapps.release_start.Confirm.ask',
+            return_value=False,
+        )
+
+        options = release._ReleaseStartOptions(
+            bump='auto',
+            version_override=None,
+            create_pr=False,
+            dry_run=False,
+            base='master',
+            remote='origin',
+            labels=None,
+            title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            github_token=None,
+        )
+
+        with pytest.raises(SystemExit):
+            _confirm_release_start(
+                options=options,
+                version=VersionInfo.parse('1.5.0'),
+                active_branch='support/1.x',
+            )
+
 
 class TestReleaseStartConfirmInteractive:
     """Tests for interactive confirmation in _run_single_repo_release_start."""

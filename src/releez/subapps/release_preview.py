@@ -120,13 +120,11 @@ def _run_release_preview_command(
         action_label='previewing',
     )
 
+    resolved_options = options.resolve(settings)
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
         regex=settings.effective_maintenance_branch_regex,
     )
-    # Resolve alias_versions for single-repo path (settings fallback needed there).
-    # For monorepo, each project supplies its own default via _alias_versions_for_project.
-    resolved_alias = options.alias_versions if options.alias_versions is not None else settings.alias_versions
     if resolved.target_projects is None:
         tag_pattern = maintenance_ctx.tag_pattern if maintenance_ctx else None
         if maintenance_ctx:
@@ -137,15 +135,13 @@ def _run_release_preview_command(
             )
             maintenance_ctx.ensure_version_matches(version)
         markdown = _build_release_preview_markdown_single_repo(
-            options=options.model_copy(
-                update={'alias_versions': resolved_alias},
-            ),
+            options=resolved_options,
             repo_root=resolved.repo_root,
             tag_pattern=tag_pattern,
         )
     else:
         markdown = _build_release_preview_markdown_monorepo(
-            options=options,
+            options=options,  # raw options: per-project alias_versions fallback applies
             repo_root=resolved.repo_root,
             projects=resolved.target_projects,
         )

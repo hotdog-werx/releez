@@ -80,6 +80,26 @@ def test_cli_release_start_passes_version_override(
     assert release_input.version_override == '1.2.3'
 
 
+def test_cli_release_start_uses_default_options_when_no_option_flags(
+    mocker: MockerFixture,
+    invoke: Callable[[object, list[str]], InvokeResult],
+    tmp_path: Path,
+) -> None:
+    _mock_repo_context(mocker, repo_root=tmp_path)
+
+    run_command = mocker.patch(
+        'releez.subapps.release_start._run_release_start_command',
+    )
+    # Invoke with only a selection flag — no _ReleaseStartOptions flags — so options is None
+    result = invoke(cli.app, ['release', 'start', '--project', 'core'])
+
+    assert result.exit_code == 0
+    run_command.assert_called_once()
+    options = run_command.call_args.kwargs['options']
+    assert options.dry_run is False
+    assert options.version_override is None
+
+
 def test_cli_release_start_delegates_to_command_helper(
     mocker: MockerFixture,
     invoke: Callable[[object, list[str]], InvokeResult],

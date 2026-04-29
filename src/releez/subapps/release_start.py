@@ -325,11 +325,21 @@ def _run_release_start_command(  # noqa: PLR0913
 # ---------------------------------------------------------------------------
 
 
+_DEFAULT_START_OPTIONS = _ReleaseStartOptions()
+_DEFAULT_PROJECT_SELECTION = ProjectSelection()
+
+
 @release_app.command
 @handle_releez_errors
 def start(
-    options: Annotated[_ReleaseStartOptions, Parameter(name='*')] | None = None,
-    selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
+    options: Annotated[
+        _ReleaseStartOptions,
+        Parameter(name='*'),
+    ] = _DEFAULT_START_OPTIONS,
+    selection: Annotated[
+        ProjectSelection,
+        Parameter(name='*'),
+    ] = _DEFAULT_PROJECT_SELECTION,
     *,
     maintenance_branch_regex: Annotated[
         str | None,
@@ -349,11 +359,8 @@ def start(
     ] = False,
 ) -> None:
     """Start release branch workflows for single-repo or monorepo projects."""
-    if options is None:
-        options = _ReleaseStartOptions()
-    if selection is None:
-        selection = ProjectSelection()
     settings = ReleezSettings()
+    options = options.resolve(settings)
     effective_regex = maintenance_branch_regex or settings.effective_maintenance_branch_regex
 
     _run_release_start_command(
