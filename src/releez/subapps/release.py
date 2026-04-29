@@ -223,7 +223,9 @@ class ProjectSelection(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class _ReleaseStartOptions(BaseModel):
+class ReleaseStartOptions(BaseModel):
+    """CLI options for the `release start` command."""
+
     bump: Annotated[
         GitCliffBump,
         Parameter(help='Bump mode passed to git-cliff.', show_default=True),
@@ -292,7 +294,7 @@ class _ReleaseStartOptions(BaseModel):
         ),
     ] = None
 
-    def resolve(self, settings: ReleezSettings) -> _ReleaseStartOptions:
+    def resolve(self, settings: ReleezSettings) -> ReleaseStartOptions:
         """Return a copy with all None fields filled from settings."""
         return self.model_copy(
             update={
@@ -312,7 +314,9 @@ class _ReleaseStartOptions(BaseModel):
         return labels.split(',') if labels else []
 
 
-class _ReleaseTagOptions(BaseModel):
+class ReleaseTagOptions(BaseModel):
+    """CLI options for the `release tag` command."""
+
     version_override: Annotated[
         str | None,
         Parameter(
@@ -338,7 +342,8 @@ class _ReleaseTagOptions(BaseModel):
         ),
     ] = None
 
-    def resolve(self, settings: ReleezSettings) -> _ReleaseTagOptions:
+    def resolve(self, settings: ReleezSettings) -> ReleaseTagOptions:
+        """Return a copy with all None fields filled from settings."""
         return self.model_copy(
             update={
                 'alias_versions': self.alias_versions if self.alias_versions is not None else settings.alias_versions,
@@ -347,7 +352,9 @@ class _ReleaseTagOptions(BaseModel):
         )
 
 
-class _ReleasePreviewOptions(BaseModel):
+class ReleasePreviewOptions(BaseModel):
+    """CLI options for the `release preview` command."""
+
     version_override: Annotated[
         str | None,
         Parameter(
@@ -373,7 +380,8 @@ class _ReleasePreviewOptions(BaseModel):
         ),
     ] = None
 
-    def resolve(self, settings: ReleezSettings) -> _ReleasePreviewOptions:
+    def resolve(self, settings: ReleezSettings) -> ReleasePreviewOptions:
+        """Return a copy with all None fields filled from settings."""
         return self.model_copy(
             update={
                 'alias_versions': self.alias_versions if self.alias_versions is not None else settings.alias_versions,
@@ -381,7 +389,9 @@ class _ReleasePreviewOptions(BaseModel):
         )
 
 
-class _ReleaseNotesOptions(BaseModel):
+class ReleaseNotesOptions(BaseModel):
+    """CLI options for the `release notes` command."""
+
     version_override: Annotated[
         str | None,
         Parameter(

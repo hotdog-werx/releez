@@ -17,8 +17,8 @@ from releez.release import StartReleaseInput, StartReleaseResult, start_release
 from releez.settings import ReleezSettings
 from releez.subapps.release import (
     ProjectSelection,
+    ReleaseStartOptions,
     _project_changelog_path,
-    _ReleaseStartOptions,
     _require_single_project_override_scope,
     _resolve_project_release_version,
     _resolve_project_targets_for_command,
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 def _confirm_release_start(
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     version: VersionInfo,
     active_branch: str,
 ) -> None:
@@ -67,7 +67,7 @@ def _confirm_release_start(
 
 def _build_release_start_input_single_repo(
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     settings: ReleezSettings,
     maintenance_ctx: MaintenanceContext | None = None,
 ) -> StartReleaseInput:
@@ -90,7 +90,7 @@ def _build_release_start_input_single_repo(
 
 def _build_release_start_input_project(
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     settings: ReleezSettings,
     project: SubProject,
     repo_root: Path,
@@ -148,7 +148,7 @@ def _emit_release_start_result(
 
 def _run_single_repo_release_start(  # noqa: PLR0913
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     settings: ReleezSettings,
     repo_root: Path,
     active_branch: str | None,
@@ -188,7 +188,7 @@ def _run_single_repo_release_start(  # noqa: PLR0913
 
 def _run_project_release_start(  # noqa: PLR0913
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     settings: ReleezSettings,
     project: SubProject,
     repo_root: Path,
@@ -236,7 +236,7 @@ def _run_project_release_start(  # noqa: PLR0913
 
 def _run_monorepo_release_start(  # noqa: PLR0913
     *,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     settings: ReleezSettings,
     target_projects: list[SubProject],
     repo_root: Path,
@@ -285,7 +285,7 @@ def _run_monorepo_release_start(  # noqa: PLR0913
 def _run_release_start_command(  # noqa: PLR0913
     *,
     settings: ReleezSettings,
-    options: _ReleaseStartOptions,
+    options: ReleaseStartOptions,
     project_names: list[str],
     all_projects: bool,
     maintenance_branch_regex: str,
@@ -325,7 +325,7 @@ def _run_release_start_command(  # noqa: PLR0913
 # ---------------------------------------------------------------------------
 
 
-_DEFAULT_START_OPTIONS = _ReleaseStartOptions()
+_DEFAULT_START_OPTIONS = ReleaseStartOptions()
 _DEFAULT_PROJECT_SELECTION = ProjectSelection()
 
 
@@ -333,7 +333,7 @@ _DEFAULT_PROJECT_SELECTION = ProjectSelection()
 @handle_releez_errors
 def start(
     options: Annotated[
-        _ReleaseStartOptions,
+        ReleaseStartOptions,
         Parameter(name='*'),
     ] = _DEFAULT_START_OPTIONS,
     selection: Annotated[

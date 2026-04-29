@@ -88,7 +88,7 @@ def test_cli_release_start_uses_default_options_when_no_option_flags(
     run_command = mocker.patch(
         'releez.subapps.release_start._run_release_start_command',
     )
-    # Invoke with only a selection flag — no _ReleaseStartOptions flags — so options is None
+    # Invoke with only a selection flag — no ReleaseStartOptions flags — so options is None
     result = invoke(cli.app, ['release', 'start', '--project', 'core'])
 
     assert result.exit_code == 0

@@ -9,10 +9,10 @@ from releez.cli_utils import _resolve_release_version
 from releez.settings import ReleezSettings
 from releez.subapps.release import (
     ProjectSelection,
+    ReleasePreviewOptions,
     _alias_versions_for_project,
     _emit_or_write_output,
     _project_semver_version,
-    _ReleasePreviewOptions,
     _require_single_project_override_scope,
     _resolve_project_release_version,
     _resolve_project_targets_for_command,
@@ -44,7 +44,7 @@ def _render_preview_section(
 
 def _build_release_preview_markdown_single_repo(
     *,
-    options: _ReleasePreviewOptions,
+    options: ReleasePreviewOptions,
     repo_root: Path,
     tag_pattern: str | None = None,
 ) -> str:
@@ -67,7 +67,7 @@ def _build_release_preview_markdown_single_repo(
 
 def _build_release_preview_markdown_monorepo(
     *,
-    options: _ReleasePreviewOptions,
+    options: ReleasePreviewOptions,
     repo_root: Path,
     projects: list[SubProject],
 ) -> str:
@@ -105,7 +105,7 @@ def _build_release_preview_markdown_monorepo(
 def _run_release_preview_command(
     *,
     settings: ReleezSettings,
-    options: _ReleasePreviewOptions,
+    options: ReleasePreviewOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
@@ -152,12 +152,12 @@ def _run_release_preview_command(
 @release_app.command
 @handle_releez_errors
 def preview(
-    options: Annotated[_ReleasePreviewOptions, Parameter(name='*')] | None = None,
+    options: Annotated[ReleasePreviewOptions, Parameter(name='*')] | None = None,
     selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
     """Preview the version and tags that would be published."""
     if options is None:
-        options = _ReleasePreviewOptions()
+        options = ReleasePreviewOptions()
     if selection is None:
         selection = ProjectSelection()
     settings = ReleezSettings()

@@ -11,9 +11,9 @@ from releez.git_repo import create_tags, fetch, push_tags
 from releez.settings import ReleezSettings
 from releez.subapps.release import (
     ProjectSelection,
+    ReleaseTagOptions,
     _alias_versions_for_project,
     _project_semver_version,
-    _ReleaseTagOptions,
     _require_single_project_override_scope,
     _resolve_project_release_version,
     _resolve_project_targets_for_command,
@@ -54,7 +54,7 @@ def _create_and_push_selected_tags(
 def _selected_tags_for_single_repo(
     *,
     repo_root: Path,
-    options: _ReleaseTagOptions,
+    options: ReleaseTagOptions,
     tag_pattern: str | None = None,
 ) -> list[str]:
     version = _resolve_release_version(
@@ -72,7 +72,7 @@ def _selected_tags_for_single_repo(
 def _selected_tags_for_project(
     *,
     repo_root: Path,
-    options: _ReleaseTagOptions,
+    options: ReleaseTagOptions,
     project: SubProject,
 ) -> list[str]:
     version = _resolve_project_release_version(
@@ -105,7 +105,7 @@ def _emit_tags(
 def _run_release_tag_command(
     *,
     settings: ReleezSettings,
-    options: _ReleaseTagOptions,
+    options: ReleaseTagOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
@@ -163,12 +163,12 @@ def _run_release_tag_command(
 @release_app.command
 @handle_releez_errors
 def tag(
-    options: Annotated[_ReleaseTagOptions, Parameter(name='*')] | None = None,
+    options: Annotated[ReleaseTagOptions, Parameter(name='*')] | None = None,
     selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
     """Tag a release commit and push the tags to the remote."""
     if options is None:
-        options = _ReleaseTagOptions()
+        options = ReleaseTagOptions()
     if selection is None:
         selection = ProjectSelection()
     settings = ReleezSettings()

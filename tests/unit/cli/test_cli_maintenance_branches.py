@@ -97,7 +97,7 @@ class TestConfirmReleaseStart:
             return_value=True,
         )
 
-        options = release._ReleaseStartOptions(
+        options = release.ReleaseStartOptions(
             bump='auto',
             version_override=None,
             create_pr=False,
@@ -129,7 +129,7 @@ class TestConfirmReleaseStart:
             return_value=False,
         )
 
-        options = release._ReleaseStartOptions(
+        options = release.ReleaseStartOptions(
             bump='auto',
             version_override=None,
             create_pr=False,

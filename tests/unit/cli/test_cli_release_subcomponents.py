@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-def _make_start_options() -> release._ReleaseStartOptions:
-    return release._ReleaseStartOptions(
+def _make_start_options() -> release.ReleaseStartOptions:
+    return release.ReleaseStartOptions(
         bump='auto',
         version_override=None,
         create_pr=False,
@@ -224,7 +224,7 @@ def test_run_release_preview_command_uses_single_repo_builder(
             alias_versions=AliasVersions.none,
             effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
         ),
-        options=release._ReleasePreviewOptions(
+        options=release.ReleasePreviewOptions(
             version_override='1.2.3',
             alias_versions=AliasVersions.none,
             output=None,
@@ -234,7 +234,7 @@ def test_run_release_preview_command_uses_single_repo_builder(
     )
 
     build_single.assert_called_once_with(
-        options=release._ReleasePreviewOptions(
+        options=release.ReleasePreviewOptions(
             version_override='1.2.3',
             alias_versions=AliasVersions.none,
             output=None,
@@ -354,7 +354,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
         ),
     )
 
-    options = release._ReleaseStartOptions(
+    options = release.ReleaseStartOptions(
         bump='auto',
         version_override=None,
         create_pr=False,

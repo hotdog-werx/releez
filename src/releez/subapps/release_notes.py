@@ -10,9 +10,9 @@ from releez.cliff import GitCliff
 from releez.settings import ReleezSettings
 from releez.subapps.release import (
     ProjectSelection,
+    ReleaseNotesOptions,
     _emit_or_write_output,
     _project_semver_version,
-    _ReleaseNotesOptions,
     _require_single_project_override_scope,
     _resolve_project_release_version,
     _resolve_project_targets_for_command,
@@ -82,7 +82,7 @@ def _generate_release_notes_monorepo(
 def _run_release_notes_command(
     *,
     settings: ReleezSettings,
-    options: _ReleaseNotesOptions,
+    options: ReleaseNotesOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
@@ -131,12 +131,12 @@ def _run_release_notes_command(
 @release_app.command
 @handle_releez_errors
 def notes(
-    options: Annotated[_ReleaseNotesOptions, Parameter(name='*')] | None = None,
+    options: Annotated[ReleaseNotesOptions, Parameter(name='*')] | None = None,
     selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
     """Generate the new changelog section for the release."""
     if options is None:
-        options = _ReleaseNotesOptions()
+        options = ReleaseNotesOptions()
     if selection is None:
         selection = ProjectSelection()
     settings = ReleezSettings()
