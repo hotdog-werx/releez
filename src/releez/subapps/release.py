@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-import typer
-from click.core import ParameterSource
+from cyclopts import App, Parameter
+from pydantic import BaseModel, model_validator
 
 from releez.cli_utils import (
     _exit,
@@ -13,7 +12,9 @@ from releez.cli_utils import (
     _resolve_release_version,
 )
 from releez.cliff import GitCliffBump  # noqa: TC001
+from releez.console import console
 from releez.git_repo import open_repo
+from releez.version_tags import AliasVersions  # noqa: TC001
 
 if TYPE_CHECKING:
     from git import Repo
@@ -21,9 +22,11 @@ if TYPE_CHECKING:
 
     from releez.settings import ReleezSettings
     from releez.subproject import SubProject
-    from releez.version_tags import AliasVersions
 
-release_app = typer.Typer(help='Release workflows (changelog + branch + PR).')
+release_app = App(
+    name='release',
+    help='Release workflows (changelog + branch + PR).',
+)
 
 
 # ---------------------------------------------------------------------------
@@ -67,22 +70,37 @@ def _resolve_target_projects(
     )
 
 
-@dataclass(frozen=True)
 class _ResolvedProjectTargets:
-    settings: ReleezSettings
-    repo: Repo
-    repo_root: Path
-    target_projects: list[SubProject] | None
-    active_branch: str | None = None
+    __slots__ = (
+        'active_branch',
+        'repo',
+        'repo_root',
+        'settings',
+        'target_projects',
+    )
+
+    def __init__(
+        self,
+        *,
+        settings: ReleezSettings,
+        repo: Repo,
+        repo_root: Path,
+        target_projects: list[SubProject] | None,
+        active_branch: str | None = None,
+    ) -> None:
+        self.settings = settings
+        self.repo = repo
+        self.repo_root = repo_root
+        self.target_projects = target_projects
+        self.active_branch = active_branch
 
 
 def _resolve_project_targets_for_command(
     *,
-    ctx: typer.Context,
+    settings: ReleezSettings,
     project_names: list[str],
     all_projects: bool,
 ) -> _ResolvedProjectTargets:
-    settings: ReleezSettings = ctx.obj
     ctx_repo = open_repo()
     repo, info = ctx_repo.repo, ctx_repo.info
     target_projects = _resolve_target_projects(
@@ -115,14 +133,6 @@ def _require_single_project_override_scope(
     )
 
 
-def _normalize_project_names(project_names: list[str] | None) -> list[str]:
-    return project_names or []
-
-
-def _comma_separated_labels(labels: str) -> list[str]:
-    return labels.split(',') if labels else []
-
-
 def _resolve_project_release_version(
     *,
     repo_root: Path,
@@ -151,12 +161,14 @@ def _project_semver_version(
 
 def _alias_versions_for_project(
     *,
-    ctx: typer.Context,
-    cli_alias_versions: AliasVersions,
+    cli_alias_versions: AliasVersions | None,
     project: SubProject,
 ) -> AliasVersions:
-    source = ctx.get_parameter_source('alias_versions')
-    if source == ParameterSource.COMMANDLINE:
+    """Return the alias version strategy for a project.
+
+    Explicit CLI value wins; None falls back to the project's own config.
+    """
+    if cli_alias_versions is not None:
         return cli_alias_versions
     return project.alias_versions
 
@@ -167,46 +179,222 @@ def _emit_or_write_output(
     content: str,
 ) -> None:
     if output is None:
-        typer.echo(content)
+        console.print(content, markup=False)
         return
     output_path = Path(output)
     output_path.write_text(content, encoding='utf-8')
 
 
 # ---------------------------------------------------------------------------
-# Options dataclasses
+# Shared CLI option models (used by multiple commands)
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _ReleaseStartOptions:
-    bump: GitCliffBump
-    version_override: str | None
-    create_pr: bool
-    dry_run: bool
-    base: str
-    remote: str
-    labels: list[str]
-    title_prefix: str
-    changelog_path: str
-    github_token: str | None
+class ProjectSelection(BaseModel):
+    """Monorepo project selection options shared across release commands."""
+
+    project_names: Annotated[
+        list[str],
+        Parameter(
+            '--project',
+            help='Project name (repeatable, monorepo only).',
+            show_default=False,
+        ),
+    ] = []
+    all_projects: Annotated[
+        bool,
+        Parameter(
+            '--all',
+            help='Target all configured projects (monorepo only).',
+            show_default=True,
+        ),
+    ] = False
+
+    @model_validator(mode='after')
+    def _check_mutual_exclusion(self) -> ProjectSelection:
+        if self.project_names and self.all_projects:
+            msg = 'Cannot use --project and --all together.'
+            raise _exit(msg)
+        return self
 
 
-@dataclass(frozen=True)
-class _ReleaseTagOptions:
-    version_override: str | None
-    alias_versions: AliasVersions
-    remote: str
+# ---------------------------------------------------------------------------
+# Per-command options models
+# ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _ReleasePreviewOptions:
-    version_override: str | None
-    alias_versions: AliasVersions
-    output: Path | None
+class _ReleaseStartOptions(BaseModel):
+    bump: Annotated[
+        GitCliffBump,
+        Parameter(help='Bump mode passed to git-cliff.', show_default=True),
+    ] = 'auto'
+    version_override: Annotated[
+        str | None,
+        Parameter(
+            '--version-override',
+            help='Override version instead of computing via git-cliff.',
+            show_default=False,
+        ),
+    ] = None
+    create_pr: Annotated[
+        bool | None,
+        Parameter(
+            help='Create a GitHub PR (requires token). [default: from config create-pr; fallback: false]',
+            show_default=False,
+        ),
+    ] = None
+    dry_run: Annotated[
+        bool,
+        Parameter(help='Compute version and notes without changing the repo.'),
+    ] = False
+    base: Annotated[
+        str | None,
+        Parameter(
+            help='Base branch for the release PR. [default: from config base-branch; fallback: master]',
+            show_default=False,
+        ),
+    ] = None
+    remote: Annotated[
+        str | None,
+        Parameter(
+            help='Remote name to use. [default: from config git-remote; fallback: origin]',
+            show_default=False,
+        ),
+    ] = None
+    labels: Annotated[
+        str | None,
+        Parameter(
+            help='Comma-separated label(s) to add to the PR. [default: from config pr-labels; fallback: release]',
+            show_default=False,
+        ),
+    ] = None
+    title_prefix: Annotated[
+        str | None,
+        Parameter(
+            help='Prefix for PR title. [default: from config pr-title-prefix; fallback: "chore(release): "]',
+            show_default=False,
+        ),
+    ] = None
+    changelog_path: Annotated[
+        str | None,
+        Parameter(
+            ('--changelog-path', '--changelog'),
+            help='Changelog file to prepend to. [default: from config changelog-path; fallback: CHANGELOG.md]',
+            show_default=False,
+        ),
+    ] = None
+    github_token: Annotated[
+        str | None,
+        Parameter(
+            env_var=['RELEEZ_GITHUB_TOKEN', 'GITHUB_TOKEN'],
+            help='GitHub token for PR creation (prefer RELEEZ_GITHUB_TOKEN; falls back to GITHUB_TOKEN).',
+            show_default=False,
+        ),
+    ] = None
+
+    def resolve(self, settings: ReleezSettings) -> _ReleaseStartOptions:
+        """Return a copy with all None fields filled from settings."""
+        return self.model_copy(
+            update={
+                'base': self.base if self.base is not None else settings.base_branch,
+                'remote': self.remote if self.remote is not None else settings.git_remote,
+                'labels': self.labels if self.labels is not None else settings.pr_labels,
+                'title_prefix': self.title_prefix if self.title_prefix is not None else settings.pr_title_prefix,
+                'changelog_path': self.changelog_path if self.changelog_path is not None else settings.changelog_path,
+                'create_pr': self.create_pr if self.create_pr is not None else settings.create_pr,
+            },
+        )
+
+    @property
+    def labels_list(self) -> list[str]:
+        """Split comma-separated labels string into a list."""
+        labels = self.labels or ''
+        return labels.split(',') if labels else []
 
 
-@dataclass(frozen=True)
-class _ReleaseNotesOptions:
-    version_override: str | None
-    output: Path | None
+class _ReleaseTagOptions(BaseModel):
+    version_override: Annotated[
+        str | None,
+        Parameter(
+            '--version-override',
+            help='Override release version to tag (x.y.z).',
+            show_default=False,
+        ),
+    ] = None
+    alias_versions: Annotated[
+        AliasVersions | None,
+        Parameter(
+            '--alias-versions',
+            help='Also create major/minor tags (v2, v2.3). [default: from config alias-versions; fallback: none]',
+            show_default=False,
+        ),
+    ] = None
+    remote: Annotated[
+        str | None,
+        Parameter(
+            '--remote',
+            help='Remote to push tags to. [default: from config git-remote; fallback: origin]',
+            show_default=False,
+        ),
+    ] = None
+
+    def resolve(self, settings: ReleezSettings) -> _ReleaseTagOptions:
+        return self.model_copy(
+            update={
+                'alias_versions': self.alias_versions if self.alias_versions is not None else settings.alias_versions,
+                'remote': self.remote if self.remote is not None else settings.git_remote,
+            },
+        )
+
+
+class _ReleasePreviewOptions(BaseModel):
+    version_override: Annotated[
+        str | None,
+        Parameter(
+            '--version-override',
+            help='Override release version to preview (x.y.z).',
+            show_default=False,
+        ),
+    ] = None
+    alias_versions: Annotated[
+        AliasVersions | None,
+        Parameter(
+            '--alias-versions',
+            help='Include major/minor tags in the preview. [default: from config alias-versions; fallback: none]',
+            show_default=False,
+        ),
+    ] = None
+    output: Annotated[
+        Path | None,
+        Parameter(
+            '--output',
+            help='Write markdown preview to a file instead of stdout.',
+            show_default=False,
+        ),
+    ] = None
+
+    def resolve(self, settings: ReleezSettings) -> _ReleasePreviewOptions:
+        return self.model_copy(
+            update={
+                'alias_versions': self.alias_versions if self.alias_versions is not None else settings.alias_versions,
+            },
+        )
+
+
+class _ReleaseNotesOptions(BaseModel):
+    version_override: Annotated[
+        str | None,
+        Parameter(
+            '--version-override',
+            help='Override release version for the notes section (x.y.z).',
+            show_default=False,
+        ),
+    ] = None
+    output: Annotated[
+        Path | None,
+        Parameter(
+            '--output',
+            help='Write release notes to a file instead of stdout.',
+            show_default=False,
+        ),
+    ] = None

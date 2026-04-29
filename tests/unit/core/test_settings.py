@@ -11,6 +11,7 @@ from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
 
@@ -222,7 +223,7 @@ class TestSelectProjects:
         self,
         mocker: MockerFixture,
         *,
-        subprojects: list[object],
+        subprojects: list[MagicMock],
     ) -> ReleezSettings:
         """Return a ReleezSettings instance with get_subprojects mocked."""
         settings = mocker.MagicMock(spec=ReleezSettings)

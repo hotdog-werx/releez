@@ -1,178 +1,171 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Annotated
+from collections.abc import Sequence  # noqa: TC003
+from typing import Annotated
 
-import typer
+from cyclopts import App, Parameter
 
+from releez.console import console, err_console
 from releez.git_repo import detect_changed_projects, open_repo
+from releez.settings import ReleezSettings
+from releez.subproject import SubProject  # noqa: TC001
 from releez.utils import handle_releez_errors
 
-if TYPE_CHECKING:
-    from releez.settings import ReleezSettings
-    from releez.subproject import SubProject
-
-projects_app = typer.Typer(help='Monorepo project utilities.')
+projects_app = App(name='projects', help='Monorepo project utilities.')
 
 
 def _output_changed_projects(
-    changed: list[SubProject],
+    changed: Sequence[SubProject],
     format_output: str,
 ) -> None:
-    """Output changed projects in the requested format.
-
-    Args:
-        changed: Projects with unreleased changes.
-        format_output: Output format, "json" or "text".
-    """
+    """Output changed projects in the requested format."""
     if format_output == 'json':
-        # include key matches GitHub Actions matrix strategy format
         output = {
             'projects': [p.name for p in changed],
             'include': [{'project': p.name} for p in changed],
         }
-        typer.echo(json.dumps(output, indent=2))
+        console.print(json.dumps(output, indent=2), markup=False)
     elif not changed:
-        typer.secho(
-            'No projects have unreleased changes.',
-            fg=typer.colors.GREEN,
-        )
+        console.print('No projects have unreleased changes.', style='green')
     else:
-        typer.secho(
+        console.print(
             f'Projects with unreleased changes ({len(changed)}):',
-            fg=typer.colors.BLUE,
-            bold=True,
+            style='bold blue',
         )
         for project in changed:
-            typer.echo(f'  • {project.name}')
+            console.print(f'  • {project.name}', markup=False)
 
 
-@projects_app.command('list')
-def projects_list(ctx: typer.Context) -> None:
+@projects_app.command
+def list() -> None:  # noqa: A001
     """List configured monorepo projects."""
-    settings: ReleezSettings = ctx.obj
+    settings = ReleezSettings()
 
     if not settings.projects:
-        typer.secho(
+        console.print(
             'No projects configured. This is a single-repo setup.',
-            fg=typer.colors.YELLOW,
+            style='yellow',
         )
         return
 
-    typer.secho(
+    console.print(
         f'Configured projects ({len(settings.projects)}):',
-        fg=typer.colors.BLUE,
-        bold=True,
+        style='bold blue',
     )
     for project_config in settings.projects:
-        typer.echo(f'  • {project_config.name}')
-        typer.echo(f'    Path: {project_config.path}')
-        typer.echo(f'    Tag prefix: {project_config.tag_prefix or "(none)"}')
-        typer.echo(f'    Changelog: {project_config.changelog_path}')
+        console.print(f'  • {project_config.name}', markup=False)
+        console.print(f'    Path: {project_config.path}', markup=False)
+        console.print(
+            f'    Tag prefix: {project_config.tag_prefix or "(none)"}',
+            markup=False,
+        )
+        console.print(
+            f'    Changelog: {project_config.changelog_path}',
+            markup=False,
+        )
         if project_config.include_paths:
-            typer.echo(
+            console.print(
                 f'    Include paths: {", ".join(project_config.include_paths)}',
+                markup=False,
             )
-        typer.echo()
+        console.print('')
 
 
-@projects_app.command('changed')
+@projects_app.command
 @handle_releez_errors
-def projects_changed(
-    ctx: typer.Context,
+def changed(
     *,
     format_output: Annotated[
         str,
-        typer.Option(
+        Parameter(
             '--format',
-            help='Output format: text or json',
+            help='Output format: text or json.',
             show_default=True,
         ),
     ] = 'text',
     base: Annotated[
         str | None,
-        typer.Option(
+        Parameter(
             '--base',
-            help='Base branch to compare against (defaults to configured base-branch)',
+            help='Base branch to compare against (defaults to configured base-branch).',
             show_default=False,
         ),
     ] = None,
 ) -> None:
     """Detect projects that have unreleased changes."""
-    settings: ReleezSettings = ctx.obj
+    settings = ReleezSettings()
 
     if not settings.projects:
-        typer.secho(
+        err_console.print(
             'No projects configured. This is a single-repo setup.',
-            err=True,
-            fg=typer.colors.YELLOW,
+            style='yellow',
         )
-        raise typer.Exit(code=1)
+        raise SystemExit(1)
 
     ctx_repo = open_repo()
     repo, info = ctx_repo.repo, ctx_repo.info
     base_branch = base or settings.base_branch
 
     subprojects = settings.get_subprojects(repo_root=info.root)
-
-    changed = detect_changed_projects(
+    changed_projects = detect_changed_projects(
         repo=repo,
         base_branch=base_branch,
         projects=subprojects,
     )
-    _output_changed_projects(changed, format_output)
+    _output_changed_projects(changed_projects, format_output)
 
 
-@projects_app.command('info')
-def projects_info(
-    ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help='Project name')],
+@projects_app.command
+def info(
+    name: Annotated[str, Parameter(help='Project name.')],
 ) -> None:
     """Show configuration details for one project."""
-    settings: ReleezSettings = ctx.obj
+    settings = ReleezSettings()
 
     if not settings.projects:
-        typer.secho(
+        err_console.print(
             'No projects configured. This is a single-repo setup.',
-            err=True,
-            fg=typer.colors.YELLOW,
+            style='yellow',
         )
-        raise typer.Exit(code=1)
+        raise SystemExit(1)
 
-    # Find the project
     project_config = next(
         (p for p in settings.projects if p.name == name),
         None,
     )
     if not project_config:
-        typer.secho(
+        err_console.print(
             f'Project "{name}" not found.',
-            err=True,
-            fg=typer.colors.RED,
+            style='bold red',
+            markup=False,
         )
         available = ', '.join(p.name for p in settings.projects)
-        typer.secho(f'Available projects: {available}', err=True)
-        raise typer.Exit(code=1)
+        err_console.print(f'Available projects: {available}', markup=False)
+        raise SystemExit(1)
 
-    # Display detailed info
-    typer.secho(
+    console.print(
         f'Project: {project_config.name}',
-        fg=typer.colors.BLUE,
-        bold=True,
+        style='bold blue',
+        markup=False,
     )
-    typer.echo(f'  Path: {project_config.path}')
-    typer.echo(f'  Tag prefix: {project_config.tag_prefix or "(none)"}')
-    typer.echo(f'  Changelog: {project_config.changelog_path}')
-    typer.echo(
+    console.print(f'  Path: {project_config.path}', markup=False)
+    console.print(
+        f'  Tag prefix: {project_config.tag_prefix or "(none)"}',
+        markup=False,
+    )
+    console.print(f'  Changelog: {project_config.changelog_path}', markup=False)
+    console.print(
         f'  Alias versions: {project_config.alias_versions or settings.alias_versions}',
+        markup=False,
     )
 
     if project_config.include_paths:
-        typer.echo('  Include paths:')
+        console.print('  Include paths:')
         for path in project_config.include_paths:
-            typer.echo(f'    - {path}')
+            console.print(f'    - {path}', markup=False)
 
     if project_config.hooks.post_changelog:
-        typer.echo('  Post-changelog hooks:')
+        console.print('  Post-changelog hooks:')
         for hook in project_config.hooks.post_changelog:
-            typer.echo(f'    - {" ".join(hook)}')
+            console.print(f'    - {" ".join(hook)}', markup=False)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
-import typer
+from cyclopts import App, Parameter
+from pydantic import BaseModel
 
 from releez.artifact_version import (
     ArtifactVersionInput,
@@ -17,48 +17,58 @@ from releez.cli_utils import (
     _project_include_paths,
     _resolve_release_version,
 )
+from releez.console import console, err_console
 from releez.git_repo import open_repo
+from releez.settings import ReleezSettings
 from releez.utils import handle_releez_errors
 from releez.version_tags import AliasVersions, compute_version_tags, select_tags
 
 if TYPE_CHECKING:
-    from releez.settings import ReleezSettings
     from releez.subproject import SubProject
 
-version_app = typer.Typer(help='Version utilities for CI/artifacts.')
+version_app = App(name='version', help='Version utilities for CI/artifacts.')
 
 
-@dataclass(frozen=True)
-class _VersionArtifactArgs:
-    """CLI arguments for the `version artifact` command."""
+class PrereleaseOptions(BaseModel):
+    """Prerelease version options."""
 
-    scheme: ArtifactVersionScheme
-    version_override: str | None
-    is_full_release: bool
-    prerelease_type: PrereleaseType
-    prerelease_number: int | None
-    build_number: int | None
+    prerelease_type: Annotated[
+        PrereleaseType,
+        Parameter(
+            help='Prerelease label (alpha, beta, rc).',
+            show_default=True,
+        ),
+    ] = PrereleaseType.alpha
+    prerelease_number: Annotated[
+        int | None,
+        Parameter(
+            help='Optional prerelease number (e.g. PR number for alpha123).',
+            show_default=False,
+        ),
+    ] = None
+    build_number: Annotated[
+        int | None,
+        Parameter(
+            help='Build number for prerelease builds.',
+            show_default=False,
+        ),
+    ] = None
 
 
 def _build_artifact_version_input(
     *,
-    args: _VersionArtifactArgs,
+    scheme: ArtifactVersionScheme,
+    version_override: str | None,
+    is_full_release: bool,
+    prerelease: PrereleaseOptions,
 ) -> ArtifactVersionInput:
-    """Convert CLI args dataclass to ArtifactVersionInput.
-
-    Args:
-        args: CLI arguments for the version artifact command.
-
-    Returns:
-        Input dataclass for compute_artifact_version.
-    """
     return ArtifactVersionInput(
-        scheme=args.scheme,
-        version_override=args.version_override,
-        is_full_release=args.is_full_release,
-        prerelease_type=args.prerelease_type,
-        prerelease_number=args.prerelease_number,
-        build_number=args.build_number,
+        scheme=scheme,
+        version_override=version_override,
+        is_full_release=is_full_release,
+        prerelease_type=prerelease.prerelease_type,
+        prerelease_number=prerelease.prerelease_number,
+        build_number=prerelease.build_number,
     )
 
 
@@ -66,58 +76,25 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
     *,
     version_override: str | None,
     is_full_release: bool,
-    prerelease_type: PrereleaseType,
-    prerelease_number: int | None,
-    build_number: int | None,
+    prerelease: PrereleaseOptions,
     alias_versions: AliasVersions,
     project_name: str | None = None,
     tag_prefix: str = '',
 ) -> None:
-    """Emit all artifact version schemes as JSON.
-
-    Outputs JSON with keys for each scheme (semver, docker, pep440)
-    and values as arrays of version strings including aliases.
-
-    For each scheme, computes the version string and any alias versions
-    (if full release). PEP440 never includes aliases. Prerelease builds
-    never include aliases regardless of scheme.
-
-    When project_name is provided, also emits "release_version" (the full
-    prefixed tag, e.g. "core-0.2.0") and "project" keys in the JSON output.
-
-    Args:
-        version_override: Version to use instead of computing from git-cliff.
-        is_full_release: Whether this is a full release (no prerelease markers).
-        prerelease_type: Prerelease label (alpha, beta, rc).
-        prerelease_number: Prerelease number.
-        build_number: Build identifier for prereleases.
-        alias_versions: Alias version strategy (none, major, minor).
-        project_name: Project name for monorepo releases.
-        tag_prefix: Tag prefix for the project (e.g. "core-").
-    """
     result: dict[str, list[str] | str] = {}
 
     for scheme_value in ArtifactVersionScheme:
-        artifact_args = _VersionArtifactArgs(
+        artifact_input = _build_artifact_version_input(
             scheme=scheme_value,
             version_override=version_override,
             is_full_release=is_full_release,
-            prerelease_type=prerelease_type,
-            prerelease_number=prerelease_number,
-            build_number=build_number,
+            prerelease=prerelease,
         )
-        artifact_input = _build_artifact_version_input(args=artifact_args)
         artifact_version = compute_artifact_version(artifact_input)
 
-        # Get the list of versions for this scheme
-        if scheme_value == ArtifactVersionScheme.pep440:
-            # PEP440 doesn't support alias versions
-            result[scheme_value.value] = [artifact_version]
-        elif alias_versions == AliasVersions.none or not is_full_release:
-            # No aliases requested or not a full release
+        if scheme_value == ArtifactVersionScheme.pep440 or alias_versions == AliasVersions.none or not is_full_release:
             result[scheme_value.value] = [artifact_version]
         else:
-            # Full release with alias versions (semver/docker)
             tags = compute_version_tags(version=artifact_version)
             result[scheme_value.value] = select_tags(
                 tags=tags,
@@ -128,7 +105,7 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
         result['release_version'] = f'{tag_prefix}{version_override}'
         result['project'] = project_name
 
-    typer.echo(json.dumps(result, indent=2))
+    console.print(json.dumps(result, indent=2), markup=False)
 
 
 def _emit_artifact_version_output(
@@ -138,43 +115,30 @@ def _emit_artifact_version_output(
     is_full_release: bool,
     alias_versions: AliasVersions,
 ) -> None:
-    """Emit artifact version(s) to stdout with warnings for invalid combinations.
-
-    Prints one version per line. For alias versions, prints each alias
-    on a separate line. Warns to stderr if alias options are inapplicable.
-
-    Args:
-        artifact_version: Computed version string.
-        scheme: Output scheme (semver, docker, pep440).
-        is_full_release: Whether this is a full release.
-        alias_versions: Alias version strategy.
-    """
     if scheme == ArtifactVersionScheme.pep440:
         if alias_versions != AliasVersions.none:
-            typer.secho(
+            err_console.print(
                 'Note: --alias-versions is ignored for --scheme pep440.',
-                err=True,
-                fg=typer.colors.YELLOW,
+                style='yellow',
             )
-        typer.echo(artifact_version)
+        console.print(artifact_version, markup=False)
         return
 
     if alias_versions == AliasVersions.none:
-        typer.echo(artifact_version)
+        console.print(artifact_version, markup=False)
         return
 
     if not is_full_release:
-        typer.secho(
+        err_console.print(
             'Note: --alias-versions is only applied for full releases; ignoring because --is-full-release is not set.',
-            err=True,
-            fg=typer.colors.YELLOW,
+            style='yellow',
         )
-        typer.echo(artifact_version)
+        console.print(artifact_version, markup=False)
         return
 
     tags = compute_version_tags(version=artifact_version)
     for tag in select_tags(tags=tags, aliases=alias_versions):
-        typer.echo(tag)
+        console.print(tag, markup=False)
 
 
 def _find_project_for_artifact(
@@ -182,18 +146,6 @@ def _find_project_for_artifact(
     subprojects: list[SubProject],
     project_name: str,
 ) -> SubProject:
-    """Find a SubProject by name for version artifact computation.
-
-    Args:
-        subprojects: List of configured subprojects.
-        project_name: Name of the project to find.
-
-    Returns:
-        The matching SubProject.
-
-    Raises:
-        SystemExit: If the project is not found or no projects are configured.
-    """
     if not subprojects:
         msg = 'No projects configured. Remove --project or add [[tool.releez.projects]] to config.'
         raise _exit(msg)
@@ -213,11 +165,6 @@ def _resolve_artifact_project_context(
     project_name: str | None,
     version_override: str | None,
 ) -> tuple[str, str | None]:
-    """Validate monorepo mode and resolve tag prefix and version for version artifact.
-
-    Returns:
-        (tag_prefix, resolved_version_override)
-    """
     if project_name is None:
         if settings.projects:
             msg = 'Monorepo projects are configured. Use --project <name> to specify which project to version.'
@@ -245,69 +192,45 @@ def _resolve_artifact_project_context(
     return project.tag_prefix, version_override
 
 
-@version_app.command('artifact')
+@version_app.command
 @handle_releez_errors
-def version_artifact(  # noqa: PLR0913
-    ctx: typer.Context,
+def artifact(  # noqa: PLR0913
+    prerelease: Annotated[PrereleaseOptions, Parameter(name='*')] | None = None,
     *,
     scheme: Annotated[
         ArtifactVersionScheme | None,
-        typer.Option(
+        Parameter(
             '--scheme',
-            help='Output scheme for the artifact version. If not specified, outputs all schemes as JSON.',
+            help='Output scheme. If not specified, outputs all schemes as JSON.',
             show_default=False,
-            case_sensitive=False,
         ),
     ] = None,
     is_full_release: Annotated[
         bool,
-        typer.Option(
+        Parameter(
             help='If true, output a full release version without prerelease markers.',
             show_default=True,
         ),
     ] = False,
-    prerelease_type: Annotated[
-        PrereleaseType,
-        typer.Option(
-            help='Prerelease label (alpha, beta, rc).',
-            show_default=True,
-            case_sensitive=False,
-        ),
-    ] = PrereleaseType.alpha,
-    prerelease_number: Annotated[
-        int | None,
-        typer.Option(
-            help='Optional prerelease number (e.g. PR number for alpha123).',
-            show_default=False,
-        ),
-    ] = None,
-    build_number: Annotated[
-        int | None,
-        typer.Option(
-            help='Build number for prerelease builds.',
-            show_default=False,
-        ),
-    ] = None,
     version_override: Annotated[
         str | None,
-        typer.Option(
+        Parameter(
             '--version-override',
             help='Override version instead of computing via git-cliff.',
             show_default=False,
         ),
     ] = None,
     alias_versions: Annotated[
-        AliasVersions,
-        typer.Option(
+        AliasVersions | None,
+        Parameter(
             '--alias-versions',
-            help='For full releases, also output major/minor tags.',
-            show_default=True,
-            case_sensitive=False,
+            help='Alias tags for full releases (major/minor). [default: from config alias-versions; fallback: none]',
+            show_default=False,
         ),
-    ] = AliasVersions.none,
+    ] = None,
     project_name: Annotated[
         str | None,
-        typer.Option(
+        Parameter(
             '--project',
             help='Project name for monorepo version detection (monorepo only).',
             show_default=False,
@@ -315,41 +238,37 @@ def version_artifact(  # noqa: PLR0913
     ] = None,
 ) -> None:
     """Compute an artifact version string."""
-    settings: ReleezSettings = ctx.obj
-    resolved_tag_prefix, version_override = _resolve_artifact_project_context(
+    if prerelease is None:
+        prerelease = PrereleaseOptions()
+    settings = ReleezSettings()
+    resolved_alias_versions = alias_versions if alias_versions is not None else settings.alias_versions
+    resolved_tag_prefix, resolved_version_override = _resolve_artifact_project_context(
         settings=settings,
         project_name=project_name,
         version_override=version_override,
     )
 
     if scheme is None:
-        # Output all schemes as JSON
         _emit_all_artifact_versions_json(
-            version_override=version_override,
+            version_override=resolved_version_override,
             is_full_release=is_full_release,
-            prerelease_type=prerelease_type,
-            prerelease_number=prerelease_number,
-            build_number=build_number,
-            alias_versions=alias_versions,
+            prerelease=prerelease,
+            alias_versions=resolved_alias_versions,
             project_name=project_name,
             tag_prefix=resolved_tag_prefix,
         )
         return
 
-    # Output single scheme (scheme is guaranteed non-None here)
-    artifact_args = _VersionArtifactArgs(
+    artifact_input = _build_artifact_version_input(
         scheme=scheme,
-        version_override=version_override,
+        version_override=resolved_version_override,
         is_full_release=is_full_release,
-        prerelease_type=prerelease_type,
-        prerelease_number=prerelease_number,
-        build_number=build_number,
+        prerelease=prerelease,
     )
-    artifact_input = _build_artifact_version_input(args=artifact_args)
     artifact_version = compute_artifact_version(artifact_input)
     _emit_artifact_version_output(
         artifact_version=artifact_version,
         scheme=scheme,
         is_full_release=is_full_release,
-        alias_versions=alias_versions,
+        alias_versions=resolved_alias_versions,
     )

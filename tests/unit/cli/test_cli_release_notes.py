@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import ReleezError
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def _mock_settings(
     mocker: MockerFixture,
     *,
-    projects: list[object],
+    projects: list[MagicMock],
 ) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
@@ -32,7 +32,10 @@ def _mock_settings(
         hooks=hooks,
         projects=projects,
     )
-    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    mocker.patch(
+        'releez.subapps.release_notes.ReleezSettings',
+        return_value=mock_settings,
+    )
     return mock_settings
 
 
@@ -40,14 +43,13 @@ def test_cli_release_notes_stdout(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -60,7 +62,7 @@ def test_cli_release_notes_stdout(
     cliff.generate_unreleased_notes.return_value = '## 2.3.4\n\n- Change\n'
     mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
-    result = runner.invoke(cli.app, ['release', 'notes'])
+    result = invoke(cli.app, ['release', 'notes'])
 
     assert result.exit_code == 0
     assert result.stdout == '## 2.3.4\n\n- Change\n\n'
@@ -69,19 +71,17 @@ def test_cli_release_notes_stdout(
 def test_cli_release_notes_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
-    runner = CliRunner()
     run_command = mocker.patch(
         'releez.subapps.release_notes._run_release_notes_command',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
             'notes',
             '--project',
             'core',
-            '--all',
             '--version-override',
             '1.2.3',
         ],
@@ -93,21 +93,20 @@ def test_cli_release_notes_delegates_to_command_helper(
     options = call_kwargs['options']
     assert options.version_override == '1.2.3'
     assert call_kwargs['project_names'] == ['core']
-    assert call_kwargs['all_projects'] is True
+    assert call_kwargs['all_projects'] is False
 
 
 def test_cli_release_notes_writes_file(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -121,10 +120,7 @@ def test_cli_release_notes_writes_file(
     mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
     output = tmp_path / 'notes.md'
-    result = runner.invoke(
-        cli.app,
-        ['release', 'notes', '--output', str(output)],
-    )
+    result = invoke(cli.app, ['release', 'notes', '--output', str(output)])
 
     assert result.exit_code == 0
     assert output.read_text(encoding='utf-8') == '## 2.3.4\n'
@@ -134,7 +130,6 @@ def test_cli_release_notes_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -163,7 +158,7 @@ def test_cli_release_notes_monorepo_requires_project_selection(
         'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
     )
 
-    result = runner.invoke(cli.app, ['release', 'notes'])
+    result = invoke(cli.app, ['release', 'notes'])
 
     assert result.exit_code == 1
     assert 'Project selection is required in monorepo mode' in result.output
@@ -173,7 +168,6 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -209,7 +203,7 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     cliff.generate_unreleased_notes.return_value = '## 1.2.3\n\n- Change\n'
     mocker.patch('releez.subapps.release_notes.GitCliff', return_value=cliff)
 
-    result = runner.invoke(cli.app, ['release', 'notes', '--project', 'core'])
+    result = invoke(cli.app, ['release', 'notes', '--project', 'core'])
 
     assert result.exit_code == 0
     cliff.generate_unreleased_notes.assert_called_once_with(

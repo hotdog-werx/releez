@@ -3,16 +3,14 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
-import typer
+from cyclopts import Parameter
 
-from releez.cli_utils import (
-    _project_include_paths,
-    _resolve_release_version,
-)
+from releez.cli_utils import _project_include_paths, _resolve_release_version
 from releez.cliff import GitCliff
+from releez.settings import ReleezSettings
 from releez.subapps.release import (
+    ProjectSelection,
     _emit_or_write_output,
-    _normalize_project_names,
     _project_semver_version,
     _ReleaseNotesOptions,
     _require_single_project_override_scope,
@@ -26,11 +24,6 @@ from releez.version_tags import compute_version_tags
 
 if TYPE_CHECKING:
     from releez.subproject import SubProject
-
-
-# ---------------------------------------------------------------------------
-# Release notes helpers
-# ---------------------------------------------------------------------------
 
 
 def _generate_release_notes_single_repo(
@@ -82,26 +75,19 @@ def _generate_release_notes_monorepo(
                 repo_root=repo_root,
             ),
         )
-        sections.extend(
-            [
-                f'## `{project.name}`',
-                '',
-                project_notes.strip(),
-                '',
-            ],
-        )
+        sections.extend([f'## `{project.name}`', '', project_notes.strip(), ''])
     return '\n'.join(sections).rstrip() + '\n'
 
 
 def _run_release_notes_command(
     *,
-    ctx: typer.Context,
+    settings: ReleezSettings,
     options: _ReleaseNotesOptions,
     project_names: list[str],
     all_projects: bool,
 ) -> None:
     resolved = _resolve_project_targets_for_command(
-        ctx=ctx,
+        settings=settings,
         project_names=project_names,
         all_projects=all_projects,
     )
@@ -113,7 +99,7 @@ def _run_release_notes_command(
 
     maintenance_ctx = _maintenance_context(
         branch=resolved.active_branch,
-        regex=resolved.settings.effective_maintenance_branch_regex,
+        regex=settings.effective_maintenance_branch_regex,
     )
     cliff = GitCliff(repo_root=resolved.repo_root)
     if resolved.target_projects is None:
@@ -139,63 +125,24 @@ def _run_release_notes_command(
             projects=resolved.target_projects,
         )
 
-    _emit_or_write_output(
-        output=options.output,
-        content=notes,
-    )
+    _emit_or_write_output(output=options.output, content=notes)
 
 
-# ---------------------------------------------------------------------------
-# Command
-# ---------------------------------------------------------------------------
-
-
-@release_app.command('notes')
+@release_app.command
 @handle_releez_errors
-def release_notes(
-    ctx: typer.Context,
-    *,
-    version_override: Annotated[
-        str | None,
-        typer.Option(
-            '--version-override',
-            help='Override release version for the notes section (x.y.z).',
-            show_default=False,
-        ),
-    ] = None,
-    output: Annotated[
-        Path | None,
-        typer.Option(
-            '--output',
-            help='Write release notes to a file instead of stdout.',
-            show_default=False,
-        ),
-    ] = None,
-    project_names: Annotated[
-        list[str] | None,
-        typer.Option(
-            '--project',
-            help='Project name to render notes for (repeatable, monorepo only).',
-            show_default=False,
-        ),
-    ] = None,
-    all_projects: Annotated[
-        bool,
-        typer.Option(
-            '--all',
-            help='Generate notes for all configured projects (monorepo only).',
-            show_default=True,
-        ),
-    ] = False,
+def notes(
+    options: Annotated[_ReleaseNotesOptions, Parameter(name='*')] | None = None,
+    selection: Annotated[ProjectSelection, Parameter(name='*')] | None = None,
 ) -> None:
     """Generate the new changelog section for the release."""
-    options = _ReleaseNotesOptions(
-        version_override=version_override,
-        output=output,
-    )
+    if options is None:
+        options = _ReleaseNotesOptions()
+    if selection is None:
+        selection = ProjectSelection()
+    settings = ReleezSettings()
     _run_release_notes_command(
-        ctx=ctx,
+        settings=settings,
         options=options,
-        project_names=_normalize_project_names(project_names),
-        all_projects=all_projects,
+        project_names=selection.project_names,
+        all_projects=selection.all_projects,
     )

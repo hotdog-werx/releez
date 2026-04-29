@@ -5,8 +5,7 @@ import typing
 from pathlib import Path
 from typing import ParamSpec, TypeVar
 
-import typer
-
+from releez.console import err_console
 from releez.errors import ReleezError
 from releez.process import run_checked
 
@@ -25,8 +24,8 @@ def handle_releez_errors(func: Callable[_P, _R]) -> Callable[_P, _R]:
         try:
             return func(*args, **kwargs)
         except ReleezError as exc:
-            typer.secho(str(exc), err=True, fg=typer.colors.RED)
-            raise typer.Exit(code=1) from exc
+            err_console.print(str(exc), style='bold red', markup=False)
+            raise SystemExit(1) from exc
 
     return wrapper
 

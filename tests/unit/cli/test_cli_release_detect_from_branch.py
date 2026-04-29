@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import DirtyWorkingTreeError
@@ -18,18 +18,13 @@ if TYPE_CHECKING:
 def test_cli_release_detect_from_branch_single_repo(
     mocker: MockerFixture,
 ) -> None:
-    """Test detecting release from single-repo branch.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
     mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[]),
+        'releez.subapps.release_support.open_repo',
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/repo'),
+        ),
     )
-
     mocker.patch(
         'releez.subapps.release_support.detect_release_from_branch',
         return_value=DetectedRelease(
@@ -40,7 +35,7 @@ def test_cli_release_detect_from_branch_single_repo(
         ),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'detect-from-branch', '--branch', 'release/1.2.3'],
     )
@@ -57,19 +52,12 @@ def test_cli_release_detect_from_branch_single_repo(
 def test_cli_release_detect_from_branch_monorepo(
     mocker: MockerFixture,
 ) -> None:
-    """Test detecting release from monorepo branch.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
     mock_repo_info = mocker.MagicMock(root=mocker.MagicMock())
 
     mock_settings = mocker.MagicMock(projects=[mocker.MagicMock()])
     mock_settings.get_subprojects.return_value = [mocker.MagicMock()]
     mocker.patch(
-        'releez.cli.ReleezSettings',
+        'releez.subapps.release_support.ReleezSettings',
         return_value=mock_settings,
     )
 
@@ -88,7 +76,7 @@ def test_cli_release_detect_from_branch_monorepo(
         ),
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'detect-from-branch', '--branch', 'release/core-1.2.3'],
     )
@@ -106,24 +94,19 @@ def test_cli_release_detect_from_branch_monorepo(
 def test_cli_release_detect_from_branch_not_release_branch(
     mocker: MockerFixture,
 ) -> None:
-    """Test error when branch is not a release branch.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
     mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[]),
+        'releez.subapps.release_support.open_repo',
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/repo'),
+        ),
     )
-
     mocker.patch(
         'releez.subapps.release_support.detect_release_from_branch',
         return_value=None,
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'detect-from-branch', '--branch', 'main'],
     )
@@ -135,18 +118,6 @@ def test_cli_release_detect_from_branch_not_release_branch(
 def test_cli_release_detect_from_branch_uses_current_branch(
     mocker: MockerFixture,
 ) -> None:
-    """Test using current branch when --branch not specified.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
-    mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[]),
-    )
-
     mock_info = mocker.MagicMock(active_branch='release/1.2.3')
     mocker.patch(
         'releez.subapps.release_support.open_repo',
@@ -163,7 +134,7 @@ def test_cli_release_detect_from_branch_uses_current_branch(
         ),
     )
 
-    result = runner.invoke(cli.app, ['release', 'detect-from-branch'])
+    result = invoke(cli.app, ['release', 'detect-from-branch'])
 
     assert result.exit_code == 0
     output = json.loads(result.stdout)
@@ -173,25 +144,13 @@ def test_cli_release_detect_from_branch_uses_current_branch(
 def test_cli_release_detect_from_branch_detached_head_error(
     mocker: MockerFixture,
 ) -> None:
-    """Test error when in detached HEAD state without --branch.
-
-    Args:
-        mocker: pytest-mock fixture for creating mocks.
-    """
-    runner = CliRunner()
-
-    mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[]),
-    )
-
     mock_info = mocker.MagicMock(active_branch=None)
     mocker.patch(
         'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(repo=mocker.MagicMock(), info=mock_info),
     )
 
-    result = runner.invoke(cli.app, ['release', 'detect-from-branch'])
+    result = invoke(cli.app, ['release', 'detect-from-branch'])
 
     assert result.exit_code == 1
     assert 'detached HEAD' in result.output
@@ -200,19 +159,19 @@ def test_cli_release_detect_from_branch_detached_head_error(
 def test_cli_release_detect_from_branch_handles_releez_error(
     mocker: MockerFixture,
 ) -> None:
-    """Test release detect-from-branch handles ReleezError from internals."""
-    runner = CliRunner()
-
     mocker.patch(
-        'releez.cli.ReleezSettings',
-        return_value=mocker.MagicMock(projects=[]),
+        'releez.subapps.release_support.open_repo',
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/repo'),
+        ),
     )
     mocker.patch(
         'releez.subapps.release_support.detect_release_from_branch',
         side_effect=DirtyWorkingTreeError,
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['release', 'detect-from-branch', '--branch', 'release/1.2.3'],
     )

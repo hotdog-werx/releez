@@ -28,7 +28,8 @@ classifiers = [
 ]
 
 dependencies = [
-  "typer >=0.24.1,<0.25",
+  "cyclopts ==4.11.0, <5",
+  "rich ==15.0.0",
   "GitPython >= 3.1.45, <4",
   "PyGithub >= 2.8.1, <3",
   "git-cliff >=2.12.0, <3",
@@ -60,8 +61,12 @@ extend = ".codeguide/configs/ruff.toml"
 [tool.pyright]
 typeCheckingMode = "standard"
 
+[tool.ty.environment]
+extra-paths = ["tests"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/integration"]
+pythonpath = ["tests"]
 markers = ["action: GitHub Action tests run via act (require Docker)"]
 
 [tool.uv.build-backend]

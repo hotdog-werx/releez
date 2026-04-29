@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import ReleezError
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def _mock_settings(
     mocker: MockerFixture,
     *,
-    projects: list[object],
+    projects: list[MagicMock],
 ) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
@@ -32,14 +32,17 @@ def _mock_settings(
         hooks=hooks,
         projects=projects,
     )
-    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    mocker.patch(
+        'releez.subapps.release_tag.ReleezSettings',
+        return_value=mock_settings,
+    )
     return mock_settings
 
 
-def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
-    runner = CliRunner()
-
-    repo = object()
+def test_cli_release_tag_calls_git_helpers(
+    mocker: MockerFixture,
+) -> None:
+    repo = mocker.MagicMock()
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
@@ -59,7 +62,7 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
     create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
     push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -91,19 +94,17 @@ def test_cli_release_tag_calls_git_helpers(mocker: MockerFixture) -> None:
 def test_cli_release_tag_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
-    runner = CliRunner()
     run_command = mocker.patch(
         'releez.subapps.release_tag._run_release_tag_command',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
             'tag',
             '--project',
             'core',
-            '--all',
             '--version-override',
             '1.2.3',
             '--alias-versions',
@@ -121,16 +122,14 @@ def test_cli_release_tag_delegates_to_command_helper(
     assert options.alias_versions == AliasVersions.major
     assert options.remote == 'upstream'
     assert call_kwargs['project_names'] == ['core']
-    assert call_kwargs['all_projects'] is True
+    assert call_kwargs['all_projects'] is False
 
 
 def test_cli_release_tag_defaults_to_git_cliff(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
-
-    repo = object()
+    repo = mocker.MagicMock()
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
@@ -155,7 +154,7 @@ def test_cli_release_tag_defaults_to_git_cliff(
     create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
     push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
-    result = runner.invoke(cli.app, ['release', 'tag'])
+    result = invoke(cli.app, ['release', 'tag'])
 
     assert result.exit_code == 0
     cliff.compute_next_version.assert_called_once_with(
@@ -177,7 +176,6 @@ def test_cli_release_tag_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -206,7 +204,7 @@ def test_cli_release_tag_monorepo_requires_project_selection(
         'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
     )
 
-    result = runner.invoke(cli.app, ['release', 'tag'])
+    result = invoke(cli.app, ['release', 'tag'])
 
     assert result.exit_code == 1
     assert 'Project selection is required in monorepo mode' in result.output
@@ -216,13 +214,12 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
     )
 
-    repo = object()
+    repo = mocker.MagicMock()
     project_path = tmp_path / 'packages' / 'core'
     mocker.patch(
         'releez.subapps.release.open_repo',
@@ -253,7 +250,7 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
     create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
     push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
 
-    result = runner.invoke(cli.app, ['release', 'tag', '--project', 'core'])
+    result = invoke(cli.app, ['release', 'tag', '--project', 'core'])
 
     assert result.exit_code == 0
     resolve_release_version.assert_called_once_with(

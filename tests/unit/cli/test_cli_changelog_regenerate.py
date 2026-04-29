@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import MissingCliError
@@ -45,33 +45,22 @@ def mock_changelog_setup(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> ChangelogSetupCallable:
-    """Set up common mocks for changelog tests.
-
-    Returns:
-        A callable that accepts optional changelog paths and returns a ChangelogSetup.
-        If changelog_paths is None, creates the default CHANGELOG.md.
-        If changelog_paths is an empty list, no changelog files are created.
-    """
+    """Set up common mocks for changelog tests."""
 
     def _setup(changelog_paths: list[str] | None = None) -> ChangelogSetup:
         repo_root = tmp_path / 'repo'
         repo_root.mkdir()
 
-        # Create changelog files if requested
         if changelog_paths is None:
-            # Default behavior: create CHANGELOG.md
             changelog_file = repo_root / 'CHANGELOG.md'
             changelog_file.write_text('# Changelog\n')
         else:
-            # Create specified changelog files (can be empty list for none)
             for path_str in changelog_paths:
                 changelog_path = Path(path_str)
                 if changelog_path.is_absolute():
-                    # For absolute paths, create in the specified location
                     changelog_path.parent.mkdir(parents=True, exist_ok=True)
                     changelog_path.write_text('# Changelog\n')
                 else:
-                    # For relative paths, create under repo_root
                     changelog_file = repo_root / path_str
                     changelog_file.parent.mkdir(parents=True, exist_ok=True)
                     changelog_file.write_text('# Changelog\n')
@@ -94,12 +83,8 @@ def test_changelog_regenerate_basic(
 ) -> None:
     """Test basic changelog regeneration without formatting."""
     setup = mock_changelog_setup()
-    runner = CliRunner()
 
-    result = runner.invoke(
-        cli.app,
-        ['changelog', 'regenerate'],
-    )
+    result = invoke(cli.app, ['changelog', 'regenerate'])
 
     assert result.exit_code == 0
     setup.cliff.regenerate_changelog.assert_called_once()
@@ -112,9 +97,8 @@ def test_changelog_regenerate_custom_path(
 ) -> None:
     """Test changelog regeneration with custom path."""
     setup = mock_changelog_setup(['HISTORY.md'])
-    runner = CliRunner()
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['changelog', 'regenerate', '--changelog-path', 'HISTORY.md'],
     )
@@ -132,9 +116,8 @@ def test_changelog_regenerate_absolute_path(
     """Test changelog regeneration with absolute path."""
     changelog_path = tmp_path / 'custom' / 'CHANGELOG.md'
     setup = mock_changelog_setup([str(changelog_path)])
-    runner = CliRunner()
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         ['changelog', 'regenerate', '--changelog-path', str(changelog_path)],
     )
@@ -150,11 +133,9 @@ def test_changelog_regenerate_handles_releez_error(
     tmp_path: Path,
 ) -> None:
     """Test that ReleezError is properly handled and reported."""
-    runner = CliRunner()
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
-    # Create the changelog file
     changelog_file = repo_root / 'CHANGELOG.md'
     changelog_file.write_text('# Changelog\n')
 
@@ -163,17 +144,12 @@ def test_changelog_regenerate_handles_releez_error(
         return_value=mocker.Mock(info=mocker.Mock(root=repo_root)),
     )
 
-    # This test needs to raise an error during GitCliff creation,
-    # so we can't use the fixture which mocks it successfully
     mocker.patch(
         'releez.subapps.changelog.GitCliff',
         side_effect=MissingCliError('git-cliff'),
     )
 
-    result = runner.invoke(
-        cli.app,
-        ['changelog', 'regenerate'],
-    )
+    result = invoke(cli.app, ['changelog', 'regenerate'])
 
     assert result.exit_code == 1
     assert 'git-cliff' in result.output
@@ -184,9 +160,8 @@ def test_changelog_regenerate_single_repo_rejects_project_flags(
 ) -> None:
     """Test that --all in single-repo mode (no projects configured) exits with error."""
     mock_changelog_setup()
-    runner = CliRunner()
 
-    result = runner.invoke(cli.app, ['changelog', 'regenerate', '--all'])
+    result = invoke(cli.app, ['changelog', 'regenerate', '--all'])
 
     assert result.exit_code == 1
     assert 'no projects are configured' in result.output.lower()
@@ -229,7 +204,6 @@ class TestChangelogRegenerateMonorepo:
         ui.include_paths = ['packages/ui/**']
         ui.changelog_path = ui_changelog
 
-        # Patch at class level so the real select_projects logic runs
         mocker.patch.object(
             ReleezSettings,
             'get_subprojects',
@@ -252,9 +226,7 @@ class TestChangelogRegenerateMonorepo:
         monorepo_setup: MonorepoSetup,
     ) -> None:
         """--all regenerates changelog for every configured project."""
-        runner = CliRunner()
-
-        result = runner.invoke(cli.app, ['changelog', 'regenerate', '--all'])
+        result = invoke(cli.app, ['changelog', 'regenerate', '--all'])
 
         assert result.exit_code == 0
         assert monorepo_setup.cliff.regenerate_changelog.call_count == 2
@@ -269,9 +241,7 @@ class TestChangelogRegenerateMonorepo:
         monorepo_setup: MonorepoSetup,
     ) -> None:
         """--project <name> regenerates only the named project."""
-        runner = CliRunner()
-
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['changelog', 'regenerate', '--project', 'core'],
         )
@@ -288,9 +258,7 @@ class TestChangelogRegenerateMonorepo:
         monorepo_setup: MonorepoSetup,
     ) -> None:
         """--project can be repeated to select multiple projects."""
-        runner = CliRunner()
-
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['changelog', 'regenerate', '--project', 'core', '--project', 'ui'],
         )
@@ -299,21 +267,21 @@ class TestChangelogRegenerateMonorepo:
         assert monorepo_setup.cliff.regenerate_changelog.call_count == 2
 
     @pytest.mark.usefixtures('monorepo_setup')
-    def test_no_selection_exits_with_error(self) -> None:
+    def test_no_selection_exits_with_error(
+        self,
+    ) -> None:
         """Monorepo mode without --project or --all exits with an informative error."""
-        runner = CliRunner()
-
-        result = runner.invoke(cli.app, ['changelog', 'regenerate'])
+        result = invoke(cli.app, ['changelog', 'regenerate'])
 
         assert result.exit_code == 1
         assert 'project selection is required' in result.output.lower()
 
     @pytest.mark.usefixtures('monorepo_setup')
-    def test_unknown_project_exits_with_error(self) -> None:
+    def test_unknown_project_exits_with_error(
+        self,
+    ) -> None:
         """--project with an unknown name exits with an error."""
-        runner = CliRunner()
-
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['changelog', 'regenerate', '--project', 'nonexistent'],
         )
@@ -322,11 +290,11 @@ class TestChangelogRegenerateMonorepo:
         assert 'unknown project' in result.output.lower()
 
     @pytest.mark.usefixtures('monorepo_setup')
-    def test_project_and_all_together_exits_with_error(self) -> None:
+    def test_project_and_all_together_exits_with_error(
+        self,
+    ) -> None:
         """Using --project and --all together exits with an error."""
-        runner = CliRunner()
-
-        result = runner.invoke(
+        result = invoke(
             cli.app,
             ['changelog', 'regenerate', '--project', 'core', '--all'],
         )

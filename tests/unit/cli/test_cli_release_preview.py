@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from typer.testing import CliRunner
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import ReleezError
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def _mock_settings(
     mocker: MockerFixture,
     *,
-    projects: list[object],
+    projects: list[MagicMock],
 ) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
@@ -32,7 +32,10 @@ def _mock_settings(
         hooks=hooks,
         projects=projects,
     )
-    mocker.patch('releez.cli.ReleezSettings', return_value=mock_settings)
+    mocker.patch(
+        'releez.subapps.release_preview.ReleezSettings',
+        return_value=mock_settings,
+    )
     return mock_settings
 
 
@@ -40,15 +43,13 @@ def test_cli_release_preview_writes_markdown(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
-
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -58,7 +59,7 @@ def test_cli_release_preview_writes_markdown(
     mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
     output = tmp_path / 'preview.md'
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
@@ -79,19 +80,17 @@ def test_cli_release_preview_writes_markdown(
 def test_cli_release_preview_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
-    runner = CliRunner()
     run_command = mocker.patch(
         'releez.subapps.release_preview._run_release_preview_command',
     )
 
-    result = runner.invoke(
+    result = invoke(
         cli.app,
         [
             'release',
             'preview',
             '--project',
             'core',
-            '--all',
             '--version-override',
             '1.2.3',
             '--alias-versions',
@@ -106,22 +105,20 @@ def test_cli_release_preview_delegates_to_command_helper(
     assert options.version_override == '1.2.3'
     assert options.alias_versions == AliasVersions.major
     assert call_kwargs['project_names'] == ['core']
-    assert call_kwargs['all_projects'] is True
+    assert call_kwargs['all_projects'] is False
 
 
 def test_cli_release_preview_stdout(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
-
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -130,15 +127,7 @@ def test_cli_release_preview_stdout(
     cliff.compute_next_version.return_value = '1.2.3'
     mocker.patch('releez.cli_utils.GitCliff', return_value=cliff)
 
-    result = runner.invoke(
-        cli.app,
-        [
-            'release',
-            'preview',
-            '--alias-versions',
-            'none',
-        ],
-    )
+    result = invoke(cli.app, ['release', 'preview', '--alias-versions', 'none'])
 
     assert result.exit_code == 0
     assert '## `releez` release preview' in result.stdout
@@ -149,7 +138,6 @@ def test_cli_release_preview_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -178,7 +166,7 @@ def test_cli_release_preview_monorepo_requires_project_selection(
         'Project selection is required in monorepo mode. Use --project <name> (repeatable) or --all.',
     )
 
-    result = runner.invoke(cli.app, ['release', 'preview'])
+    result = invoke(cli.app, ['release', 'preview'])
 
     assert result.exit_code == 1
     assert 'Project selection is required in monorepo mode' in result.output
@@ -188,7 +176,6 @@ def test_cli_release_preview_monorepo_project_outputs_prefixed_tags(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    runner = CliRunner()
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -220,7 +207,7 @@ def test_cli_release_preview_monorepo_project_outputs_prefixed_tags(
         return_value='1.2.3',
     )
 
-    result = runner.invoke(cli.app, ['release', 'preview', '--project', 'core'])
+    result = invoke(cli.app, ['release', 'preview', '--project', 'core'])
 
     assert result.exit_code == 0
     assert '### `core`' in result.stdout

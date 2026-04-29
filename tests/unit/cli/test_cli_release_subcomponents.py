@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pytest
-import typer
-from click.core import ParameterSource
 from semver import VersionInfo
 
-from releez import cli
+from releez.cli_utils import _exit
 from releez.errors import ReleezError
 from releez.release import StartReleaseResult
 from releez.subapps import release, release_preview, release_start, release_tag
@@ -28,41 +25,11 @@ def _make_start_options() -> release._ReleaseStartOptions:
         dry_run=True,
         base='master',
         remote='origin',
-        labels=['release'],
+        labels='release',
         title_prefix='chore(release): ',
         changelog_path='CHANGELOG.md',
         github_token=None,
     )
-
-
-def test_root_merges_into_existing_default_map(
-    mocker: MockerFixture,
-) -> None:
-    """Regression guard: root callback must merge, not clobber, an existing default map."""
-    hooks = SimpleNamespace()
-    settings = SimpleNamespace(
-        base_branch='master',
-        git_remote='origin',
-        pr_labels='release',
-        pr_title_prefix='chore(release): ',
-        changelog_path='CHANGELOG.md',
-        create_pr=False,
-        alias_versions=AliasVersions.none,
-        hooks=hooks,
-        effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
-    )
-    mocker.patch('releez.cli.ReleezSettings', return_value=settings)
-
-    ctx = cast(
-        'typer.Context',
-        SimpleNamespace(default_map={'existing': {'keep': True}}, obj=None),
-    )
-    cli._root(ctx=ctx)
-
-    assert ctx.obj is settings
-    default_map = cast('dict[str, object]', ctx.default_map)
-    assert default_map['existing'] == {'keep': True}
-    assert 'release' in default_map
 
 
 def test_resolve_target_projects_single_repo_returns_none(
@@ -122,12 +89,13 @@ def test_run_monorepo_release_start_exits_when_any_project_fails(
     )
     exit_mock = mocker.patch(
         'releez.subapps.release_start._exit',
-        return_value=typer.Exit(code=1),
+        return_value=SystemExit(1),
     )
 
-    with pytest.raises(typer.Exit):
+    with pytest.raises(SystemExit):
         release_start._run_monorepo_release_start(
             options=_make_start_options(),
+            settings=mocker.MagicMock(),
             target_projects=[core, ui],
             repo_root=Path('/repo'),
             maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
@@ -147,6 +115,7 @@ def test_run_monorepo_release_start_no_targets_noops(
 
     release_start._run_monorepo_release_start(
         options=_make_start_options(),
+        settings=mocker.MagicMock(),
         target_projects=[],
         repo_root=Path('/repo'),
         maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
@@ -164,34 +133,27 @@ def test_run_project_release_start_handles_releez_error(
     project.name = 'core'
     mocker.patch(
         'releez.subapps.release_start._build_release_start_input_project',
-        return_value=object(),
+        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         'releez.subapps.release_start.start_release',
         side_effect=ReleezError('boom'),
     )
-    secho = mocker.patch('releez.cli.typer.secho')
 
     ok = release_start._run_project_release_start(
         options=_make_start_options(),
+        settings=mocker.MagicMock(),
         project=project,
         repo_root=Path('/repo'),
     )
 
     assert ok is False
-    secho.assert_called_once_with(
-        '[core] boom',
-        err=True,
-        fg=typer.colors.RED,
-    )
 
 
 def test_emit_release_start_result_prints_pr_url_when_present(
-    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Regression guard: successful releases with PRs must print the PR URL."""
-    echo = mocker.patch('releez.cli.typer.echo')
-
     release_start._emit_release_start_result(
         result=StartReleaseResult(
             version='core-1.2.3',
@@ -203,26 +165,18 @@ def test_emit_release_start_result_prints_pr_url_when_present(
         project_name='core',
     )
 
-    assert echo.call_args_list == [
-        mocker.call('[core] Release branch: release/core-1.2.3'),
-        mocker.call('[core] PR created: https://example.invalid/pr/1'),
-    ]
+    captured = capsys.readouterr()
+    assert '[core] Release branch: release/core-1.2.3' in captured.out
+    assert '[core] PR created: https://example.invalid/pr/1' in captured.out
 
 
 def test_alias_versions_for_project_prefers_cli_flag_source(
     mocker: MockerFixture,
 ) -> None:
     """Regression guard: explicit CLI alias flags must override project defaults."""
-    ctx = cast(
-        'typer.Context',
-        SimpleNamespace(
-            get_parameter_source=lambda _name: ParameterSource.COMMANDLINE,
-        ),
-    )
     project = mocker.MagicMock(alias_versions=AliasVersions.major)
 
     resolved = release._alias_versions_for_project(
-        ctx=ctx,
         cli_alias_versions=AliasVersions.minor,
         project=project,
     )
@@ -230,13 +184,23 @@ def test_alias_versions_for_project_prefers_cli_flag_source(
     assert resolved == AliasVersions.minor
 
 
+def test_alias_versions_for_project_falls_back_to_project_config(
+    mocker: MockerFixture,
+) -> None:
+    """When cli_alias_versions is None, project config is used."""
+    project = mocker.MagicMock(alias_versions=AliasVersions.major)
+
+    resolved = release._alias_versions_for_project(
+        cli_alias_versions=None,
+        project=project,
+    )
+
+    assert resolved == AliasVersions.major
+
+
 def test_run_release_preview_command_uses_single_repo_builder(
     mocker: MockerFixture,
 ) -> None:
-    ctx = cast(
-        'typer.Context',
-        SimpleNamespace(obj=SimpleNamespace(base_branch='master')),
-    )
     resolved = release._ResolvedProjectTargets(
         settings=mocker.MagicMock(),
         repo=mocker.MagicMock(),
@@ -256,7 +220,10 @@ def test_run_release_preview_command_uses_single_repo_builder(
     )
 
     release_preview._run_release_preview_command(
-        ctx=ctx,
+        settings=mocker.MagicMock(
+            alias_versions=AliasVersions.none,
+            effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
+        ),
         options=release._ReleasePreviewOptions(
             version_override='1.2.3',
             alias_versions=AliasVersions.none,
@@ -278,11 +245,11 @@ def test_run_release_preview_command_uses_single_repo_builder(
     emit_output.assert_called_once_with(output=None, content='preview')
 
 
-def test_exit_raises_exit_1() -> None:
+def test_exit_returns_system_exit_1() -> None:
     """Regression guard: generic command failure helper must return exit code 1."""
-    result = release._exit()
-    assert isinstance(result, typer.Exit)
-    assert result.exit_code == 1
+    result = _exit()
+    assert isinstance(result, SystemExit)
+    assert result.code == 1
 
 
 def test_project_names_csv_joins_names_in_order(
@@ -301,10 +268,6 @@ def test_run_release_start_command_exits_when_monorepo_targets_empty(
     mocker: MockerFixture,
 ) -> None:
     """Regression guard: monorepo start must exit when no changed projects are detected."""
-    ctx = cast(
-        'typer.Context',
-        SimpleNamespace(obj=SimpleNamespace(base_branch='master')),
-    )
     resolved = release._ResolvedProjectTargets(
         settings=mocker.MagicMock(),
         repo=mocker.MagicMock(),
@@ -323,12 +286,14 @@ def test_run_release_start_command_exits_when_monorepo_targets_empty(
     )
     exit_mock = mocker.patch(
         'releez.subapps.release_start._exit',
-        return_value=typer.Exit(code=1),
+        return_value=SystemExit(1),
     )
 
-    with pytest.raises(typer.Exit):
+    with pytest.raises(SystemExit):
         release_start._run_release_start_command(
-            ctx=ctx,
+            settings=mocker.MagicMock(
+                effective_maintenance_branch_regex=r'^support/(?P<major>\d+)\.x$',
+            ),
             options=_make_start_options(),
             project_names=[],
             all_projects=False,
@@ -377,7 +342,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
     )
     mocker.patch(
         'releez.subapps.release_start._build_release_start_input_project',
-        return_value=object(),
+        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         'releez.subapps.release_start.start_release',
@@ -388,8 +353,6 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
             pr_url=None,
         ),
     )
-    mocker.patch('releez.cli.typer.secho')
-    mocker.patch('releez.cli.typer.echo')
 
     options = release._ReleaseStartOptions(
         bump='auto',
@@ -398,7 +361,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
         dry_run=False,
         base='master',
         remote='origin',
-        labels=[],
+        labels=None,
         title_prefix='chore(release): ',
         changelog_path='CHANGELOG.md',
         github_token=None,
@@ -406,6 +369,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
 
     release_start._run_project_release_start(
         options=options,
+        settings=mocker.MagicMock(),
         project=project,
         repo_root=Path('/repo'),
         maintenance_ctx=maintenance_ctx,

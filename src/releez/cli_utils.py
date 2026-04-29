@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import typer
 from semver import VersionInfo
 
 from releez.cliff import GitCliff
+from releez.console import err_console
 from releez.errors import InvalidReleaseVersionError
 
 if TYPE_CHECKING:
@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from releez.subproject import SubProject
 
 
-def _exit(message: str | None = None) -> typer.Exit:
+def _exit(message: str | None = None) -> SystemExit:
     if message is not None:
-        typer.secho(message, err=True, fg=typer.colors.RED)
-    return typer.Exit(code=1)
+        err_console.print(message, style='bold red', markup=False)
+    return SystemExit(1)
 
 
 def _project_relative_glob(*, project: SubProject, repo_root: Path) -> str:
