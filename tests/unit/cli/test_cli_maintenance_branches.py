@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from git import Repo
+from invoke_helper import invoke
 from semver import VersionInfo
 
 from releez import cli
@@ -26,10 +27,9 @@ from releez.subapps.release_support import _validate_support_branch_name
 from releez.subproject import SubProject
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
+    from unittest.mock import MagicMock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -156,7 +156,6 @@ class TestReleaseStartConfirmInteractive:
     def test_release_start_on_maintenance_branch_prompts_when_not_dry_run(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Test that confirmation prompt is shown when non_interactive=False and not dry_run."""
@@ -211,7 +210,6 @@ class TestReleaseStartOnMaintenanceBranch:
     def test_release_start_on_maintenance_branch_uses_tag_pattern(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -259,7 +257,6 @@ class TestReleaseStartOnMaintenanceBranch:
     def test_release_start_on_maintenance_branch_sets_base_to_current(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -309,7 +306,6 @@ class TestReleaseStartOnMaintenanceBranch:
     def test_release_start_on_non_maintenance_branch_uses_base(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -356,7 +352,6 @@ class TestReleaseStartOnMaintenanceBranch:
     def test_release_start_on_maintenance_branch_version_mismatch_fails(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -397,7 +392,6 @@ class TestReleaseTagOnMaintenanceBranch:
     def test_release_tag_on_maintenance_branch_uses_tag_pattern(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo = mocker.Mock(spec=Repo)
@@ -436,7 +430,6 @@ class TestReleaseTagOnMaintenanceBranch:
     def test_release_tag_on_maintenance_branch_version_mismatch_fails(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo = mocker.Mock(spec=Repo)
@@ -473,7 +466,6 @@ class TestReleasePreviewOnMaintenanceBranch:
     def test_release_preview_on_maintenance_branch_uses_tag_pattern(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -506,7 +498,6 @@ class TestReleasePreviewOnMaintenanceBranch:
     def test_release_preview_on_maintenance_branch_version_mismatch_fails(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -538,7 +529,6 @@ class TestReleaseNotesOnMaintenanceBranch:
     def test_release_notes_on_maintenance_branch_uses_tag_pattern(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -580,7 +570,6 @@ class TestReleaseNotesOnMaintenanceBranch:
     def test_release_notes_on_maintenance_branch_version_mismatch_fails(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         repo_info = RepoInfo(
@@ -858,7 +847,7 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
         name: str,
         tag_prefix: str,
         tmp_path: Path,
-    ) -> object:
+    ) -> MagicMock:
         p = mocker.MagicMock()
         p.name = name
         p.tag_prefix = tag_prefix
@@ -872,7 +861,6 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
     def test_monorepo_release_start_on_maintenance_branch_uses_maintenance_tag_pattern(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """On support/ui-1.x, release start for project ui uses prefix-scoped tag pattern."""
@@ -927,7 +915,6 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
     def test_monorepo_release_start_non_maintenance_branch_unaffected(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """On master, monorepo release start for project ui has no maintenance tag pattern."""
@@ -978,7 +965,6 @@ class TestMonorepoReleaseStartOnMaintenanceBranch:
     def test_monorepo_release_start_maintenance_branch_version_mismatch_fails(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """On support/ui-1.x, if git-cliff returns 2.x version, it should fail."""

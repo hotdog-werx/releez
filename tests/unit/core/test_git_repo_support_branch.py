@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def _make_commit(repo: Repo, path: object, message: str) -> None:
+def _make_commit(repo: Repo, path: Path, message: str) -> None:
     """Create a file, stage it, and commit."""
     p = pathlib.Path(str(path))
     p.write_text(message)

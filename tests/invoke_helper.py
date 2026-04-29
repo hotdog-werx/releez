@@ -3,6 +3,10 @@ from __future__ import annotations
 import contextlib
 import io
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cyclopts import App
 
 
 @dataclass
@@ -19,7 +23,7 @@ class InvokeResult:
         return self.stdout + self.stderr
 
 
-def invoke(app: object, args: list[str]) -> InvokeResult:
+def invoke(app: App, args: list[str]) -> InvokeResult:
     """Invoke a cyclopts App with args, capturing stdout/stderr and exit code."""
     stdout = io.StringIO()
     stderr = io.StringIO()

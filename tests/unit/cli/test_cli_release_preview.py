@@ -2,23 +2,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.errors import ReleezError
 from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
 def _mock_settings(
     mocker: MockerFixture,
     *,
-    projects: list[object],
+    projects: list[MagicMock],
 ) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
@@ -41,7 +41,6 @@ def _mock_settings(
 
 def test_cli_release_preview_writes_markdown(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     repo_root = tmp_path / 'repo'
@@ -50,7 +49,7 @@ def test_cli_release_preview_writes_markdown(
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -80,7 +79,6 @@ def test_cli_release_preview_writes_markdown(
 
 def test_cli_release_preview_delegates_to_command_helper(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     run_command = mocker.patch(
         'releez.subapps.release_preview._run_release_preview_command',
@@ -112,7 +110,6 @@ def test_cli_release_preview_delegates_to_command_helper(
 
 def test_cli_release_preview_stdout(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     repo_root = tmp_path / 'repo'
@@ -121,7 +118,7 @@ def test_cli_release_preview_stdout(
     mocker.patch(
         'releez.subapps.release.open_repo',
         return_value=mocker.Mock(
-            repo=object(),
+            repo=mocker.MagicMock(),
             info=mocker.Mock(root=repo_root, active_branch=None),
         ),
     )
@@ -139,7 +136,6 @@ def test_cli_release_preview_stdout(
 
 def test_cli_release_preview_monorepo_requires_project_selection(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     mock_settings = _mock_settings(
@@ -178,7 +174,6 @@ def test_cli_release_preview_monorepo_requires_project_selection(
 
 def test_cli_release_preview_monorepo_project_outputs_prefixed_tags(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     mock_settings = _mock_settings(

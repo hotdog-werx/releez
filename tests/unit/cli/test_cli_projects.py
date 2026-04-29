@@ -5,19 +5,17 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.errors import DirtyWorkingTreeError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
 def test_projects_list_no_projects(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
@@ -32,7 +30,6 @@ def test_projects_list_no_projects(
 
 def test_projects_list_with_projects(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     core_config = mocker.MagicMock(
         name='core',
@@ -56,7 +53,6 @@ def test_projects_list_with_projects(
 
 def test_projects_list_with_projects_no_include_paths(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     core_config = mocker.MagicMock(
         path='packages/core',
@@ -79,7 +75,6 @@ def test_projects_list_with_projects_no_include_paths(
 
 def test_projects_changed_no_projects_configured(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
@@ -94,7 +89,6 @@ def test_projects_changed_no_projects_configured(
 
 def test_projects_changed_text_output_with_changes(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -128,7 +122,6 @@ def test_projects_changed_text_output_with_changes(
 
 def test_projects_changed_text_output_no_changes(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
@@ -159,7 +152,6 @@ def test_projects_changed_text_output_no_changes(
 
 def test_projects_changed_json_output(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -197,7 +189,6 @@ def test_projects_changed_json_output(
 
 def test_projects_changed_with_custom_base(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
@@ -230,7 +221,6 @@ def test_projects_changed_with_custom_base(
 
 def test_projects_changed_handles_releez_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
@@ -261,7 +251,6 @@ def test_projects_changed_handles_releez_error(
 
 def test_projects_info_no_projects_configured(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
@@ -276,7 +265,6 @@ def test_projects_info_no_projects_configured(
 
 def test_projects_info_project_not_found(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     existing = mocker.MagicMock()
     existing.name = 'ui'
@@ -295,7 +283,6 @@ def test_projects_info_project_not_found(
 
 def test_projects_info_valid_project(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     project_config = mocker.MagicMock(
         path='packages/core',
@@ -324,7 +311,6 @@ def test_projects_info_valid_project(
 
 def test_projects_info_with_post_changelog_hooks(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     project_config = mocker.MagicMock(
         path='packages/core',

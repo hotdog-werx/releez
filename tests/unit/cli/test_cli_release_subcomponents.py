@@ -133,7 +133,7 @@ def test_run_project_release_start_handles_releez_error(
     project.name = 'core'
     mocker.patch(
         'releez.subapps.release_start._build_release_start_input_project',
-        return_value=object(),
+        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         'releez.subapps.release_start.start_release',
@@ -342,7 +342,7 @@ def test_run_project_release_start_prompts_confirmation_on_maintenance_branch(
     )
     mocker.patch(
         'releez.subapps.release_start._build_release_start_input_project',
-        return_value=object(),
+        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         'releez.subapps.release_start.start_release',

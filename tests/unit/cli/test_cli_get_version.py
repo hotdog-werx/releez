@@ -2,18 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import __version__, cli
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
-def test_cli_version_flag_prints_version(
-    invoke: Callable[[object, list[str]], InvokeResult],
-) -> None:
+def test_cli_version_flag_prints_version() -> None:
     result = invoke(cli.app, ['--version'])
 
     assert result.exit_code == 0

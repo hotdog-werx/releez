@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.artifact_version import (
     ArtifactVersionInput,
@@ -13,10 +15,8 @@ from releez.errors import ReleezError
 from releez.version_tags import AliasVersions, VersionTags
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from unittest.mock import MagicMock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -46,7 +46,6 @@ def _mock_settings(
 
 def test_cli_version_artifact_builds_input_and_prints_result(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         assert artifact_input.scheme == ArtifactVersionScheme.semver
@@ -83,7 +82,6 @@ def test_cli_version_artifact_builds_input_and_prints_result(
 
 def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
@@ -115,9 +113,7 @@ def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     assert result.stdout == '1.2.3\nv1\n'
 
 
-def test_cli_version_artifact_rejects_invalid_prerelease_type(
-    invoke: Callable[[object, list[str]], InvokeResult],
-) -> None:
+def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
     result = invoke(
         cli.app,
         [
@@ -139,7 +135,6 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type(
 
 def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
@@ -169,7 +164,6 @@ def test_cli_version_artifact_ignores_alias_versions_for_pep440(
 
 def test_cli_version_artifact_pep440_without_aliases(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Regression guard: pep440 output with no aliases should emit plain version only."""
     mocker.patch(
@@ -200,7 +194,6 @@ def test_cli_version_artifact_pep440_without_aliases(
 
 def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
@@ -235,7 +228,6 @@ def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
 
 def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specified(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         if artifact_input.scheme == ArtifactVersionScheme.semver:
@@ -276,7 +268,6 @@ def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specifi
 
 def test_cli_version_artifact_json_output_with_alias_versions(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
@@ -311,7 +302,6 @@ def test_cli_version_artifact_json_output_with_alias_versions(
 
 def test_cli_version_artifact_json_output_full_release_no_aliases(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
@@ -342,7 +332,6 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
 
 def test_cli_version_artifact_with_project_includes_metadata_in_json(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -395,7 +384,6 @@ def test_cli_version_artifact_with_project_includes_metadata_in_json(
 
 def test_cli_version_artifact_with_project_uses_project_scoped_version_resolution(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -454,7 +442,6 @@ def test_cli_version_artifact_with_project_uses_project_scoped_version_resolutio
 
 def test_cli_version_artifact_with_unknown_project_exits_with_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -480,7 +467,6 @@ def test_cli_version_artifact_with_unknown_project_exits_with_error(
 
 def test_cli_version_artifact_with_project_no_projects_configured_exits_with_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_settings = _mock_settings(mocker, projects=[])
     mock_settings.get_subprojects.return_value = []
@@ -500,7 +486,6 @@ def test_cli_version_artifact_with_project_no_projects_configured_exits_with_err
 
 def test_cli_version_artifact_with_project_version_override_skips_resolution(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
@@ -544,7 +529,6 @@ def test_cli_version_artifact_with_project_version_override_skips_resolution(
 
 def test_cli_version_artifact_requires_project_in_monorepo_mode(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """In monorepo mode, version artifact must fail without --project."""
     _mock_settings(mocker, projects=[mocker.MagicMock()])
@@ -566,7 +550,6 @@ def test_cli_version_artifact_requires_project_in_monorepo_mode(
 
 def test_cli_version_artifact_handles_releez_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Regression guard: version-artifact command must surface ReleezError as exit code 1."""
     mocker.patch(

@@ -5,16 +5,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
+from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import MissingCliError
 from releez.settings import ReleezSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from unittest.mock import Mock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -81,7 +80,6 @@ def mock_changelog_setup(
 
 def test_changelog_regenerate_basic(
     mock_changelog_setup: ChangelogSetupCallable,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Test basic changelog regeneration without formatting."""
     setup = mock_changelog_setup()
@@ -96,7 +94,6 @@ def test_changelog_regenerate_basic(
 
 def test_changelog_regenerate_custom_path(
     mock_changelog_setup: ChangelogSetupCallable,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Test changelog regeneration with custom path."""
     setup = mock_changelog_setup(['HISTORY.md'])
@@ -114,7 +111,6 @@ def test_changelog_regenerate_custom_path(
 
 def test_changelog_regenerate_absolute_path(
     mock_changelog_setup: ChangelogSetupCallable,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     """Test changelog regeneration with absolute path."""
@@ -134,7 +130,6 @@ def test_changelog_regenerate_absolute_path(
 
 def test_changelog_regenerate_handles_releez_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     """Test that ReleezError is properly handled and reported."""
@@ -162,7 +157,6 @@ def test_changelog_regenerate_handles_releez_error(
 
 def test_changelog_regenerate_single_repo_rejects_project_flags(
     mock_changelog_setup: ChangelogSetupCallable,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """Test that --all in single-repo mode (no projects configured) exits with error."""
     mock_changelog_setup()
@@ -230,7 +224,6 @@ class TestChangelogRegenerateMonorepo:
     def test_all_projects_regenerates_both(
         self,
         monorepo_setup: MonorepoSetup,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """--all regenerates changelog for every configured project."""
         result = invoke(cli.app, ['changelog', 'regenerate', '--all'])
@@ -246,7 +239,6 @@ class TestChangelogRegenerateMonorepo:
     def test_specific_project(
         self,
         monorepo_setup: MonorepoSetup,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """--project <name> regenerates only the named project."""
         result = invoke(
@@ -264,7 +256,6 @@ class TestChangelogRegenerateMonorepo:
     def test_multiple_projects(
         self,
         monorepo_setup: MonorepoSetup,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """--project can be repeated to select multiple projects."""
         result = invoke(
@@ -278,7 +269,6 @@ class TestChangelogRegenerateMonorepo:
     @pytest.mark.usefixtures('monorepo_setup')
     def test_no_selection_exits_with_error(
         self,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """Monorepo mode without --project or --all exits with an informative error."""
         result = invoke(cli.app, ['changelog', 'regenerate'])
@@ -289,7 +279,6 @@ class TestChangelogRegenerateMonorepo:
     @pytest.mark.usefixtures('monorepo_setup')
     def test_unknown_project_exits_with_error(
         self,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """--project with an unknown name exits with an error."""
         result = invoke(
@@ -303,7 +292,6 @@ class TestChangelogRegenerateMonorepo:
     @pytest.mark.usefixtures('monorepo_setup')
     def test_project_and_all_together_exits_with_error(
         self,
-        invoke: Callable[[object, list[str]], InvokeResult],
     ) -> None:
         """Using --project and --all together exits with an error."""
         result = invoke(

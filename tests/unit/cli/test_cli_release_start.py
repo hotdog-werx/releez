@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.errors import ReleezError
 from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -32,7 +32,7 @@ def _mock_repo_context(
 def _mock_settings(
     mocker: MockerFixture,
     *,
-    projects: list[object],
+    projects: list[MagicMock],
 ) -> MagicMock:
     hooks = mocker.MagicMock(post_changelog=[])
     mock_settings = mocker.MagicMock(
@@ -55,7 +55,6 @@ def _mock_settings(
 
 def test_cli_release_start_passes_version_override(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     _mock_repo_context(mocker, repo_root=tmp_path)
@@ -82,7 +81,6 @@ def test_cli_release_start_passes_version_override(
 
 def test_cli_release_start_uses_default_options_when_no_option_flags(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     _mock_repo_context(mocker, repo_root=tmp_path)
@@ -102,7 +100,6 @@ def test_cli_release_start_uses_default_options_when_no_option_flags(
 
 def test_cli_release_start_delegates_to_command_helper(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     _mock_repo_context(mocker, repo_root=tmp_path)
@@ -135,7 +132,6 @@ def test_cli_release_start_delegates_to_command_helper(
 
 def test_cli_release_start_defaults_version_override_to_none(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     _mock_repo_context(mocker, repo_root=tmp_path)
@@ -159,7 +155,6 @@ def test_cli_release_start_defaults_version_override_to_none(
 
 def test_cli_release_start_monorepo_requires_explicit_project_selection(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     """In monorepo mode, release start must fail without --project or --all."""
@@ -199,7 +194,6 @@ def test_cli_release_start_monorepo_requires_explicit_project_selection(
 
 def test_cli_release_start_monorepo_with_project_flag(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     """In monorepo mode, release start succeeds when --project is specified."""
@@ -252,7 +246,6 @@ def test_cli_release_start_monorepo_with_project_flag(
 
 def test_cli_release_start_monorepo_override_requires_single_project(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
     tmp_path: Path,
 ) -> None:
     _mock_repo_context(mocker, repo_root=tmp_path)

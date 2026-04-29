@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.cliff import CommitValidationResult
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
@@ -35,7 +34,6 @@ def _mock_validate(mocker: MockerFixture, *, valid: bool) -> None:
 
 def test_valid_message_exits_0(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """A message matching a configured parser exits 0 with a ✓ prefix."""
     _mock_validate(mocker, valid=True)
@@ -49,7 +47,6 @@ def test_valid_message_exits_0(
 
 def test_valid_message_prints_reason(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """On success, the validation reason is printed."""
     _mock_validate(mocker, valid=True)
@@ -62,7 +59,6 @@ def test_valid_message_prints_reason(
 
 def test_invalid_message_exits_1(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """A message matching no parser exits 1."""
     _mock_validate(mocker, valid=False)
@@ -72,7 +68,6 @@ def test_invalid_message_exits_1(
 
 def test_invalid_message_prints_reason_to_stderr(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """On failure, the rejection reason is printed with a ✗ prefix."""
     _mock_validate(mocker, valid=False)
@@ -83,13 +78,12 @@ def test_invalid_message_prints_reason_to_stderr(
 
 def test_message_is_passed_to_validate(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     """The CLI argument is forwarded verbatim to GitCliff.validate_commit_message."""
     captured: list[str] = []
     reason = 'Valid: matches a commit parser'
 
-    def _capture(self: object, message: str) -> CommitValidationResult:
+    def _capture(_: object, message: str) -> CommitValidationResult:
         captured.append(message)
         return CommitValidationResult(valid=True, reason=reason)
 

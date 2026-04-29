@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.errors import (
     GitBranchExistsError,
@@ -11,15 +13,13 @@ from releez.errors import (
 from releez.git_repo import RepoInfo
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
-    from unittest.mock import Mock
+    from unittest.mock import MagicMock, Mock
 
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
-def _make_repo_mock(mocker: MockerFixture, tmp_path: Path) -> object:
+def _make_repo_mock(mocker: MockerFixture, tmp_path: Path) -> Mock:
     repo_info = RepoInfo(root=tmp_path, remote_url='', active_branch='master')
     return mocker.Mock(repo=mocker.Mock(), info=repo_info)
 
@@ -28,7 +28,7 @@ def _make_project_mock(
     mocker: MockerFixture,
     name: str,
     tag_prefix: str,
-) -> object:
+) -> MagicMock:
     p = mocker.MagicMock()
     p.name = name
     p.tag_prefix = tag_prefix
@@ -39,7 +39,6 @@ class TestSupportBranchSingleRepo:
     def test_happy_path_creates_branch(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Single-repo: creates support/1.x from the latest 1.x.x tag."""
@@ -84,7 +83,6 @@ class TestSupportBranchSingleRepo:
     def test_dry_run_does_not_create_branch(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--dry-run prints intent but does not call create_branch_from_ref."""
@@ -132,7 +130,6 @@ class TestSupportBranchSingleRepo:
     def test_project_flag_in_single_repo_mode_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--project is not valid in single-repo mode."""
@@ -163,7 +160,6 @@ class TestSupportBranchSingleRepo:
     def test_major_is_latest_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Requesting a support branch for the latest major is an error."""
@@ -195,7 +191,6 @@ class TestSupportBranchSingleRepo:
     def test_no_tags_for_major_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """No tags for the requested major is an error."""
@@ -227,7 +222,6 @@ class TestSupportBranchSingleRepo:
     def test_branch_already_exists_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """GitBranchExistsError propagates as an exit code 1."""
@@ -272,7 +266,6 @@ class TestSupportBranchSingleRepo:
     def test_commit_override_valid(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """A valid --commit uses the provided SHA as the split point."""
@@ -326,7 +319,6 @@ class TestSupportBranchSingleRepo:
     def test_commit_override_invalid_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """An invalid --commit produces exit code 1."""
@@ -378,7 +370,6 @@ class TestSupportBranchSingleRepo:
     def test_preflight_fails_when_template_regex_mismatch(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Pre-flight rejects a template that generates a name not matching the regex."""
@@ -434,7 +425,6 @@ class TestSupportBranchMonorepo:
     def test_monorepo_happy_path(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo: --project ui creates support/ui-1.x from ui-1.4.0."""
@@ -485,7 +475,6 @@ class TestSupportBranchMonorepo:
     def test_monorepo_missing_project_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo mode without --project produces a helpful error."""
@@ -514,7 +503,6 @@ class TestSupportBranchMonorepo:
     def test_monorepo_unknown_project_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """Monorepo mode with an unrecognised --project name produces a helpful error."""
@@ -549,7 +537,6 @@ class TestSupportBranchMonorepo:
     def test_monorepo_major_is_latest_errors(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """MajorVersionAlreadyLatestError propagates from monorepo path."""
@@ -585,7 +572,6 @@ class TestSupportBranchMonorepo:
     def test_monorepo_dry_run(
         self,
         mocker: MockerFixture,
-        invoke: Callable[[object, list[str]], InvokeResult],
         tmp_path: Path,
     ) -> None:
         """--dry-run in monorepo mode does not create the branch."""

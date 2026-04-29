@@ -5,20 +5,18 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from invoke_helper import invoke
+
 from releez import cli
 from releez.errors import DirtyWorkingTreeError
 from releez.git_repo import DetectedRelease
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from invoke_helper import InvokeResult
     from pytest_mock import MockerFixture
 
 
 def test_cli_release_detect_from_branch_single_repo(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.release_support.open_repo',
@@ -53,7 +51,6 @@ def test_cli_release_detect_from_branch_single_repo(
 
 def test_cli_release_detect_from_branch_monorepo(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_repo_info = mocker.MagicMock(root=mocker.MagicMock())
 
@@ -96,7 +93,6 @@ def test_cli_release_detect_from_branch_monorepo(
 
 def test_cli_release_detect_from_branch_not_release_branch(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.release_support.open_repo',
@@ -121,7 +117,6 @@ def test_cli_release_detect_from_branch_not_release_branch(
 
 def test_cli_release_detect_from_branch_uses_current_branch(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_info = mocker.MagicMock(active_branch='release/1.2.3')
     mocker.patch(
@@ -148,7 +143,6 @@ def test_cli_release_detect_from_branch_uses_current_branch(
 
 def test_cli_release_detect_from_branch_detached_head_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mock_info = mocker.MagicMock(active_branch=None)
     mocker.patch(
@@ -164,7 +158,6 @@ def test_cli_release_detect_from_branch_detached_head_error(
 
 def test_cli_release_detect_from_branch_handles_releez_error(
     mocker: MockerFixture,
-    invoke: Callable[[object, list[str]], InvokeResult],
 ) -> None:
     mocker.patch(
         'releez.subapps.release_support.open_repo',
