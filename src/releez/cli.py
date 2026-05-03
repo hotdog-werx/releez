@@ -5,6 +5,7 @@ from cyclopts import App
 from releez import __version__
 from releez.subapps import (
     changelog_app,
+    doctor_app,
     projects_app,
     release_app,
     validate_app,
@@ -21,6 +22,7 @@ app.command(version_app)
 app.command(changelog_app)
 app.command(projects_app)
 app.command(validate_app)
+app.command(doctor_app)
 
 
 def main() -> None:
