@@ -219,6 +219,58 @@ class TestDoctorRepoCheck:
         assert result.exit_code == 1
         assert 'not inside a git repository' in result.stderr
 
+    def test_settings_load_failure_exits_one(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """When ReleezSettings() raises (e.g. invalid config), the failure is reported and exits 1."""
+        mocker.patch(
+            'releez.subapps.doctor.shutil.which',
+            return_value='/usr/bin/git',
+        )
+        mocker.patch(
+            'releez.subapps.doctor._git_cliff_base_cmd',
+            return_value=['git-cliff'],
+        )
+        _write_cliff_toml(tmp_path)
+        _mock_repo(mocker, root=tmp_path)
+        mocker.patch(
+            'releez.subapps.doctor.ReleezSettings',
+            side_effect=Exception('bad config'),
+        )
+
+        result = invoke(cli.app, ['doctor'])
+
+        assert result.exit_code == 1
+        assert 'failed to load settings' in result.stderr
+
+    def test_settings_none_still_checks_working_tree(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """When settings fails to load, repo-level checks (e.g. working tree) still run."""
+        mocker.patch(
+            'releez.subapps.doctor.shutil.which',
+            return_value='/usr/bin/git',
+        )
+        mocker.patch(
+            'releez.subapps.doctor._git_cliff_base_cmd',
+            return_value=['git-cliff'],
+        )
+        _write_cliff_toml(tmp_path)
+        _mock_repo(mocker, root=tmp_path, is_dirty=True)
+        mocker.patch(
+            'releez.subapps.doctor.ReleezSettings',
+            side_effect=Exception('bad config'),
+        )
+
+        result = invoke(cli.app, ['doctor'])
+
+        assert result.exit_code == 1
+        assert 'dirty' in result.stdout
+
 
 class TestDoctorCliffToml:
     def test_cliff_toml_missing_exits_one(
