@@ -364,10 +364,9 @@ runs:
 
     - name: '[validate] Comment on PR'
       if: inputs.mode == 'validate' && inputs.post-comment == 'true'
-      uses: thollander/actions-comment-pull-request@v3
+      uses: marocchino/sticky-pull-request-comment@v2
       with:
-        comment-tag: ${{ inputs.comment-tag }}
-        mode: recreate
+        header: ${{ inputs.comment-tag }}
         message: |
           ## Releez: Release Preview
 
