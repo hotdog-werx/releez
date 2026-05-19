@@ -18,6 +18,11 @@ inputs:
 
   # ── Common inputs ──────────────────────────────────────────────────────────
 
+  github-token:
+    description: 'GitHub token used by git-cliff to fetch PR metadata. Defaults to the built-in github.token.'
+    required: false
+    default: ${{ github.token }}
+
   releez-version:
     description: |
       Override the releez version to install. Accepts a bare version number
@@ -230,6 +235,7 @@ runs:
       id: finalize-notes
       if: inputs.mode == 'finalize'
       env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
       shell: bash
       run: |
@@ -324,6 +330,7 @@ runs:
       id: validate-preview
       if: inputs.mode == 'validate'
       env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         VALIDATE_PROJECT: ${{ steps.validate-detect.outputs.project }}
       shell: bash
       run: |
@@ -345,6 +352,7 @@ runs:
       id: validate-notes
       if: inputs.mode == 'validate'
       env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         VALIDATE_PROJECT: ${{ steps.validate-detect.outputs.project }}
       shell: bash
       run: |
