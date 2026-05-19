@@ -195,7 +195,7 @@ action, otherwise `detect-from-branch` cannot resolve the project name from the
 branch.
 
 **`post-comment: 'false'` in act tests** —
-`thollander/actions-comment-pull-request` will fail in act because there's no
+`marocchino/sticky-pull-request-comment` will fail in act because there's no
 real PR. Always set `post-comment: 'false'` for validate mode act tests.
 
 **`continue-on-error: true` on `va-detect`** — `detect-from-branch` is allowed

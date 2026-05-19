@@ -218,7 +218,7 @@ jobs:
 `release-preview`, `validation-status`.
 
 **PR comment**: When `post-comment: 'true'` and a real PR exists, the action
-uses `thollander/actions-comment-pull-request` to post or update a comment
+uses `marocchino/sticky-pull-request-comment` to post or update a comment
 identified by `comment-tag`. On each push to the release branch the comment is
 replaced in-place, keeping the PR timeline clean.
 
