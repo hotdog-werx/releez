@@ -1,3 +1,55 @@
+## [1.0.0] - 2026-05-19
+
+### 🚀 Features
+
+- Validate commit message + validate-pr-title action mode (#36) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#36](https://github.com/hotdog-werx/releez/pull/36)
+
+- _(release)_ Add maintenance branch support and confirmation (#37) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#37](https://github.com/hotdog-werx/releez/pull/37)
+
+- Get rid of typer (#47) by [@jamestrousdale](https://github.com/jamestrousdale)
+  in [#47](https://github.com/hotdog-werx/releez/pull/47)
+
+- _(cli)_ Releez doctor command (#48) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#48](https://github.com/hotdog-werx/releez/pull/48)
+
+- Use marocchino/sticky-pull-request-comment (#50) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#50](https://github.com/hotdog-werx/releez/pull/50)
+
+### 🐛 Bug Fixes
+
+- Refactor CLI functions (#42) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#42](https://github.com/hotdog-werx/releez/pull/42)
+
+- Remove all deprecated code (#43) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#43](https://github.com/hotdog-werx/releez/pull/43)
+
+- Force pull tags to handle alias tags out of sync (#44) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#44](https://github.com/hotdog-werx/releez/pull/44)
+
+- Enable singular output versions from action (#46) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#46](https://github.com/hotdog-werx/releez/pull/46)
+
+- Action needs github token by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
+### ⚙️ Miscellaneous Tasks
+
+- Add some additional test documentation by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
+- Rename classes with leading underscores by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [0.3.4] - 2026-03-04
 
 ### 🐛 Bug Fixes
