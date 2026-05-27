@@ -1,3 +1,15 @@
+## [1.0.1] - 2026-05-27
+
+### 🐛 Bug Fixes
+
+- Fix doctor changelog check in monorepo mode (#57) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#57](https://github.com/hotdog-werx/releez/pull/57)
+
+- Add logging when git cliff fails (#56) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#56](https://github.com/hotdog-werx/releez/pull/56)
+
 ## [1.0.0] - 2026-05-19
 
 ### 🚀 Features
