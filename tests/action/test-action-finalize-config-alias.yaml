@@ -31,7 +31,7 @@ jobs:
           git clone --bare . /tmp/origin
           git remote set-url origin /tmp/origin
 
-          git tag 1.0.0
+          git tag 99.0.0
           git commit --allow-empty -m "feat: cover finalize config-alias regression"
 
           # Push commit so release tags can be pushed in finalize mode.
@@ -76,7 +76,7 @@ jobs:
         uses: ./
         with:
           mode: finalize
-          branch: 'release/1.1.0'
+          branch: 'release/99.1.0'
           is-full-release: 'true'
           dry-run: 'false'
 
@@ -96,33 +96,33 @@ jobs:
             fi
           }
 
-          assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "1.1.0"
-          assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '1.1.0\nv1')"
-          assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '1.1.0\nv1')"
-          assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "1.1.0"
+          assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "99.1.0"
+          assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '99.1.0\nv99')"
+          assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '99.1.0\nv99')"
+          assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "99.1.0"
 
-          if git tag -l | grep -q '^1\.1\.0$'; then
+          if git tag -l | grep -q '^99\.1\.0$'; then
             echo "OK [finalize-config-alias]: local exact tag exists"
           else
             echo "FAIL [finalize-config-alias]: local exact tag missing"
             fail=1
           fi
 
-          if git tag -l | grep -q '^v1$'; then
+          if git tag -l | grep -q '^v99$'; then
             echo "OK [finalize-config-alias]: local alias tag exists"
           else
             echo "FAIL [finalize-config-alias]: local alias tag missing"
             fail=1
           fi
 
-          if git ls-remote --tags origin refs/tags/1.1.0 >/dev/null 2>&1; then
+          if git ls-remote --tags origin refs/tags/99.1.0 >/dev/null 2>&1; then
             echo "OK [finalize-config-alias]: remote exact tag exists"
           else
             echo "FAIL [finalize-config-alias]: remote exact tag missing"
             fail=1
           fi
 
-          if git ls-remote --tags origin refs/tags/v1 >/dev/null 2>&1; then
+          if git ls-remote --tags origin refs/tags/v99 >/dev/null 2>&1; then
             echo "OK [finalize-config-alias]: remote alias tag exists"
           else
             echo "FAIL [finalize-config-alias]: remote alias tag missing"
