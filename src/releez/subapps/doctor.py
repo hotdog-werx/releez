@@ -188,6 +188,8 @@ def _check_monorepo_projects(
                     passed=True,
                 ),
             )
+            changelog_rel = f'{project.path}/{project.changelog_path}'
+            checks.append(_check_changelog(repo_root, changelog_rel))
     return checks
 
 
@@ -211,7 +213,8 @@ def _collect_checks_with_repo(
             ),
         )
     checks.append(_check_working_tree(ctx.repo))
-    checks.append(_check_changelog(ctx.info.root, settings.changelog_path))
+    if not settings.is_monorepo:
+        checks.append(_check_changelog(ctx.info.root, settings.changelog_path))
     if settings.create_pr:
         checks.append(_check_github_token())
     if settings.is_monorepo:
