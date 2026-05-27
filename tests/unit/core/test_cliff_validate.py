@@ -177,6 +177,24 @@ def test_multiple_catchalls_all_removed(tmp_path: Path) -> None:
     assert parsers[0]['message'] == '^feat'
 
 
+def test_strips_remote_section(tmp_path: Path) -> None:
+    """[remote.*] sections are removed from the validation config.
+
+    git-cliff fetches GitHub/GitLab metadata when a [remote] section is
+    present.  In the temp validation repo that call hits the real API and
+    fails with 403, which surfaces as a false "invalid commit" result.
+    """
+    toml = (
+        '[git]\n'
+        'commit_parsers = [{ message = "^feat", group = "Features" }]\n'
+        '[remote.github]\n'
+        'owner = "example"\n'
+        'repo = "repo"\n'
+    )
+    cfg = _build_validation_config(_write_cliff_toml(tmp_path, toml))
+    assert 'remote' not in cfg
+
+
 def test_raises_type_error_if_git_is_not_a_dict(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
