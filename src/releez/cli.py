@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import os
+
 from cyclopts import App
 
 from releez import __version__
@@ -27,4 +30,8 @@ app.command(doctor_app)
 
 def main() -> None:
     """Main entry point for the CLI."""
+    logging.basicConfig(
+        level=os.getenv('RELEEZ_LOG_LEVEL', 'WARNING').upper(),
+        format='%(name)s %(levelname)s %(message)s',
+    )
     app()

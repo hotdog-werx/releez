@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -18,6 +19,8 @@ from releez.errors import (
     MissingCliError,
 )
 from releez.process import run_checked
+
+logger = logging.getLogger(__name__)
 
 GIT_CLIFF_BIN = 'git-cliff'
 GIT_CLIFF_TAG_PATTERN = '^[0-9]+\\.[0-9]+\\.[0-9]+$'
@@ -44,10 +47,14 @@ class CommitValidationResult:
 def _build_validation_config(cliff_toml_path: Path) -> dict[str, Any]:
     """Build a cliff.toml config dict suitable for commit message validation.
 
-    Reads the project's cliff.toml and applies three overrides to [git]:
+    Reads the project's cliff.toml and applies overrides to [git]:
       - filter_unconventional = False  (non-conventional commits reach parsers)
       - fail_on_unmatched_commit = True (unmatched commit → non-zero exit)
       - removes catch-all parsers (message = ".*")
+
+    Also strips any [remote.*] sections — git-cliff would otherwise try to
+    fetch GitHub/GitLab metadata for the temp validation repo, which fails with
+    a 403 and surfaces as a false "invalid commit" result.
 
     The catch-all removal is necessary because our filter_unconventional=False
     override causes ".*" to match *any* raw commit message — including completely
@@ -59,6 +66,8 @@ def _build_validation_config(cliff_toml_path: Path) -> dict[str, Any]:
     """
     with cliff_toml_path.open('rb') as f:
         config: dict[str, object] = tomllib.load(f)
+
+    config.pop('remote', None)
 
     git = config.setdefault('git', {})
     if not isinstance(git, dict):
@@ -342,7 +351,13 @@ class GitCliff:
                     valid=True,
                     reason='Valid: matches a commit parser',
                 )
-            except ExternalCommandError:
+            except ExternalCommandError as exc:
+                logger.debug(
+                    'git-cliff rejected commit message %r (exit %d): %s',
+                    message,
+                    exc.returncode,
+                    exc.stderr or '(no stderr)',
+                )
                 return CommitValidationResult(
                     valid=False,
                     reason='Invalid: does not match any commit parser (expected: type(scope?): subject)',
