@@ -589,3 +589,66 @@ class TestDoctorMonorepo:
 
         assert result.exit_code == 0
         assert 'core' in result.stdout
+
+    def test_monorepo_checks_project_changelog(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """In monorepo mode, each project's changelog is checked, not the root one."""
+        mocker.patch(
+            'releez.subapps.doctor.shutil.which',
+            return_value='/usr/bin/git',
+        )
+        mocker.patch(
+            'releez.subapps.doctor._git_cliff_base_cmd',
+            return_value=['git-cliff'],
+        )
+        _write_cliff_toml(tmp_path)
+        project_dir = tmp_path / 'packages' / 'core'
+        project_dir.mkdir(parents=True)
+        (project_dir / 'CHANGELOG.md').touch()
+        _mock_repo(mocker, root=tmp_path)
+
+        project = mocker.MagicMock()
+        project.name = 'core'
+        project.path = 'packages/core'
+        project.changelog_path = 'CHANGELOG.md'
+        _mock_settings(mocker, is_monorepo=True, projects=[project])
+
+        result = invoke(cli.app, ['doctor'])
+
+        assert result.exit_code == 0
+        assert 'packages/core/CHANGELOG.md' in result.stdout
+
+    def test_monorepo_skips_root_changelog_check(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """In monorepo mode, the root CHANGELOG.md is not checked even if absent."""
+        mocker.patch(
+            'releez.subapps.doctor.shutil.which',
+            return_value='/usr/bin/git',
+        )
+        mocker.patch(
+            'releez.subapps.doctor._git_cliff_base_cmd',
+            return_value=['git-cliff'],
+        )
+        _write_cliff_toml(tmp_path)
+        # No root CHANGELOG.md — should not produce a warning
+        project_dir = tmp_path / 'packages' / 'core'
+        project_dir.mkdir(parents=True)
+        (project_dir / 'CHANGELOG.md').touch()
+        _mock_repo(mocker, root=tmp_path)
+
+        project = mocker.MagicMock()
+        project.name = 'core'
+        project.path = 'packages/core'
+        project.changelog_path = 'CHANGELOG.md'
+        _mock_settings(mocker, is_monorepo=True, projects=[project])
+
+        result = invoke(cli.app, ['doctor'])
+
+        assert result.exit_code == 0
+        assert 'CHANGELOG.md' not in result.stderr
