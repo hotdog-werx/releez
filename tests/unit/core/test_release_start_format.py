@@ -2,13 +2,64 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 import releez.release
+from releez.errors import InvalidReleaseVersionError
 from releez.release import StartReleaseInput
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from pytest_mock import MockerFixture
+
+
+def _minimal_input(**kwargs: object) -> StartReleaseInput:
+    defaults: dict[str, object] = dict(
+        bump='auto',
+        version_override=None,
+        base_branch='master',
+        remote_name='origin',
+        labels=[],
+        title_prefix='chore(release): ',
+        changelog_path='CHANGELOG.md',
+        post_changelog_hooks=None,
+        create_pr=False,
+        github_token=None,
+        dry_run=False,
+    )
+    defaults.update(kwargs)
+    return StartReleaseInput(**defaults)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    'bad_version',
+    [
+        'core-1.2.3',  # prefixed — users must pass bare semver
+        'v1.2.3',  # v-prefixed semver
+        'not-a-version',
+        '1.2',  # missing patch
+        '',
+    ],
+)
+def test_start_release_input_rejects_non_semver_version_override(
+    bad_version: str,
+) -> None:
+    """StartReleaseInput raises InvalidReleaseVersionError for non-semver version_override."""
+    with pytest.raises(InvalidReleaseVersionError):
+        _minimal_input(version_override=bad_version)
+
+
+def test_start_release_input_accepts_valid_semver_version_override() -> None:
+    """StartReleaseInput accepts a valid bare semver version_override."""
+    inp = _minimal_input(version_override='1.2.3')
+    assert inp.version_override == '1.2.3'
+
+
+def test_start_release_input_accepts_none_version_override() -> None:
+    """StartReleaseInput accepts version_override=None (auto-compute from git-cliff)."""
+    inp = _minimal_input(version_override=None)
+    assert inp.version_override is None
 
 
 def test_start_release_runs_post_changelog_hooks(
@@ -182,6 +233,56 @@ def test_start_release_monorepo_first_release_prefixes_version(
 
     assert result.version == 'core-0.1.0'
     assert result.release_branch == 'release/core-0.1.0'
+
+
+def test_start_release_monorepo_version_override_gets_prefix(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """Bare semver in --version-override gets the tag prefix prepended in monorepo mode.
+
+    Users should be able to pass "1.2.3" rather than "core-1.2.3".
+    """
+    (tmp_path / 'CHANGELOG.md').write_text('# Changelog\n', encoding='utf-8')
+
+    repo = mocker.Mock()
+    info = mocker.Mock(root=tmp_path)
+    mocker.patch(
+        'releez.release.open_repo',
+        return_value=mocker.Mock(repo=repo, info=info),
+    )
+    mocker.patch('releez.release.ensure_clean')
+    mocker.patch('releez.release.fetch')
+    mocker.patch('releez.release.checkout_remote_branch')
+    mocker.patch('releez.release.create_and_checkout_branch')
+    mocker.patch('releez.release.push_set_upstream')
+    mocker.patch('releez.release._maybe_create_pull_request', return_value=None)
+
+    cliff = mocker.Mock()
+    cliff.generate_unreleased_notes.return_value = 'notes'
+    mocker.patch('releez.release.GitCliff', return_value=cliff)
+
+    result = releez.release.start_release(
+        StartReleaseInput(
+            bump='auto',
+            version_override='1.2.3',
+            base_branch='master',
+            remote_name='origin',
+            labels=[],
+            title_prefix='chore(release): ',
+            changelog_path='CHANGELOG.md',
+            post_changelog_hooks=None,
+            create_pr=False,
+            github_token=None,
+            dry_run=False,
+            project_name='core',
+            tag_prefix='core-',
+        ),
+    )
+
+    assert result.version == 'core-1.2.3'
+    assert result.release_branch == 'release/core-1.2.3'
+    cliff.compute_next_version.assert_not_called()
 
 
 def test_start_release_monorepo_hooks_receive_bare_semver(

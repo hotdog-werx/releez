@@ -36,6 +36,39 @@ jobs:
           fi
         shell: bash
 
+  # ── Invalid version-override guard ───────────────────────────────────────────
+  #
+  # Ensures the action fails fast with a clear error when version-override is
+  # not bare semver (e.g. accidentally prefixed like "core-1.2.3").
+  test-invalid-version-override-fails:
+    name: invalid version-override fails fast
+    needs: [test-invalid-mode-fails]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run action with prefixed version-override (expect failure)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: version-artifact
+          version-override: 'core-1.2.3'
+          is-full-release: 'true'
+          alias-versions: 'none'
+
+      - name: Assert action failed
+        run: |
+          if [ "${{ steps.bad.outcome }}" = "failure" ]; then
+            echo "OK [invalid-version-override]: action correctly rejected prefixed version"
+          else
+            echo "FAIL [invalid-version-override]: action should have failed but outcome was ${{ steps.bad.outcome }}"
+            exit 1
+          fi
+        shell: bash
+
   # ── releez-version local path override ───────────────────────────────────────
   #
   # Passes the workspace path as releez-version to exercise the "pass-through

@@ -36,6 +36,14 @@ def _project_include_paths(
     ]
 
 
+def _validate_semver_override(version: str) -> None:
+    """Raise InvalidReleaseVersionError if version is not valid bare semver."""
+    try:
+        VersionInfo.parse(version)
+    except ValueError as exc:
+        raise InvalidReleaseVersionError(version) from exc
+
+
 def _resolve_release_version(
     *,
     repo_root: Path,
@@ -50,6 +58,7 @@ def _resolve_release_version(
     for prefixed tag patterns; the prefix is stripped before semver parsing.
     """
     if version_override is not None:
+        _validate_semver_override(version_override)
         raw = version_override
     else:
         cliff = GitCliff(repo_root=repo_root)
