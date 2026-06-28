@@ -15,19 +15,19 @@ if TYPE_CHECKING:
 
 
 def _minimal_input(**kwargs: object) -> StartReleaseInput:
-    defaults: dict[str, object] = dict(
-        bump='auto',
-        version_override=None,
-        base_branch='master',
-        remote_name='origin',
-        labels=[],
-        title_prefix='chore(release): ',
-        changelog_path='CHANGELOG.md',
-        post_changelog_hooks=None,
-        create_pr=False,
-        github_token=None,
-        dry_run=False,
-    )
+    defaults: dict[str, object] = {
+        'bump': 'auto',
+        'version_override': None,
+        'base_branch': 'master',
+        'remote_name': 'origin',
+        'labels': [],
+        'title_prefix': 'chore(release): ',
+        'changelog_path': 'CHANGELOG.md',
+        'post_changelog_hooks': None,
+        'create_pr': False,
+        'github_token': None,
+        'dry_run': False,
+    }
     defaults.update(kwargs)
     return StartReleaseInput(**defaults)  # type: ignore[arg-type]
 

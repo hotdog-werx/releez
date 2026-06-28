@@ -192,8 +192,7 @@ def _resolve_release_version(
     """
     if release_input.version_override is not None:
         # Always prepend prefix: callers must pass bare semver ("1.2.3"), not "core-1.2.3".
-        version = f'{release_input.tag_prefix}{release_input.version_override}'
-        return version
+        return f'{release_input.tag_prefix}{release_input.version_override}'
     version = cliff.compute_next_version(
         bump=release_input.bump,
         tag_pattern=release_input.tag_pattern,
