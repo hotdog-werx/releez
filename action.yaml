@@ -236,16 +236,19 @@ runs:
       if: inputs.mode == 'finalize'
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        FINALIZE_VERSION: ${{ steps.finalize-detect.outputs.version }}
         FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
       shell: bash
       run: |
         PROJECT_FLAG=""
+        VERSION_OVERRIDE="$FINALIZE_VERSION"
         if [ -n "$FINALIZE_PROJECT" ]; then
           PROJECT_FLAG="--project $FINALIZE_PROJECT"
+          VERSION_OVERRIDE="${FINALIZE_VERSION#${FINALIZE_PROJECT}-}"
         fi
         # shellcheck disable=SC2086
         NOTES=$(releez release notes \
-          --version-override "${{ steps.finalize-detect.outputs.version }}" \
+          --version-override "$VERSION_OVERRIDE" \
           $PROJECT_FLAG)
         {
           echo "content<<EOF"
@@ -256,12 +259,15 @@ runs:
     - name: '[finalize] Create release tags'
       if: inputs.mode == 'finalize' && inputs.dry-run != 'true'
       env:
+        FINALIZE_VERSION: ${{ steps.finalize-detect.outputs.version }}
         FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
       shell: bash
       run: |
         PROJECT_FLAG=""
+        VERSION_OVERRIDE="$FINALIZE_VERSION"
         if [ -n "$FINALIZE_PROJECT" ]; then
           PROJECT_FLAG="--project $FINALIZE_PROJECT"
+          VERSION_OVERRIDE="${FINALIZE_VERSION#${FINALIZE_PROJECT}-}"
         fi
         ALIAS_VERSIONS_FLAG=""
         if [ -n "${{ inputs.alias-versions }}" ]; then
@@ -269,7 +275,7 @@ runs:
         fi
         # shellcheck disable=SC2086
         releez release tag \
-          --version-override "${{ steps.finalize-detect.outputs.version }}" \
+          --version-override "$VERSION_OVERRIDE" \
           $ALIAS_VERSIONS_FLAG \
           $PROJECT_FLAG
 
@@ -331,16 +337,19 @@ runs:
       if: inputs.mode == 'validate'
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        VALIDATE_VERSION: ${{ steps.validate-detect.outputs.version }}
         VALIDATE_PROJECT: ${{ steps.validate-detect.outputs.project }}
       shell: bash
       run: |
         PROJECT_FLAG=""
+        VERSION_OVERRIDE="$VALIDATE_VERSION"
         if [ -n "$VALIDATE_PROJECT" ]; then
           PROJECT_FLAG="--project $VALIDATE_PROJECT"
+          VERSION_OVERRIDE="${VALIDATE_VERSION#${VALIDATE_PROJECT}-}"
         fi
         # shellcheck disable=SC2086
         PREVIEW=$(releez release preview \
-          --version-override "${{ steps.validate-detect.outputs.version }}" \
+          --version-override "$VERSION_OVERRIDE" \
           $PROJECT_FLAG)
         {
           echo "content<<EOF"
@@ -353,16 +362,19 @@ runs:
       if: inputs.mode == 'validate'
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        VALIDATE_VERSION: ${{ steps.validate-detect.outputs.version }}
         VALIDATE_PROJECT: ${{ steps.validate-detect.outputs.project }}
       shell: bash
       run: |
         PROJECT_FLAG=""
+        VERSION_OVERRIDE="$VALIDATE_VERSION"
         if [ -n "$VALIDATE_PROJECT" ]; then
           PROJECT_FLAG="--project $VALIDATE_PROJECT"
+          VERSION_OVERRIDE="${VALIDATE_VERSION#${VALIDATE_PROJECT}-}"
         fi
         # shellcheck disable=SC2086
         NOTES=$(releez release notes \
-          --version-override "${{ steps.validate-detect.outputs.version }}" \
+          --version-override "$VERSION_OVERRIDE" \
           $PROJECT_FLAG)
         {
           echo "content<<EOF"

@@ -8,6 +8,7 @@ if typing.TYPE_CHECKING:
 
     from git import Repo
 
+from releez.cli_utils import _validate_semver_override
 from releez.cliff import GitCliff, GitCliffBump
 from releez.errors import (
     GitHubTokenRequiredError,
@@ -91,6 +92,11 @@ class StartReleaseInput:
     project_path: Path | None = None
     tag_prefix: str = ''
     maintenance_tag_pattern: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate version_override is bare semver if provided."""
+        if self.version_override is not None:
+            _validate_semver_override(self.version_override)
 
     @property
     def tag_pattern(self) -> str | None:
@@ -185,7 +191,8 @@ def _resolve_release_version(
         Version string to use for the release.
     """
     if release_input.version_override is not None:
-        return release_input.version_override
+        # Always prepend prefix: callers must pass bare semver ("1.2.3"), not "core-1.2.3".
+        return f'{release_input.tag_prefix}{release_input.version_override}'
     version = cliff.compute_next_version(
         bump=release_input.bump,
         tag_pattern=release_input.tag_pattern,

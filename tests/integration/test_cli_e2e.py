@@ -367,7 +367,7 @@ tag-prefix = "ui-"
             'core',
             '--no-create-pr',
             '--version-override',
-            'core-1.1.0',
+            '1.1.0',
         ],
     )
 
@@ -919,11 +919,11 @@ def test_cli_release_tag_monorepo_all_fails_fast_when_a_project_tag_exists(
     assert {tag.name for tag in repo.tags} == tags_after_first
 
 
-def test_cli_release_tag_monorepo_project_accepts_prefixed_version_override(
+def test_cli_release_tag_monorepo_project_version_override(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression guard: prefixed overrides like core-1.2.3 must be accepted for project tagging."""
+    """Bare semver override is accepted for project tagging; prefix is added automatically."""
     monkeypatch.chdir(tmp_path)
 
     repo, _, _ = _init_two_project_monorepo_repo(
@@ -940,7 +940,7 @@ def test_cli_release_tag_monorepo_project_accepts_prefixed_version_override(
             '--project',
             'core',
             '--version-override',
-            'core-1.2.3',
+            '1.2.3',
         ],
     )
 

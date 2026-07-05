@@ -16,6 +16,7 @@ from releez.cli_utils import (
     _exit,
     _project_include_paths,
     _resolve_release_version,
+    _validate_semver_override,
 )
 from releez.console import console, err_console
 from releez.git_repo import open_repo
@@ -169,6 +170,8 @@ def _resolve_artifact_project_context(
         if settings.projects:
             msg = 'Monorepo projects are configured. Use --project <name> to specify which project to version.'
             raise _exit(msg)
+        if version_override is not None:
+            _validate_semver_override(version_override)
         return '', version_override
 
     info = open_repo().info
@@ -189,6 +192,8 @@ def _resolve_artifact_project_context(
             tag_prefix=project.tag_prefix,
         )
         version_override = str(version)
+    else:
+        _validate_semver_override(version_override)
     return project.tag_prefix, version_override
 
 
