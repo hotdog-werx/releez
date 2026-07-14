@@ -20,10 +20,22 @@ jobs:
       codecov: true
     secrets: inherit
 
-## start-custom-ci-checks
-## Add custom jobs here (e.g. a tests/test-action pair). Content between
-## these two marker lines is preserved verbatim across repolish re-applies
-## — GitHub Actions `needs:` only works between jobs in the same file, so
-## jobs that must depend on repo-checks/python-checks belong here rather
-## than in a separate workflow file.
-## end-custom-ci-checks
+  ## start-custom-ci-checks
+  test-action:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Install mise tools
+        uses: jdx/mise-action@v4
+      - name: Install python dependencies
+        run: mise run python:uv-sync
+      - name: Create local branch for act (avoids detached HEAD warnings)
+        run: git checkout -b ci-act-ref
+      - name: Run action tests
+        run: mise run test-action
+  ## end-custom-ci-checks

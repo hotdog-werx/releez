@@ -65,7 +65,7 @@ extend = ".repolish/devkit-python/configs/ruff.toml"
 # resolves relative globs (like "**/tests/*.py") against the *extended*
 # file's own directory, not this project's root, so they'd never match
 # anything if they lived in the shared config.
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # Tests still need a docstring (google-style, per [lint.pydocstyle] in the
 # shared config) — D101/D102/D103 are deliberately NOT ignored here. Only
 # the requirement to document every argument is loosened (D417); pydoclint
