@@ -26,6 +26,8 @@ def _make_commit(repo: Repo, path: Path, message: str) -> None:
 
 
 class TestFindAllMajorVersions:
+    """Tests for find_all_major_versions."""
+
     def test_empty_repo_returns_empty(self, tmp_path: Path) -> None:
         """No tags → empty list."""
         repo = Repo.init(tmp_path)
@@ -40,6 +42,7 @@ class TestFindAllMajorVersions:
         assert find_all_major_versions(repo, tag_prefix='') == []
 
     def test_single_major(self, tmp_path: Path) -> None:
+        """Multiple tags sharing the same major version collapse to a single entry."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'f.txt', 'init')
         repo.create_tag('1.0.0')
@@ -48,6 +51,7 @@ class TestFindAllMajorVersions:
         assert find_all_major_versions(repo, tag_prefix='') == [1]
 
     def test_multiple_majors_sorted(self, tmp_path: Path) -> None:
+        """Distinct major versions are returned sorted in ascending order."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'f.txt', 'init')
         repo.create_tag('1.0.0')
@@ -66,6 +70,7 @@ class TestFindAllMajorVersions:
         assert find_all_major_versions(repo, tag_prefix='core-') == [1, 2]
 
     def test_with_prefix_empty_when_no_match(self, tmp_path: Path) -> None:
+        """A prefix with no matching tags returns an empty list, even if unprefixed tags exist."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'f.txt', 'init')
         repo.create_tag('1.0.0')
@@ -74,7 +79,10 @@ class TestFindAllMajorVersions:
 
 
 class TestCreateBranchFromRef:
+    """Tests for create_branch_from_ref."""
+
     def test_creates_branch_at_given_commit(self, tmp_path: Path) -> None:
+        """A branch is created and checked out at the exact commit SHA given as ref."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'first')
         first_sha = repo.head.commit.hexsha
@@ -88,6 +96,7 @@ class TestCreateBranchFromRef:
         assert repo.head.commit.hexsha == first_sha
 
     def test_creates_branch_from_tag(self, tmp_path: Path) -> None:
+        """A branch can be created and checked out using a tag name as the ref."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'v1')
         repo.create_tag('1.0.0')
@@ -101,6 +110,7 @@ class TestCreateBranchFromRef:
         assert repo.head.commit.hexsha == tag_sha
 
     def test_raises_if_branch_already_exists(self, tmp_path: Path) -> None:
+        """Attempting to create a branch with a name that already exists raises GitBranchExistsError."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'init')
         repo.create_head('support/1.x')
@@ -110,7 +120,10 @@ class TestCreateBranchFromRef:
 
 
 class TestValidateCommitForMajor:
+    """Tests for validate_commit_for_major."""
+
     def test_exact_tag_commit_is_valid(self, tmp_path: Path) -> None:
+        """A commit that is exactly the latest tag's commit passes validation."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'v1')
         repo.create_tag('1.4.0')
@@ -125,6 +138,7 @@ class TestValidateCommitForMajor:
         assert result == tag_sha
 
     def test_ancestor_commit_is_valid(self, tmp_path: Path) -> None:
+        """A commit that is an ancestor of the latest tag also passes validation."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'first')
         ancestor_sha = repo.head.commit.hexsha
@@ -164,6 +178,7 @@ class TestValidateCommitForMajor:
             )
 
     def test_unresolvable_ref_raises(self, tmp_path: Path) -> None:
+        """A commit ref that doesn't resolve to anything in the repo raises InvalidSupportBranchCommitError."""
         repo = Repo.init(tmp_path)
         _make_commit(repo, tmp_path / 'a.txt', 'init')
         repo.create_tag('1.4.0')

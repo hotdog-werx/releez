@@ -20,6 +20,7 @@ def test_settings_reads_pyproject_tool_releez_kebab_case(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Settings are read from [tool.releez] in pyproject.toml using kebab-case keys."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'pyproject.toml').write_text(
         '[tool.releez]\nalias-versions = "major"\ngit-remote = "upstream"\n',
@@ -35,6 +36,7 @@ def test_settings_reads_releez_toml_tool_releez_table(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Settings are read from a [tool.releez] table in a standalone releez.toml file."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'releez.toml').write_text(
         '[tool.releez]\nalias-versions = "minor"\ngit-remote = "upstream"\n',
@@ -50,6 +52,7 @@ def test_settings_reads_releez_toml_flat_legacy_warns(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Legacy flat (non-[tool.releez]) releez.toml keys still load but emit a DeprecationWarning."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'releez.toml').write_text(
         'alias_versions = "minor"\n',
@@ -70,6 +73,7 @@ def test_settings_reads_env_vars(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Settings can be overridden via RELEEZ_-prefixed environment variables."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv('RELEEZ_ALIAS_VERSIONS', 'major')
 

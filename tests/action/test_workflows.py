@@ -72,9 +72,10 @@ def _build_cmd(
         ], payload_path
 
 
-@pytest.mark.action
+@pytest.mark.slow
 @pytest.mark.parametrize('workflow', _workflow_files, ids=lambda p: p.stem)
 def test_action_workflow(workflow: Path) -> None:
+    """Run each discovered workflow file under act and expect a zero exit code."""
     input_file = workflow.with_name(workflow.stem + '.input.json')
     input_data = json.loads(input_file.read_text()) if input_file.exists() else None
 

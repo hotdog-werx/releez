@@ -33,7 +33,7 @@ def invoke(app: App, args: list[str]) -> InvokeResult:
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
-            app(args)  # type: ignore[operator]
+            app(args)
     except SystemExit as exc:
         exit_code = int(exc.code) if exc.code is not None else 0
     return InvokeResult(

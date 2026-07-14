@@ -19,12 +19,16 @@ if TYPE_CHECKING:
 
 @dataclass
 class ChangelogSetup:
+    """Holds the repo root and mocked GitCliff instance for single-repo tests."""
+
     repo_root: Path
     cliff: Mock
 
 
 @dataclass
 class MonorepoSetup:
+    """Holds the repo root and mocked project/GitCliff objects for monorepo tests."""
+
     repo_root: Path
     core: Mock
     ui: Mock
@@ -37,7 +41,9 @@ class ChangelogSetupCallable(Protocol):
     def __call__(
         self,
         changelog_paths: list[str] | None = None,
-    ) -> ChangelogSetup: ...
+    ) -> ChangelogSetup:
+        """Build a ChangelogSetup for the given changelog path(s)."""
+        ...
 
 
 @pytest.fixture

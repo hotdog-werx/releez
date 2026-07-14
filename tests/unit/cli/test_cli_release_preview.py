@@ -43,6 +43,7 @@ def test_cli_release_preview_writes_markdown(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--output writes the release preview markdown, including alias-versioned tags, to a file."""
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
@@ -80,6 +81,7 @@ def test_cli_release_preview_writes_markdown(
 def test_cli_release_preview_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
+    """The CLI forwards --project, --version-override, and --alias-versions to the command helper."""
     run_command = mocker.patch(
         'releez.subapps.release_preview._run_release_preview_command',
     )
@@ -112,6 +114,7 @@ def test_cli_release_preview_stdout(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """Without --output, the release preview is printed directly to stdout."""
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
@@ -138,6 +141,7 @@ def test_cli_release_preview_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """In monorepo mode, omitting --project/--all surfaces the selection-required error."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -176,6 +180,7 @@ def test_cli_release_preview_monorepo_project_outputs_prefixed_tags(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--project core previews tags with the project's prefix, including its major alias."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],

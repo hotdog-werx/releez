@@ -3,20 +3,86 @@
 [tools]
 uv = "0.9.18"
 lefthook = "2.0.12"
-dprint = "0.50.1"
+dprint = "0.55.1"
 act = "0.2.84"
 actionlint = "1.7.11"
 shellcheck = "0.11.0"
-"pipx:pkglink" = { version = "1.0.1" }
-"pipx:poethepoet" = { version = "0.38.0" }
-"pipx:tbelt" = { version = "0.0.3" }
+"pipx:git+https://github.com/hotdog-werx/uv-toolbox.git@master" = "master"
 "pipx:ruff" = { version = "0.13.0" }
-"pipx:ty" = { version = "0.0.5" }
+"pipx:ty" = "latest"
+"pipx:complexipy" = "4.0.2"
+"pipx:pydoclint" = "latest"
 "pipx:zensical" = { version = "0.0.19" }
 
-[hooks]
-postinstall = ["pkglink sync", "poe setup-hook", "lefthook install"]
+# uv-toolbox install provisions the "repolish" env (repolish + devkit
+# provider packages) before repolish link can use it. repolish link then
+# materializes provider-resource symlinks (.editorconfig, dprint.json) —
+# never committed to git (their symlink source is an absolute path,
+# portable only within the machine that created it), so every environment
+# links them fresh on every `mise install`.
+#
+# [[hooks.postinstall]] (array-of-tables, one entry per subprocess) is used
+# instead of a flat postinstall = ["...", "..."] array — newer mise releases
+# (2026.7.5 in CI, not 2026.5.15 locally) silently ran only the last entry
+# of the flat-array form.
+[[hooks.postinstall]]
+run = "uv-toolbox install"
+
+[[hooks.postinstall]]
+run = "uv-toolbox exec --env repolish -- repolish link"
+
+[[hooks.postinstall]]
+run = "mise run workspace:setup-hook"
+
+[[hooks.postinstall]]
+run = "lefthook install"
 
 [settings]
 experimental = true
 python.uv_venv_auto = true
+
+# Devkit tasks are picked up from the .repolish/devkit-<name>/
+# whole-resources-directory symlink `repolish link` creates on every `mise
+# install` — no copy-paste needed, and future devkit task changes
+# propagate automatically. "mise-tasks" (the default) is kept explicitly —
+# task_config includes *replaces* the default file-task dirs rather than
+# adding to them — since python:check:coverage is still rendered here (it
+# needs this repo's own project_source, so it can't be referenced in place
+# like everything else).
+[task_config]
+includes = [
+  "mise-tasks",
+  ".repolish/devkit-workspace/mise-tasks",
+  ".repolish/devkit-workspace/mise-tasks.toml",
+  ".repolish/devkit-python/mise-tasks",
+]
+
+# --- releez-specific (not devkit-provided) ---
+[tasks.test-action]
+run = "pytest tests/action/ -v"
+
+[tasks.format]
+depends = ["python:format", "workspace:dprint:format"]
+
+[tasks.setup]
+depends = ["python:uv-sync", "workspace:pnpm-install"]
+run = "echo Ready!"
+
+[tasks.ci-checks]
+depends = [
+  "workspace:dprint:check",
+  "python:check:ruff",
+  "python:check:format",
+  "python:check:ty",
+  "python:check:complexity",
+  "python:check:pydoclint",
+  "python:check:coverage",
+  "workspace:actionlint:check",
+]
+
+[tasks.repo-checks]
+depends = [
+  "workspace:dprint:check",
+  "workspace:actionlint:check",
+  "workspace:repolish:check",
+]

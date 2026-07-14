@@ -57,6 +57,7 @@ def test_cli_release_start_passes_version_override(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--version-override is passed through to the release input unchanged."""
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     start_release = mocker.patch(
@@ -83,6 +84,7 @@ def test_cli_release_start_uses_default_options_when_no_option_flags(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """When only a project-selection flag is given, ReleaseStartOptions falls back to defaults."""
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     run_command = mocker.patch(
@@ -102,6 +104,7 @@ def test_cli_release_start_delegates_to_command_helper(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """The CLI forwards --project, --version-override, and --dry-run to the command helper."""
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     run_command = mocker.patch(
@@ -134,6 +137,7 @@ def test_cli_release_start_defaults_version_override_to_none(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """Without --version-override, the release input's override field defaults to None."""
     _mock_repo_context(mocker, repo_root=tmp_path)
 
     start_release = mocker.patch(
@@ -248,6 +252,7 @@ def test_cli_release_start_monorepo_override_requires_single_project(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--version-override with multiple selected projects is rejected since it's ambiguous."""
     _mock_repo_context(mocker, repo_root=tmp_path)
     mock_settings = _mock_settings(
         mocker,

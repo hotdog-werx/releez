@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def test_cli_version_flag_prints_version() -> None:
+    """The --version flag prints the installed package version and exits 0."""
     result = invoke(cli.app, ['--version'])
 
     assert result.exit_code == 0

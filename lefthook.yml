@@ -3,18 +3,18 @@ pre-commit:
   jobs:
     - name: format dprint
       glob: '*.{json,yaml,yml,md,toml}'
-      run: mise exec -- poe format-dprint {staged_files}
+      run: mise exec -- mise run workspace:dprint:format {staged_files}
       stage_fixed: true
     - name: format python
       glob: '*.py'
-      run: mise exec -- poe format-python {staged_files}
+      run: mise exec -- mise run python:format {staged_files}
       stage_fixed: true
 
 pre-push:
   parallel: true
   jobs:
     - name: python complexity
-      run: mise exec -- poe check-complexity
+      run: mise exec -- mise run python:check:complexity
 
     - name: python coverage
-      run: mise exec -- poe check-coverage -- --ignore tests/action/
+      run: mise exec -- mise run python:check:coverage

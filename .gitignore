@@ -17,6 +17,9 @@ coverage.xml
 # docs
 site
 
-# pkglink sources
-.codeguide*
+# repolish
+.repolish/*
+# provider-linked symlinks use an absolute path to their source — never
+# committable, every environment links these fresh for itself
 .editorconfig
+dprint.json
