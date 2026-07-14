@@ -29,7 +29,7 @@ def _minimal_input(**kwargs: object) -> StartReleaseInput:
         'dry_run': False,
     }
     defaults.update(kwargs)
-    return StartReleaseInput(**defaults)  # type: ignore[arg-type]
+    return StartReleaseInput(**defaults)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(

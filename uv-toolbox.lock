@@ -11,9 +11,9 @@ environments:
       cyclopts==4.21.0 \
           --hash=sha256:477c18c791c924cca4836f79fce000a7bae45f551e340d9e1654e102c6d9ab9d \
           --hash=sha256:ded3ddb15b0c815f44d245011fc4cdd5a4809a3bb8202869e9e02195a87c0e18
-      devkit-python @ git+https://github.com/hotdog-werx/devkit.git@833520c9a12937b197e7e4cb1c39de1a400ae62e#subdirectory=packages/devkit-python
-      devkit-releez @ git+https://github.com/hotdog-werx/devkit.git@833520c9a12937b197e7e4cb1c39de1a400ae62e#subdirectory=packages/devkit-releez
-      devkit-workspace @ git+https://github.com/hotdog-werx/devkit.git@833520c9a12937b197e7e4cb1c39de1a400ae62e#subdirectory=packages/devkit-workspace
+      devkit-python @ git+https://github.com/hotdog-werx/devkit.git@2ef5b8f493493924af514627841abe70b06de161#subdirectory=packages/devkit-python
+      devkit-releez @ git+https://github.com/hotdog-werx/devkit.git@2ef5b8f493493924af514627841abe70b06de161#subdirectory=packages/devkit-releez
+      devkit-workspace @ git+https://github.com/hotdog-werx/devkit.git@2ef5b8f493493924af514627841abe70b06de161#subdirectory=packages/devkit-workspace
       docstring-parser==0.18.0 \
           --hash=sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015 \
           --hash=sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b

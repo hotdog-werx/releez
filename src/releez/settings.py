@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import (
     AliasChoices,
@@ -45,11 +45,15 @@ class _ReleezTomlConfigSettingsSource(TomlConfigSettingsSource):
         self.toml_file_path = Path('releez.toml')
         raw_data: dict[str, object] = self._read_files(self.toml_file_path)
 
-        data = raw_data
+        data: object = raw_data
         found = True
         for key in self._TABLE_HEADER:
             if isinstance(data, dict) and key in data:
-                data = data[key]
+                # dict is invariant in its type params, so isinstance
+                # narrowing alone leaves `data` as a bare dict ty can't
+                # index by `str` — cast bridges that gap once `isinstance`
+                # has already verified it at runtime.
+                data = cast('dict[str, object]', data)[key]
             else:
                 found = False
                 break
@@ -67,7 +71,11 @@ class _ReleezTomlConfigSettingsSource(TomlConfigSettingsSource):
                 )
             data = raw_data
 
-        self.toml_data = data
+        # dict is invariant in its type params, so isinstance narrowing
+        # alone can't make ty treat a bare `dict` as `dict[str, object]` —
+        # cast bridges that gap once the isinstance check has already
+        # verified it at runtime.
+        self.toml_data: dict[str, object] = cast('dict[str, object]', data) if isinstance(data, dict) else {}
         super(TomlConfigSettingsSource, self).__init__(
             settings_cls,
             self.toml_data,

@@ -9,7 +9,7 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import tomli_w
 
@@ -69,16 +69,30 @@ def _build_validation_config(cliff_toml_path: Path) -> dict[str, Any]:
 
     config.pop('remote', None)
 
-    git = config.setdefault('git', {})
-    if not isinstance(git, dict):
-        msg = f'Expected [git] to be a table, got {type(git).__name__}'
+    git_raw = config.setdefault('git', {})
+    if not isinstance(git_raw, dict):
+        msg = f'Expected [git] to be a table, got {type(git_raw).__name__}'
         raise TypeError(msg)
+    # dict is invariant in its type params, so isinstance narrowing alone
+    # can never make ty treat a bare `dict` as `dict[str, object]` — cast is
+    # the correct tool here: we know (from tomllib.load's guarantees) that
+    # TOML tables always parse as str-keyed dicts, a fact this runtime check
+    # already confirms but generic invariance keeps the checker from seeing.
+    git = cast('dict[str, object]', git_raw)
     git['filter_unconventional'] = False
     git['fail_on_unmatched_commit'] = True
-    parsers = git.get('commit_parsers', [])
-    if not isinstance(parsers, list):
-        msg = f'Expected commit_parsers to be an array, got {type(parsers).__name__}'
+
+    parsers_raw = git.get('commit_parsers', [])
+    if not isinstance(parsers_raw, list):
+        msg = f'Expected commit_parsers to be an array, got {type(parsers_raw).__name__}'
         raise TypeError(msg)
+    parsers: list[dict[str, object]] = []
+    for parser in parsers_raw:
+        if not isinstance(parser, dict):
+            msg = f'Expected each commit_parsers entry to be a table, got {type(parser).__name__}'
+            raise TypeError(msg)
+        parsers.append(cast('dict[str, object]', parser))
+
     git['commit_parsers'] = [p for p in parsers if p.get('message') != '.*']
     return config
 

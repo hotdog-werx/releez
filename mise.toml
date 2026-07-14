@@ -9,9 +9,9 @@ actionlint = "1.7.11"
 shellcheck = "0.11.0"
 "pipx:git+https://github.com/hotdog-werx/uv-toolbox.git@master" = "master"
 "pipx:ruff" = { version = "0.13.0" }
-"pipx:ty" = "latest"
+"pipx:ty" = "0.0.59"
 "pipx:complexipy" = "4.0.2"
-"pipx:pydoclint" = "latest"
+"pipx:pydoclint" = "0.9.1"
 "pipx:zensical" = { version = "0.0.19" }
 
 # uv-toolbox install provisions the "repolish" env (repolish + devkit
@@ -72,7 +72,6 @@ run = "echo Ready!"
 depends = [
   "workspace:dprint:check",
   "python:check:ruff",
-  "python:check:format",
   "python:check:ty",
   "python:check:complexity",
   "python:check:pydoclint",

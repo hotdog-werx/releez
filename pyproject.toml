@@ -65,7 +65,7 @@ extend = ".repolish/devkit-python/configs/ruff.toml"
 # resolves relative globs (like "**/tests/*.py") against the *extended*
 # file's own directory, not this project's root, so they'd never match
 # anything if they lived in the shared config.
-[tool.ruff.lint.per-file-ignores]
+[tool.ruff.per-file-ignores]
 # Tests still need a docstring (google-style, per [lint.pydocstyle] in the
 # shared config) — D101/D102/D103 are deliberately NOT ignored here. Only
 # the requirement to document every argument is loosened (D417); pydoclint
@@ -78,7 +78,6 @@ extend = ".repolish/devkit-python/configs/ruff.toml"
   "ARG001", # Ignore unused arguments in tests - sometimes required for fixtures
   "D417", # Don't require documenting every argument in test docstrings
   "INP001", # Test dirs don't need __init__.py
-  "PT004", # Allow none-returning fixtures to not lead with underscore due to ty conflict
   "S101", # Please sir may I use assert in my tests?
   "S701", # Jinja Environment() without autoescape is fine for non-HTML template tests
 ]
