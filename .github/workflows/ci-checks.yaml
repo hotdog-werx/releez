@@ -18,7 +18,8 @@ jobs:
     with:
       operating-systems: '["ubuntu-latest", "windows-latest"]'
       codecov: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   ## start-custom-ci-checks
   test-action:

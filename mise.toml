@@ -7,7 +7,7 @@ dprint = "0.55.1"
 act = "0.2.84"
 actionlint = "1.7.11"
 shellcheck = "0.11.0"
-"pipx:git+https://github.com/hotdog-werx/uv-toolbox.git@master" = "master"
+"pipx:git+https://github.com/hotdog-werx/uv-toolbox.git@chore/use-devkit" = "chore/use-devkit"
 "pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = "0.0.59"
 "pipx:complexipy" = "4.0.2"
@@ -46,9 +46,7 @@ python.uv_venv_auto = true
 # install` — no copy-paste needed, and future devkit task changes
 # propagate automatically. "mise-tasks" (the default) is kept explicitly —
 # task_config includes *replaces* the default file-task dirs rather than
-# adding to them — since python:check:coverage is still rendered here (it
-# needs this repo's own project_source, so it can't be referenced in place
-# like everything else).
+# adding to them.
 [task_config]
 includes = [
   "mise-tasks",
@@ -84,4 +82,5 @@ depends = [
   "workspace:dprint:check",
   "workspace:actionlint:check",
   "workspace:repolish:check",
+  "workspace:uv-toolbox-lock:check",
 ]

@@ -1,20 +1,20 @@
-# Claude Development Guide
+# Codex Development Guide
 
-This document provides guidance for AI assistants (Claude) working on the Releez
+This document provides guidance for AI assistants (Codex) working on the Releez
 codebase.
 
 ## Quick Reference
 
-- [Linting & Testing](./.claude-docs/linting-testing.md) - How to run tests,
-  type checking, and linters
-- [Design Principles](./.claude-docs/design-principles.md) - Core design
+- [Linting & Testing](./.agent-docs/linting-testing.md) - How to run tests, type
+  checking, and linters
+- [Design Principles](./.agent-docs/design-principles.md) - Core design
   philosophy and patterns
-- [Testing Practices](./.claude-docs/testing-practices.md) - Testing conventions
+- [Testing Practices](./.agent-docs/testing-practices.md) - Testing conventions
   and patterns
-- [Monorepo Implementation](./.claude-docs/monorepo-design.md) - Monorepo
-  feature design and architecture
-- [Code Style](./.claude-docs/code-style.md) - Python code style and conventions
-- [Action Development](./.claude-docs/action-development.md) - GitHub Action
+- [Monorepo Implementation](./.agent-docs/monorepo-design.md) - Monorepo feature
+  design and architecture
+- [Code Style](./.agent-docs/code-style.md) - Python code style and conventions
+- [Action Development](./.agent-docs/action-development.md) - GitHub Action
   (`action.yaml`) patterns and act testing
 
 ## Overview
@@ -27,14 +27,14 @@ single-repo and monorepo workflows.
 
 1. **Before making changes**: Read the relevant subsections above
 2. **Run tests**: `mise exec -- pytest` (see
-   [Linting & Testing](./.claude-docs/linting-testing.md))
+   [Linting & Testing](./.agent-docs/linting-testing.md))
 3. **Match Codecov patch coverage**:
    `mise exec -- poe check-coverage && mise exec -- uv run coverage xml` (all
    modified lines + modified branches must be covered)
 4. **Check types**: `mise exec -- ty check` (see
-   [Linting & Testing](./.claude-docs/linting-testing.md))
+   [Linting & Testing](./.agent-docs/linting-testing.md))
 5. **Check linting**: `mise exec -- ruff check` (see
-   [Linting & Testing](./.claude-docs/linting-testing.md))
+   [Linting & Testing](./.agent-docs/linting-testing.md))
 6. **Fix issues**: `mise exec -- ruff check --fix`
 
 ## Key Technologies
@@ -106,5 +106,5 @@ Docs live in `docs/` and `README.md`. The action reference is
 - Check subsections above for specific topics
 - Review test files for examples of patterns and usage
 - Check
-  [Memory](./.claude/projects/-Users-jamestrousdale-work-personal-releez/memory/MEMORY.md)
+  [Memory](./.Codex/projects/-Users-jamestrousdale-work-personal-releez/memory/MEMORY.md)
   for project-specific learnings

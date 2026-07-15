@@ -17,6 +17,7 @@ jobs:
       publish-package: true
       build-command: rm -rf dist && uv build
       publish-command: uv publish dist/*
-    secrets: inherit
+    secrets:
+      PYPI_PUBLISH_TOKEN: ${{ secrets.PYPI_PUBLISH_TOKEN }}
 
 ## post-release jobs — add your custom jobs here

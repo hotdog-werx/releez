@@ -2,25 +2,22 @@ providers:
   workspace:
     cli: devkit-workspace-link
     context_overrides:
-      # devkit hasn't cut a tagged release yet — pin to the topic branch for
-      # now; switch to a version tag (e.g. v0.1.0) once one exists. Each
-      # reusable-workflow namespace is independently pinnable.
-      workspace_ref: topic/repolish
-      python_ref: topic/repolish
+      # Switch to an immutable release ref before merging this migration.
+      devkit_ref: topic/repolish
       # __python_python-checks.yaml natively supports an OS matrix and an
       # optional Codecov upload — no need for releez's own custom tests
       # job to duplicate that (see ci-checks.yaml's custom-ci-checks
       # keep-block, which now only carries the act-driven test-action job).
-      python_operating_systems: '["ubuntu-latest", "windows-latest"]'
+      python_operating_systems: [ubuntu-latest, windows-latest]
       python_codecov: true
   python:
     cli: devkit-python-link
   releez:
     cli: devkit-releez-link
     context_overrides:
-      # use_self_action is auto-detected from the presence of action.yaml —
-      # no override needed here.
-      releez_ref: topic/repolish
+      devkit_ref: topic/repolish
+      # Only releez itself should call the local composite action.
+      use_self_action: true
 
 providers_order:
   - workspace
