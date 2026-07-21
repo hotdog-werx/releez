@@ -40,6 +40,12 @@ def _add_origin_remote(repo: Repo, tmp_path: Path) -> Path:
     return remote_path
 
 
+def _ls_remote(repo: Repo, *args: str) -> str:
+    output = repo.git.ls_remote(*args)
+    assert isinstance(output, str)
+    return output
+
+
 def _init_two_project_monorepo_repo(
     tmp_path: Path,
     *,
@@ -294,7 +300,7 @@ create-pr = false
     assert 'release/1.1.0' in result.output
     assert 'release/1.1.0' in {branch.name for branch in repo.branches}
 
-    pushed = repo.git.ls_remote('--heads', 'origin', 'release/1.1.0')
+    pushed = _ls_remote(repo, '--heads', 'origin', 'release/1.1.0')
     assert 'refs/heads/release/1.1.0' in pushed
 
 
@@ -375,7 +381,7 @@ tag-prefix = "ui-"
     assert '[core] Next version: core-1.1.0' in result.output
     assert '[core] Release branch: release/core-1.1.0' in result.output
     assert 'release/core-1.1.0' in {branch.name for branch in repo.branches}
-    pushed = repo.git.ls_remote('--heads', 'origin', 'release/core-1.1.0')
+    pushed = _ls_remote(repo, '--heads', 'origin', 'release/core-1.1.0')
     assert 'refs/heads/release/core-1.1.0' in pushed
 
 
@@ -454,7 +460,7 @@ tag-prefix = "ui-"
     assert any(name.startswith('release/core-') for name in local_branch_names)
     assert any(name.startswith('release/ui-') for name in local_branch_names)
 
-    remote_heads = repo.git.ls_remote('--heads', 'origin')
+    remote_heads = _ls_remote(repo, '--heads', 'origin')
     assert 'refs/heads/release/core-' in remote_heads
     assert 'refs/heads/release/ui-' in remote_heads
 
@@ -740,7 +746,7 @@ create-pr = false
 
     assert result.exit_code == 0
     assert {'2.3.4', 'v2', 'v2.3'}.issubset({tag.name for tag in repo.tags})
-    remote_tags = repo.git.ls_remote('--tags', 'origin')
+    remote_tags = _ls_remote(repo, '--tags', 'origin')
     assert 'refs/tags/2.3.4' in remote_tags
     assert 'refs/tags/v2' in remote_tags
     assert 'refs/tags/v2.3' in remote_tags
@@ -803,7 +809,7 @@ alias-versions = "major"
 
     assert result.exit_code == 0
     assert {'core-1.2.3', 'core-v1'}.issubset({tag.name for tag in repo.tags})
-    remote_tags = repo.git.ls_remote('--tags', 'origin')
+    remote_tags = _ls_remote(repo, '--tags', 'origin')
     assert 'refs/tags/core-1.2.3' in remote_tags
     assert 'refs/tags/core-v1' in remote_tags
 
@@ -887,7 +893,7 @@ alias-versions = "major"
     assert any(re.fullmatch(r'core-\d+\.\d+\.\d+', tag) for tag in new_tags)
     assert any(re.fullmatch(r'ui-\d+\.\d+\.\d+', tag) for tag in new_tags)
 
-    remote_tags = repo.git.ls_remote('--tags', 'origin')
+    remote_tags = _ls_remote(repo, '--tags', 'origin')
     assert 'refs/tags/core-v1' in remote_tags
     assert 'refs/tags/ui-v2' in remote_tags
 
@@ -946,7 +952,7 @@ def test_cli_release_tag_monorepo_project_version_override(
 
     assert result.exit_code == 0
     assert {'core-1.2.3', 'core-v1'}.issubset({tag.name for tag in repo.tags})
-    remote_tags = repo.git.ls_remote('--tags', 'origin')
+    remote_tags = _ls_remote(repo, '--tags', 'origin')
     assert 'refs/tags/core-1.2.3' in remote_tags
     assert 'refs/tags/core-v1' in remote_tags
 

@@ -50,9 +50,9 @@ python.uv_venv_auto = true
 [task_config]
 includes = [
   "mise-tasks",
-  ".repolish/devkit-workspace/mise-tasks",
-  ".repolish/devkit-workspace/mise-tasks.toml",
-  ".repolish/devkit-python/mise-tasks",
+  ".repolish/hotdogwerx-devkit-workspace/mise-tasks",
+  ".repolish/hotdogwerx-devkit-workspace/mise-tasks.toml",
+  ".repolish/hotdogwerx-devkit-python/mise-tasks",
 ]
 
 # --- releez-specific (not devkit-provided) ---
