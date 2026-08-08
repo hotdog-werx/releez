@@ -22,16 +22,21 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   ## start-custom-ci-checks
-  ## Add custom jobs here (e.g. a tests/test-action pair). Content between
-  ## these two marker lines is preserved verbatim across repolish
-  ## re-applies — GitHub Actions `needs:` only works between jobs in the
-  ## same file, so jobs that must depend on repo-checks/python-checks
-  ## belong here rather than in a separate workflow file.
-  ##
-  ## Both marker lines' leading indentation must stay exactly 2 spaces —
-  ## dprint's yaml formatter pulls a comment sitting directly before/after
-  ## an indented job key to match that indent, and repolish's marker
-  ## lookup is an exact string match with no whitespace normalization. If
-  ## only one marker drifts (e.g. nothing indented follows the end marker
-  ## so dprint leaves it at column 0), the lookup silently stops matching.
+  test-action:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Install mise tools
+        uses: jdx/mise-action@v4
+      - name: Install python dependencies
+        run: mise run python:uv-sync
+      - name: Create local branch for act (avoids detached HEAD warnings)
+        run: git checkout -b ci-act-ref
+      - name: Run action tests
+        run: mise run test-action
   ## end-custom-ci-checks
