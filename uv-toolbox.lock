@@ -2,21 +2,21 @@ version: 1
 environments:
   repolish:
     requirements: |
-      annotated-types==0.7.0 \
-          --hash=sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53 \
-          --hash=sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89
+      annotated-types==0.8.0 \
+          --hash=sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7 \
+          --hash=sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0
       attrs==26.1.0 \
           --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309 \
           --hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32
-      cyclopts==4.22.1 \
-          --hash=sha256:49cd3779da7113a96ac5c23b151aa61ac9ae1b4b1fe813594d207ca843c97892 \
-          --hash=sha256:9b614e231075aee9849c0bfd78f7611ab7adf417f16af5b9e42b9ed6e18c17d1
+      cyclopts==4.22.5 \
+          --hash=sha256:94044506317462cad90fb01a917dadce1f48a0915ba3605dc8d178dea1229e24 \
+          --hash=sha256:cf9ce285836053d156730ea4ea0ad0c75cf63beb3f3d8edf222a795bc57666ab
       docstring-parser==0.18.0 \
           --hash=sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015 \
           --hash=sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b
-      hotdogwerx-devkit-python @ git+https://github.com/hotdog-werx/devkit.git@599af73a02ac0fad5f8bdec7536a748b6d771cb9#subdirectory=packages/devkit-python
-      hotdogwerx-devkit-releez @ git+https://github.com/hotdog-werx/devkit.git@599af73a02ac0fad5f8bdec7536a748b6d771cb9#subdirectory=packages/devkit-releez
-      hotdogwerx-devkit-workspace @ git+https://github.com/hotdog-werx/devkit.git@599af73a02ac0fad5f8bdec7536a748b6d771cb9#subdirectory=packages/devkit-workspace
+      hotdogwerx-devkit-python @ git+https://github.com/hotdog-werx/devkit.git@2479a0b232cf7e5543bb1196e51bfcde60a42c3c#subdirectory=packages/devkit-python
+      hotdogwerx-devkit-releez @ git+https://github.com/hotdog-werx/devkit.git@2479a0b232cf7e5543bb1196e51bfcde60a42c3c#subdirectory=packages/devkit-releez
+      hotdogwerx-devkit-workspace @ git+https://github.com/hotdog-werx/devkit.git@2479a0b232cf7e5543bb1196e51bfcde60a42c3c#subdirectory=packages/devkit-workspace
       hotlog==0.2.0 \
           --hash=sha256:231c66e58277cfae0fc70a4d06042cbf4e56abb59c468403144f26685a302a67 \
           --hash=sha256:ed11b2d25ca51430eaea3447ee389ed8ebe448b2007f587749e3b3521a161929
@@ -320,9 +320,9 @@ environments:
           --hash=sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6 \
           --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
           --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
-      repolish==1.6.0 \
-          --hash=sha256:1a5c0a76003500cbac872cccb4eb1a810294df5d67f8736928da4f0ad00be0a8 \
-          --hash=sha256:8cad64ba3ec0a9f9e1d41c625505cd58797dc362693efd79a9d3091e50844c0a
+      repolish==1.6.2 \
+          --hash=sha256:809d2fe9824b2b789006ca30934937cdaf774a7a98ec8de4970501b6b7070d3e \
+          --hash=sha256:9a566bfd4a348ca1c8b4219cbc570381335fb09d0d43f4251e5a492366ee17bc
       rich==14.3.4 \
           --hash=sha256:07e7adb4690f68864777b1450859253bed81a99a31ac321ac1817b2313558952 \
           --hash=sha256:817e02727f2b25b40ef56f5aa2217f400c8489f79ca8f46ea2b70dd5e14558a9

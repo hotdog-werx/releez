@@ -3,7 +3,7 @@ providers:
     cli: devkit-workspace-link
     context_overrides:
       # Switch to an immutable release ref before merging this migration.
-      workspace_ref: topic/repolish
+      devkit_ref: &devkit-ref topic/repolish
       # __python_python-checks.yaml natively supports an OS matrix and an
       # optional Codecov upload — no need for releez's own custom tests
       # job to duplicate that (see ci-checks.yaml's custom-ci-checks
@@ -12,12 +12,10 @@ providers:
       python_codecov: true
   python:
     cli: devkit-python-link
-    context_overrides:
-      python_ref: topic/repolish
   releez:
     cli: devkit-releez-link
     context_overrides:
-      releez_ref: topic/repolish
+      devkit_ref: *devkit-ref
       # Only releez itself should call the local composite action.
       use_self_action: true
 
