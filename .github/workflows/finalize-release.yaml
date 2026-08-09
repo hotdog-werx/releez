@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   publish:
-    uses: hotdog-werx/devkit/.github/workflows/__releez_publish.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__releez_publish.yaml@v0
     with:
       use-self-action: true
       publish-package: true

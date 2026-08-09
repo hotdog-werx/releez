@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   deploy-docs:
-    uses: hotdog-werx/devkit/.github/workflows/__workspace_deploy-docs.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__workspace_deploy-docs.yaml@v0
     permissions:
       contents: read
       pages: write

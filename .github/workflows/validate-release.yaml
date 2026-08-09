@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   validate-release:
-    uses: hotdog-werx/devkit/.github/workflows/__releez_validate-release.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__releez_validate-release.yaml@v0
     with:
       use-self-action: true
 

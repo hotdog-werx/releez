@@ -9,12 +9,12 @@ on:
 
 jobs:
   repo-checks:
-    uses: hotdog-werx/devkit/.github/workflows/__workspace_repo-checks.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__workspace_repo-checks.yaml@v0
     with:
       enable-docs: true
 
   python-checks:
-    uses: hotdog-werx/devkit/.github/workflows/__python_python-checks.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__python_python-checks.yaml@v0
     with:
       operating-systems: '["ubuntu-latest", "windows-latest"]'
       codecov: true

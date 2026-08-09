@@ -2,8 +2,8 @@ providers:
   workspace:
     cli: devkit-workspace-link
     context_overrides:
-      # Switch to an immutable release ref before merging this migration.
-      devkit_ref: &devkit-ref topic/repolish
+      # Track the latest compatible Devkit v0 release.
+      devkit_ref: &devkit-ref v0
       # __python_python-checks.yaml natively supports an OS matrix and an
       # optional Codecov upload — no need for releez's own custom tests
       # job to duplicate that (see ci-checks.yaml's custom-ci-checks

@@ -7,7 +7,7 @@ dprint = "0.55.1"
 act = "0.2.84"
 actionlint = "1.7.11"
 shellcheck = "0.11.0"
-"pipx:git+https://github.com/hotdog-werx/uv-toolbox.git@chore/use-devkit" = "chore/use-devkit"
+"pipx:uv-toolbox" = "0.2.0"
 "pipx:ruff" = { version = "0.13.0" }
 "pipx:ty" = "0.0.59"
 "pipx:complexipy" = "4.0.2"

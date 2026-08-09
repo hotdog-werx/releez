@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   lint-pr-title:
-    uses: hotdog-werx/devkit/.github/workflows/__releez_lint-pr-title.yaml@topic/repolish
+    uses: hotdog-werx/devkit/.github/workflows/__releez_lint-pr-title.yaml@v0
     with:
       use-self-action: true
 
