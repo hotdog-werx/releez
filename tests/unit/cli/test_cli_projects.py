@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 def test_projects_list_no_projects(
     mocker: MockerFixture,
 ) -> None:
+    """`projects list` in single-repo mode (no configured projects) reports single-repo mode."""
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
         return_value=mocker.MagicMock(projects=[]),
@@ -31,6 +32,7 @@ def test_projects_list_no_projects(
 def test_projects_list_with_projects(
     mocker: MockerFixture,
 ) -> None:
+    """`projects list` prints the configured project name when projects are present."""
     core_config = mocker.MagicMock(
         name='core',
         path='packages/core',
@@ -54,6 +56,7 @@ def test_projects_list_with_projects(
 def test_projects_list_with_projects_no_include_paths(
     mocker: MockerFixture,
 ) -> None:
+    """`projects list` handles a project with an empty include_paths list without error."""
     core_config = mocker.MagicMock(
         path='packages/core',
         tag_prefix='core-',
@@ -76,6 +79,7 @@ def test_projects_list_with_projects_no_include_paths(
 def test_projects_changed_no_projects_configured(
     mocker: MockerFixture,
 ) -> None:
+    """`projects changed` exits 1 and reports single-repo mode when no projects are configured."""
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
         return_value=mocker.MagicMock(projects=[]),
@@ -90,6 +94,7 @@ def test_projects_changed_no_projects_configured(
 def test_projects_changed_text_output_with_changes(
     mocker: MockerFixture,
 ) -> None:
+    """`projects changed` text output lists the names of projects detected as changed."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
 
@@ -123,6 +128,7 @@ def test_projects_changed_text_output_with_changes(
 def test_projects_changed_text_output_no_changes(
     mocker: MockerFixture,
 ) -> None:
+    """`projects changed` reports "No projects" changed when detection returns an empty list."""
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
@@ -153,6 +159,7 @@ def test_projects_changed_text_output_no_changes(
 def test_projects_changed_json_output(
     mocker: MockerFixture,
 ) -> None:
+    """`--format json` emits the changed projects and include matrix as structured JSON."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
 
@@ -190,6 +197,7 @@ def test_projects_changed_json_output(
 def test_projects_changed_with_custom_base(
     mocker: MockerFixture,
 ) -> None:
+    """--base overrides the base branch passed through to detect_changed_projects."""
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
@@ -222,6 +230,7 @@ def test_projects_changed_with_custom_base(
 def test_projects_changed_handles_releez_error(
     mocker: MockerFixture,
 ) -> None:
+    """A ReleezError from change detection (e.g. dirty tree) is reported and exits 1."""
     mock_info = mocker.MagicMock()
     mock_info.root = mocker.MagicMock()
 
@@ -252,6 +261,7 @@ def test_projects_changed_handles_releez_error(
 def test_projects_info_no_projects_configured(
     mocker: MockerFixture,
 ) -> None:
+    """`projects info` exits 1 and reports single-repo mode when no projects are configured."""
     mocker.patch(
         'releez.subapps.projects.ReleezSettings',
         return_value=mocker.MagicMock(projects=[]),
@@ -266,6 +276,7 @@ def test_projects_info_no_projects_configured(
 def test_projects_info_project_not_found(
     mocker: MockerFixture,
 ) -> None:
+    """Requesting info for an unknown project name exits 1 and lists the known project names."""
     existing = mocker.MagicMock()
     existing.name = 'ui'
 
@@ -284,6 +295,7 @@ def test_projects_info_project_not_found(
 def test_projects_info_valid_project(
     mocker: MockerFixture,
 ) -> None:
+    """`projects info <name>` prints the project's details including its include paths."""
     project_config = mocker.MagicMock(
         path='packages/core',
         tag_prefix='core-',
@@ -312,6 +324,7 @@ def test_projects_info_valid_project(
 def test_projects_info_with_post_changelog_hooks(
     mocker: MockerFixture,
 ) -> None:
+    """`projects info` includes configured post_changelog hook commands in its output."""
     project_config = mocker.MagicMock(
         path='packages/core',
         tag_prefix='core-',

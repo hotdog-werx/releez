@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 
 def test_compute_artifact_version_full_release_uses_override() -> None:
+    """A full release with an explicit version_override returns that version unchanged."""
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
         version_override='1.2.3',
@@ -53,6 +54,7 @@ def test_compute_artifact_version_prerelease_formats(
     scheme: ArtifactVersionScheme,
     expected: str,
 ) -> None:
+    """Each artifact version scheme formats a prerelease version in its own convention."""
     artifact_input = ArtifactVersionInput(
         scheme=scheme,
         version_override='0.1.0',
@@ -66,6 +68,7 @@ def test_compute_artifact_version_prerelease_formats(
 
 
 def test_compute_artifact_version_requires_build_number_for_prerelease() -> None:
+    """A prerelease version without a build_number raises BuildNumberRequiredError."""
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
         version_override='0.1.0',
@@ -80,6 +83,7 @@ def test_compute_artifact_version_requires_build_number_for_prerelease() -> None
 
 
 def test_compute_artifact_version_requires_prerelease_number_for_prerelease() -> None:
+    """A prerelease version without a prerelease_number raises PrereleaseNumberRequiredError."""
     artifact_input = ArtifactVersionInput(
         scheme=ArtifactVersionScheme.docker,
         version_override='0.1.0',

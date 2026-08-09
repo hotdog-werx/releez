@@ -229,6 +229,27 @@ def test_raises_type_error_if_commit_parsers_is_not_a_list(
         _build_validation_config(_write_cliff_toml(tmp_path))
 
 
+def test_raises_type_error_if_commit_parsers_entry_is_not_a_dict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A malformed cliff.toml with a non-table commit_parsers entry raises TypeError.
+
+    The error must carry a descriptive message rather than crashing later
+    with an AttributeError when the entry's `.get('message')` is called.
+    """
+    monkeypatch.setattr(
+        tomllib,
+        'load',
+        lambda _f: {'git': {'commit_parsers': ['not-a-dict']}},
+    )
+    with pytest.raises(
+        TypeError,
+        match='Expected each commit_parsers entry to be a table',
+    ):
+        _build_validation_config(_write_cliff_toml(tmp_path))
+
+
 # ---------------------------------------------------------------------------
 # GitCliff.validate_commit_message — subprocess mocked
 # ---------------------------------------------------------------------------

@@ -36,6 +36,8 @@ def _make_project_mock(
 
 
 class TestSupportBranchSingleRepo:
+    """Tests for the release support-branch command in single-repo mode."""
+
     def test_happy_path_creates_branch(
         self,
         mocker: MockerFixture,
@@ -415,6 +417,8 @@ class TestSupportBranchSingleRepo:
 
 
 class TestSupportBranchMonorepo:
+    """Tests for the release support-branch command in monorepo mode."""
+
     def _mock_settings(self, mocker: MockerFixture) -> Mock:
         s = mocker.Mock()
         s.effective_maintenance_branch_template = 'support/{prefix}{major}.x'

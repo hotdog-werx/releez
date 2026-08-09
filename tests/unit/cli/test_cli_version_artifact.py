@@ -47,6 +47,8 @@ def _mock_settings(
 def test_cli_version_artifact_builds_input_and_prints_result(
     mocker: MockerFixture,
 ) -> None:
+    """CLI flags are translated into the correct ArtifactVersionInput fields for a full release."""
+
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         assert artifact_input.scheme == ArtifactVersionScheme.semver
         assert artifact_input.version_override == '1.2.3'
@@ -83,6 +85,7 @@ def test_cli_version_artifact_builds_input_and_prints_result(
 def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
     mocker: MockerFixture,
 ) -> None:
+    """For semver scheme, alias tags (v1) are appended after the plain artifact version."""
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -114,6 +117,7 @@ def test_cli_version_artifact_alias_versions_use_v_prefix_only_for_aliases(
 
 
 def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
+    """An unrecognized --prerelease-type value is rejected by CLI argument validation."""
     result = invoke(
         cli.app,
         [
@@ -136,6 +140,7 @@ def test_cli_version_artifact_rejects_invalid_prerelease_type() -> None:
 def test_cli_version_artifact_ignores_alias_versions_for_pep440(
     mocker: MockerFixture,
 ) -> None:
+    """pep440 scheme never emits alias tags, even when --alias-versions is set."""
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -195,6 +200,7 @@ def test_cli_version_artifact_pep440_without_aliases(
 def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
     mocker: MockerFixture,
 ) -> None:
+    """A prerelease version never emits alias tags, even when --alias-versions is set."""
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3-alpha1-2',
@@ -229,6 +235,8 @@ def test_cli_version_artifact_ignores_alias_versions_for_prerelease(
 def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specified(
     mocker: MockerFixture,
 ) -> None:
+    """Omitting --scheme computes and outputs a prerelease version for all schemes as JSON."""
+
     def _fake_compute(artifact_input: ArtifactVersionInput) -> str:
         if artifact_input.scheme == ArtifactVersionScheme.semver:
             return '1.2.3-alpha123+456'
@@ -269,6 +277,7 @@ def test_cli_version_artifact_outputs_all_schemes_as_json_when_no_scheme_specifi
 def test_cli_version_artifact_json_output_with_alias_versions(
     mocker: MockerFixture,
 ) -> None:
+    """Omitting --scheme with a full release and alias versions includes alias tags in each scheme's JSON."""
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -303,6 +312,7 @@ def test_cli_version_artifact_json_output_with_alias_versions(
 def test_cli_version_artifact_json_output_full_release_no_aliases(
     mocker: MockerFixture,
 ) -> None:
+    """Omitting --scheme for a full release with no aliases outputs a single version per scheme."""
     mocker.patch(
         'releez.subapps.version.compute_artifact_version',
         return_value='1.2.3',
@@ -333,6 +343,7 @@ def test_cli_version_artifact_json_output_full_release_no_aliases(
 def test_cli_version_artifact_with_project_includes_metadata_in_json(
     mocker: MockerFixture,
 ) -> None:
+    """--project includes the project name and prefixed release_version in the JSON output."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'
@@ -385,6 +396,7 @@ def test_cli_version_artifact_with_project_includes_metadata_in_json(
 def test_cli_version_artifact_with_project_uses_project_scoped_version_resolution(
     mocker: MockerFixture,
 ) -> None:
+    """--project scopes release version resolution to that project's tag pattern and include paths."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'
@@ -443,6 +455,7 @@ def test_cli_version_artifact_with_project_uses_project_scoped_version_resolutio
 def test_cli_version_artifact_with_unknown_project_exits_with_error(
     mocker: MockerFixture,
 ) -> None:
+    """--project with a name that doesn't match any configured project exits 1."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
 
@@ -468,6 +481,7 @@ def test_cli_version_artifact_with_unknown_project_exits_with_error(
 def test_cli_version_artifact_with_project_no_projects_configured_exits_with_error(
     mocker: MockerFixture,
 ) -> None:
+    """--project in single-repo mode (no projects configured) exits 1 with a clear message."""
     mock_settings = _mock_settings(mocker, projects=[])
     mock_settings.get_subprojects.return_value = []
     mocker.patch(
@@ -487,6 +501,7 @@ def test_cli_version_artifact_with_project_no_projects_configured_exits_with_err
 def test_cli_version_artifact_with_project_version_override_skips_resolution(
     mocker: MockerFixture,
 ) -> None:
+    """--version-override with --project skips version resolution and prefixes the override."""
     mock_project = mocker.MagicMock()
     mock_project.name = 'core'
     mock_project.tag_prefix = 'core-'

@@ -35,6 +35,7 @@ def _make_start_options() -> release.ReleaseStartOptions:
 def test_resolve_target_projects_single_repo_returns_none(
     mocker: MockerFixture,
 ) -> None:
+    """In single-repo mode (is_monorepo False), target project resolution returns None."""
     settings = mocker.MagicMock()
     settings.is_monorepo = False
 
@@ -51,6 +52,7 @@ def test_resolve_target_projects_single_repo_returns_none(
 def test_create_and_push_selected_tags_splits_exact_and_alias(
     mocker: MockerFixture,
 ) -> None:
+    """Exact version tags are created/pushed without force; alias tags (e.g. v1) are forced."""
     repo = mocker.MagicMock()
     create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
     push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
@@ -79,6 +81,7 @@ def test_create_and_push_selected_tags_splits_exact_and_alias(
 def test_run_monorepo_release_start_exits_when_any_project_fails(
     mocker: MockerFixture,
 ) -> None:
+    """If any project's release start fails, the monorepo run exits with SystemExit."""
     core = mocker.MagicMock(name='core')
     core.name = 'core'
     ui = mocker.MagicMock(name='ui')
@@ -201,6 +204,7 @@ def test_alias_versions_for_project_falls_back_to_project_config(
 def test_run_release_preview_command_uses_single_repo_builder(
     mocker: MockerFixture,
 ) -> None:
+    """When resolved targets are None (single-repo), the single-repo preview builder is used."""
     resolved = release._ResolvedProjectTargets(
         settings=mocker.MagicMock(),
         repo=mocker.MagicMock(),

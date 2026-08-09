@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 def test_cli_release_detect_from_branch_single_repo(
     mocker: MockerFixture,
 ) -> None:
+    """In single-repo mode, detect-from-branch outputs version/semver_version/branch JSON."""
     mocker.patch(
         'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(
@@ -52,6 +53,7 @@ def test_cli_release_detect_from_branch_single_repo(
 def test_cli_release_detect_from_branch_monorepo(
     mocker: MockerFixture,
 ) -> None:
+    """In monorepo mode, detect-from-branch output JSON also includes the detected project name."""
     mock_repo_info = mocker.MagicMock(root=mocker.MagicMock())
 
     mock_settings = mocker.MagicMock(projects=[mocker.MagicMock()])
@@ -94,6 +96,7 @@ def test_cli_release_detect_from_branch_monorepo(
 def test_cli_release_detect_from_branch_not_release_branch(
     mocker: MockerFixture,
 ) -> None:
+    """When the branch name doesn't match a release branch pattern, the command exits 1."""
     mocker.patch(
         'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(
@@ -118,6 +121,7 @@ def test_cli_release_detect_from_branch_not_release_branch(
 def test_cli_release_detect_from_branch_uses_current_branch(
     mocker: MockerFixture,
 ) -> None:
+    """When --branch is omitted, the command falls back to the repo's active branch."""
     mock_info = mocker.MagicMock(active_branch='release/1.2.3')
     mocker.patch(
         'releez.subapps.release_support.open_repo',
@@ -144,6 +148,7 @@ def test_cli_release_detect_from_branch_uses_current_branch(
 def test_cli_release_detect_from_branch_detached_head_error(
     mocker: MockerFixture,
 ) -> None:
+    """With no --branch and a detached HEAD (no active branch), the command exits 1."""
     mock_info = mocker.MagicMock(active_branch=None)
     mocker.patch(
         'releez.subapps.release_support.open_repo',
@@ -159,6 +164,7 @@ def test_cli_release_detect_from_branch_detached_head_error(
 def test_cli_release_detect_from_branch_handles_releez_error(
     mocker: MockerFixture,
 ) -> None:
+    """A ReleezError raised during detection (e.g. dirty tree) is reported and exits 1."""
     mocker.patch(
         'releez.subapps.release_support.open_repo',
         return_value=mocker.Mock(

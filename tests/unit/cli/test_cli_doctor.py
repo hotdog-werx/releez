@@ -87,6 +87,8 @@ def _write_cliff_toml(path: Path, content: str = '') -> None:
 
 
 class TestDoctorAllPass:
+    """Tests for the happy path where every doctor check passes."""
+
     def test_all_checks_pass_exits_zero(
         self,
         mocker: MockerFixture,
@@ -139,6 +141,8 @@ class TestDoctorAllPass:
 
 
 class TestDoctorGitChecks:
+    """Tests for the git and git-cliff CLI availability checks."""
+
     def test_git_not_available_exits_one(
         self,
         mocker: MockerFixture,
@@ -192,6 +196,8 @@ class TestDoctorGitChecks:
 
 
 class TestDoctorRepoCheck:
+    """Tests for the git repo detection and settings loading checks."""
+
     def test_not_in_git_repo_exits_one(
         self,
         mocker: MockerFixture,
@@ -273,6 +279,8 @@ class TestDoctorRepoCheck:
 
 
 class TestDoctorCliffToml:
+    """Tests for the cliff.toml presence and validity checks."""
+
     def test_cliff_toml_missing_exits_one(
         self,
         mocker: MockerFixture,
@@ -351,6 +359,8 @@ class TestDoctorCliffToml:
 
 
 class TestDoctorRemoteChecks:
+    """Tests for the git remote and base branch cache checks."""
+
     def test_remote_not_found_exits_one(
         self,
         mocker: MockerFixture,
@@ -401,6 +411,8 @@ class TestDoctorRemoteChecks:
 
 
 class TestDoctorWorkingTree:
+    """Tests for the working tree cleanliness check."""
+
     def test_dirty_working_tree_is_warning(
         self,
         mocker: MockerFixture,
@@ -428,6 +440,8 @@ class TestDoctorWorkingTree:
 
 
 class TestDoctorChangelog:
+    """Tests for the root CHANGELOG.md presence check."""
+
     def test_changelog_missing_is_warning(
         self,
         mocker: MockerFixture,
@@ -455,6 +469,8 @@ class TestDoctorChangelog:
 
 
 class TestDoctorGitHubToken:
+    """Tests for the GitHub token check gated on the create-pr setting."""
+
     def test_create_pr_true_no_token_exits_one(
         self,
         mocker: MockerFixture,
@@ -532,6 +548,8 @@ class TestDoctorGitHubToken:
 
 
 class TestDoctorMonorepo:
+    """Tests for monorepo-specific doctor checks (per-project paths and changelogs)."""
+
     def test_monorepo_project_path_missing_exits_one(
         self,
         mocker: MockerFixture,

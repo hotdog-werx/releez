@@ -43,6 +43,7 @@ def test_cli_release_notes_stdout(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """Without --output, release notes are printed directly to stdout."""
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
@@ -71,6 +72,7 @@ def test_cli_release_notes_stdout(
 def test_cli_release_notes_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
+    """The CLI forwards --project and --version-override through to the shared command helper."""
     run_command = mocker.patch(
         'releez.subapps.release_notes._run_release_notes_command',
     )
@@ -100,6 +102,7 @@ def test_cli_release_notes_writes_file(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--output writes the generated release notes to the given file path."""
     repo_root = tmp_path / 'repo'
     repo_root.mkdir()
 
@@ -130,6 +133,7 @@ def test_cli_release_notes_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """In monorepo mode, omitting --project/--all surfaces the selection-required error."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -168,6 +172,7 @@ def test_cli_release_notes_monorepo_project_scopes_git_cliff(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--project core scopes git-cliff to that project's tag pattern and include paths."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],

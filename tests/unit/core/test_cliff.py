@@ -15,6 +15,7 @@ def test_git_cliff_base_cmd_prefers_current_env_scripts_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """When git-cliff exists in the current environment's scripts dir, that path is used."""
     scripts_dir = tmp_path / 'scripts'
     scripts_dir.mkdir()
 
@@ -35,6 +36,7 @@ def test_git_cliff_base_cmd_prefers_current_env_scripts_dir(
 def test_git_cliff_base_cmd_falls_back_to_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """When git-cliff isn't in the env scripts dir, the command falls back to PATH lookup."""
     monkeypatch.setattr(releez.cliff.sysconfig, 'get_path', lambda _: None)
     monkeypatch.setattr(
         releez.cliff.shutil,
@@ -49,6 +51,7 @@ def test_prepend_to_changelog_skips_include_paths_when_empty(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """An empty include_paths list omits the --include-path flag from the git-cliff command."""
     captured_cmd: list[str] = []
 
     def _fake_run_checked(
@@ -83,6 +86,7 @@ def test_regenerate_changelog_skips_include_paths_when_empty(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """An empty include_paths list omits the --include-path flag from regenerate's git-cliff command."""
     captured_cmd: list[str] = []
 
     def _fake_run_checked(

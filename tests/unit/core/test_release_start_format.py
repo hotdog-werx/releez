@@ -29,7 +29,7 @@ def _minimal_input(**kwargs: object) -> StartReleaseInput:
         'dry_run': False,
     }
     defaults.update(kwargs)
-    return StartReleaseInput(**defaults)  # type: ignore[arg-type]
+    return StartReleaseInput(**defaults)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
@@ -66,6 +66,7 @@ def test_start_release_runs_post_changelog_hooks(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """After prepending the changelog, each configured post_changelog hook runs with substituted args."""
     changelog = tmp_path / 'CHANGELOG.md'
     changelog.write_text('# Changelog\n', encoding='utf-8')
 
@@ -133,6 +134,7 @@ def test_start_release_stages_project_path_and_adds_project_label(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """A monorepo release stages only the project's directory and adds a project-scoped PR label."""
     repo = mocker.Mock()
     info = mocker.Mock(root=tmp_path)
     project_path = tmp_path / 'packages' / 'core'
@@ -289,7 +291,7 @@ def test_start_release_monorepo_hooks_receive_bare_semver(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
-    """Monorepo: {version} in hooks is stripped of tag prefix; {release_version} keeps it."""
+    """Monorepo: {version} in hooks is stripped of tag prefix; {project_version} keeps it."""
     changelog = tmp_path / 'CHANGELOG.md'
     changelog.write_text('# Changelog\n', encoding='utf-8')
 

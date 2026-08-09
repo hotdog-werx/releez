@@ -37,6 +37,7 @@ class TestMaintenanceMajor:
     """Tests for _maintenance_major function."""
 
     def test_invalid_regex_raises_error_with_reason(self) -> None:
+        """An unparseable regex raises with the underlying regex compile error."""
         with pytest.raises(InvalidMaintenanceBranchRegexError) as exc_info:
             _maintenance_major(branch='support/1.x', regex='[invalid(regex')
 
@@ -45,6 +46,7 @@ class TestMaintenanceMajor:
         assert 'unterminated character set' in str(error).lower()
 
     def test_missing_major_capture_group_raises_error(self) -> None:
+        """A regex without a named "major" group raises with a clear message."""
         with pytest.raises(InvalidMaintenanceBranchRegexError) as exc_info:
             _maintenance_major(
                 branch='support/1.x',
@@ -56,6 +58,7 @@ class TestMaintenanceMajor:
         assert 'missing named capture group "major"' in str(error)
 
     def test_non_integer_major_value_raises_error(self) -> None:
+        """A captured "major" value that isn't an integer raises with the bad value."""
         with pytest.raises(InvalidMaintenanceBranchRegexError) as exc_info:
             _maintenance_major(
                 branch='support/abc.x',
@@ -71,6 +74,7 @@ class TestValidateMaintenanceVersion:
     """Tests for _validate_maintenance_version function."""
 
     def test_unparseable_version_raises_mismatch_error(self) -> None:
+        """A version string that fails semver parsing is treated as a major mismatch."""
         ctx = MaintenanceContext(
             branch='support/1.x',
             major=1,
@@ -212,6 +216,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """On a support/1.x branch, release start scopes version lookup to the 1.x tag pattern."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -259,6 +264,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """Even when --base is passed, release start on a maintenance branch bases off it."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -308,6 +314,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """On a non-maintenance branch, release start uses --base and sets no maintenance tag pattern."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -354,6 +361,7 @@ class TestReleaseStartOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """If git-cliff computes a version whose major doesn't match the branch, release start fails."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -394,6 +402,7 @@ class TestReleaseTagOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """On a support/1.x branch, release tag computes the next version using the 1.x tag pattern."""
         repo = mocker.Mock(spec=Repo)
         repo_info = RepoInfo(
             root=tmp_path,
@@ -432,6 +441,7 @@ class TestReleaseTagOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """`release tag` fails when the computed version's major doesn't match the maintenance branch."""
         repo = mocker.Mock(spec=Repo)
         repo_info = RepoInfo(
             root=tmp_path,
@@ -468,6 +478,7 @@ class TestReleasePreviewOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """On a support/3.x branch, release preview computes the next version scoped to the 3.x tag pattern."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -500,6 +511,7 @@ class TestReleasePreviewOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """`release preview` fails when the computed version's major doesn't match the maintenance branch."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -531,6 +543,7 @@ class TestReleaseNotesOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """On a support/2.x branch, release notes generation is scoped to the 2.x tag pattern."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -572,6 +585,7 @@ class TestReleaseNotesOnMaintenanceBranch:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
+        """`release notes` fails when the computed version's major doesn't match the maintenance branch."""
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
@@ -599,9 +613,11 @@ class TestMonorepoMaintenanceTagPattern:
     """Tests for _monorepo_maintenance_tag_pattern."""
 
     def test_generates_prefix_scoped_pattern(self) -> None:
+        """Given a project tag prefix and major, builds a matching tag-pattern regex."""
         assert _monorepo_maintenance_tag_pattern('ui-', 2) == r'^ui\-2\.[0-9]+\.[0-9]+$'
 
     def test_escapes_special_chars_in_prefix(self) -> None:
+        """Regex-special characters in the tag prefix are escaped in the generated pattern."""
         pattern = _monorepo_maintenance_tag_pattern('my.pkg-', 1)
         assert pattern == r'^my\.pkg\-1\.[0-9]+\.[0-9]+$'
 
@@ -626,6 +642,7 @@ class TestMonorepoMaintenanceContext:
         self,
         mocker: MockerFixture,
     ) -> None:
+        """No active branch means there's no maintenance context to detect."""
         proj = self._make_project(mocker, 'ui', 'ui-')
         assert (
             _monorepo_maintenance_context(
@@ -640,6 +657,7 @@ class TestMonorepoMaintenanceContext:
         self,
         mocker: MockerFixture,
     ) -> None:
+        """A branch whose prefix doesn't match any configured project's tag prefix returns None."""
         proj = self._make_project(mocker, 'ui', 'ui-')
         assert (
             _monorepo_maintenance_context(
@@ -654,6 +672,7 @@ class TestMonorepoMaintenanceContext:
         self,
         mocker: MockerFixture,
     ) -> None:
+        """A project with an empty tag prefix cannot be matched by a maintenance branch."""
         proj = self._make_project(mocker, 'myapp', '')
         assert (
             _monorepo_maintenance_context(
@@ -665,6 +684,7 @@ class TestMonorepoMaintenanceContext:
         )
 
     def test_matches_project_by_prefix(self, mocker: MockerFixture) -> None:
+        """Among several projects, the one whose tag prefix appears in the branch name is selected."""
         ui = self._make_project(mocker, 'ui', 'ui-')
         core = self._make_project(mocker, 'core', 'core-')
         result = _monorepo_maintenance_context(
@@ -680,6 +700,7 @@ class TestMonorepoMaintenanceContext:
         assert ctx.tag_pattern == r'^ui\-3\.[0-9]+\.[0-9]+$'
 
     def test_returns_correct_major(self, mocker: MockerFixture) -> None:
+        """Multi-digit major version numbers are parsed correctly from the branch name."""
         core = self._make_project(mocker, 'core', 'core-')
         result = _monorepo_maintenance_context(
             'support/core-12.x',
@@ -713,6 +734,7 @@ class TestMonorepoMaintenanceContext:
         self,
         mocker: MockerFixture,
     ) -> None:
+        """A branch that doesn't match the maintenance regex at all returns None."""
         ui = self._make_project(mocker, 'ui', 'ui-')
         regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$'
         assert _monorepo_maintenance_context('hotfix/ui-1.x', [ui], regex=regex) is None
@@ -721,6 +743,7 @@ class TestMonorepoMaintenanceContext:
         self,
         mocker: MockerFixture,
     ) -> None:
+        """A captured prefix that doesn't correspond to any known project returns None."""
         ui = self._make_project(mocker, 'ui', 'ui-')
         regex = r'^support/(?P<prefix>[a-z]+-)?(?P<major>\d+)\.x$'
         assert _monorepo_maintenance_context('support/core-1.x', [ui], regex=regex) is None
@@ -769,6 +792,7 @@ class TestValidateSupportBranchName:
     """Tests for _validate_support_branch_name pre-flight check."""
 
     def test_single_repo_valid_name_passes(self) -> None:
+        """A single-repo branch name matching the maintenance regex validates without error."""
         _validate_support_branch_name(
             branch_name='support/1.x',
             tag_prefix='',
@@ -777,6 +801,7 @@ class TestValidateSupportBranchName:
         )
 
     def test_single_repo_mismatch_raises(self) -> None:
+        """A single-repo branch name that doesn't match the maintenance regex raises."""
         with pytest.raises(ReleezError, match='maintenance-branch-regex'):
             _validate_support_branch_name(
                 branch_name='hotfix/1.x',
@@ -786,6 +811,7 @@ class TestValidateSupportBranchName:
             )
 
     def test_monorepo_valid_name_passes(self) -> None:
+        """A monorepo branch name with the project's tag prefix embedded validates without error."""
         _validate_support_branch_name(
             branch_name='support/ui-1.x',
             tag_prefix='ui-',
@@ -794,6 +820,7 @@ class TestValidateSupportBranchName:
         )
 
     def test_monorepo_with_prefix_group_regex_valid_passes(self) -> None:
+        """A regex with a named prefix group correctly validates a matching monorepo branch name."""
         _validate_support_branch_name(
             branch_name='support/ui-1.x',
             tag_prefix='ui-',
@@ -802,6 +829,7 @@ class TestValidateSupportBranchName:
         )
 
     def test_monorepo_with_prefix_group_regex_no_match_raises(self) -> None:
+        """A branch name that doesn't match the prefix-group regex at all raises."""
         with pytest.raises(ReleezError, match='maintenance-branch-regex'):
             _validate_support_branch_name(
                 branch_name='hotfix/ui-1.x',
@@ -811,6 +839,7 @@ class TestValidateSupportBranchName:
             )
 
     def test_monorepo_with_prefix_group_regex_wrong_prefix_raises(self) -> None:
+        """A branch name whose captured prefix doesn't match the project's tag prefix raises."""
         with pytest.raises(ReleezError, match='maintenance-branch-regex'):
             _validate_support_branch_name(
                 branch_name='support/core-1.x',
@@ -820,6 +849,7 @@ class TestValidateSupportBranchName:
             )
 
     def test_monorepo_invalid_regex_raises(self) -> None:
+        """An unparseable maintenance regex raises InvalidMaintenanceBranchRegexError."""
         with pytest.raises(InvalidMaintenanceBranchRegexError):
             _validate_support_branch_name(
                 branch_name='support/ui-1.x',
@@ -829,6 +859,7 @@ class TestValidateSupportBranchName:
             )
 
     def test_monorepo_per_project_fallback_mismatch_raises(self) -> None:
+        """Without a prefix group, a branch name lacking the project's prefix falls back and raises."""
         with pytest.raises(ReleezError, match='maintenance-branch-regex'):
             _validate_support_branch_name(
                 branch_name='hotfix/ui-1.x',

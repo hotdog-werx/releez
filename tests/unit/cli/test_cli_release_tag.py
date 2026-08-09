@@ -42,6 +42,7 @@ def _mock_settings(
 def test_cli_release_tag_calls_git_helpers(
     mocker: MockerFixture,
 ) -> None:
+    """`release tag` with an explicit version-override creates and pushes exact and alias tags."""
     repo = mocker.MagicMock()
     mocker.patch(
         'releez.subapps.release.open_repo',
@@ -94,6 +95,7 @@ def test_cli_release_tag_calls_git_helpers(
 def test_cli_release_tag_delegates_to_command_helper(
     mocker: MockerFixture,
 ) -> None:
+    """The CLI forwards --project, --version-override, --alias-versions, and --remote to the command helper."""
     run_command = mocker.patch(
         'releez.subapps.release_tag._run_release_tag_command',
     )
@@ -129,6 +131,7 @@ def test_cli_release_tag_defaults_to_git_cliff(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """Without --version-override, release tag computes the next version via git-cliff."""
     repo = mocker.MagicMock()
     mocker.patch(
         'releez.subapps.release.open_repo',
@@ -176,6 +179,7 @@ def test_cli_release_tag_monorepo_requires_project_selection(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """In monorepo mode, omitting --project/--all surfaces the selection-required error."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],
@@ -214,6 +218,7 @@ def test_cli_release_tag_monorepo_project_uses_prefix_and_scope(
     mocker: MockerFixture,
     tmp_path: Path,
 ) -> None:
+    """--project core scopes version resolution and tags them with the project's prefix."""
     mock_settings = _mock_settings(
         mocker,
         projects=[mocker.MagicMock(name='core-config')],

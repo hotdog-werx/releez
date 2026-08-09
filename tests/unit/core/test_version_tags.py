@@ -7,6 +7,7 @@ from releez.version_tags import compute_version_tags
 
 
 def test_compute_version_tags_exact_never_v_prefixed() -> None:
+    """The exact tag strips a leading 'v' even though major/minor aliases keep it."""
     tags = compute_version_tags(version='v2.3.4')
     assert tags.exact == '2.3.4'
     assert tags.major == 'v2'
@@ -25,6 +26,7 @@ def test_compute_version_tags_exact_never_v_prefixed() -> None:
     ],
 )
 def test_compute_version_tags_rejects_invalid_versions(version: str) -> None:
+    """Malformed or non-bare-semver version strings raise InvalidReleaseVersionError."""
     with pytest.raises(InvalidReleaseVersionError):
         compute_version_tags(version=version)
 

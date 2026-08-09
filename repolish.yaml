@@ -1,0 +1,43 @@
+providers:
+  workspace:
+    cli: devkit-workspace-link
+    context_overrides:
+      # Track the latest compatible Devkit v0 release.
+      devkit_ref: &devkit-ref v0
+      # __python_python-checks.yaml natively supports an OS matrix and an
+      # optional Codecov upload — no need for releez's own custom tests
+      # job to duplicate that (see ci-checks.yaml's custom-ci-checks
+      # keep-block, which now only carries the act-driven test-action job).
+      python_operating_systems: [ubuntu-latest, windows-latest]
+      python_codecov: true
+  python:
+    cli: devkit-python-link
+  releez:
+    cli: devkit-releez-link
+    context_overrides:
+      devkit_ref: *devkit-ref
+      # Only releez itself should call the local composite action.
+      use_self_action: true
+
+providers_order:
+  - workspace
+  - python
+  - releez
+
+# Nothing paused: deploy-docs.yaml is now a thin wrapper around
+# __workspace_deploy-docs.yaml (reconciled against the hand-written
+# pattern it previously carried). ci-checks.yaml's tests/test-action jobs
+# (coverage matrix + `act`-driven action tests) live inside a
+# repolish-keep-block[custom-ci-checks] region in the rendered file itself
+# — GitHub Actions `needs:` only works between jobs in the same file, so
+# they can't live in a separate workflow, but a keep-block (unlike a plain
+# anchor) preserves that hand-written content across every re-apply
+# instead of resetting it to a provider-computed placeholder.
+
+# repolish renders content; dprint is what makes it canonical. Must go
+# through mise (not a bare `dprint fmt`): post_process commands run from
+# repolish's internal staging directory with no shell interpretation, so a
+# bare dprint can't discover the real dprint.json, but mise does its own
+# upward search for mise.toml the same way git finds .git.
+post_process:
+  - mise run workspace:dprint:format
