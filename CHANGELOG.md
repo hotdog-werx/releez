@@ -1,3 +1,16 @@
+## [1.0.2] - 2026-08-09
+
+### 🐛 Bug Fixes
+
+- Version override doesn't require prefix (#60) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#60](https://github.com/hotdog-werx/releez/pull/60)
+
+### ⚙️ Miscellaneous Tasks
+
+- Use devkit (#62) by [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#62](https://github.com/hotdog-werx/releez/pull/62)
+
 ## [1.0.1] - 2026-05-27
 
 ### 🐛 Bug Fixes
