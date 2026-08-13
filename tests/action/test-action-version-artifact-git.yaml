@@ -35,6 +35,21 @@ jobs:
           git commit --allow-empty -m "feat: trigger minor bump"
         shell: bash
 
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          TOML
+        shell: bash
+
       - name: Run action (git-detection, prerelease)
         id: version
         uses: ./
