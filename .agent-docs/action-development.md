@@ -180,9 +180,10 @@ running the action. This ensures tests:
   shell: bash
 ```
 
-The `version-artifact` tests do not need this because `releez version artifact`
-computes versions via git-cliff's `--bumped-version` flag (no changelog
-generation, no GitHub API calls).
+`version-artifact` tests that use `version-override` do not need this fixture.
+Tests that exercise git-based auto-detection do: `--bumped-version` still loads
+the repository's git-cliff configuration and will fetch metadata when it
+contains a `[remote]` section.
 
 ## Common pitfalls
 
