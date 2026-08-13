@@ -1,3 +1,11 @@
+## [1.0.3] - 2026-08-13
+
+### 🐛 Bug Fixes
+
+- Bump sticky pull request action version (#64) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#64](https://github.com/hotdog-werx/releez/pull/64)
+
 ## [1.0.2] - 2026-08-09
 
 ### 🐛 Bug Fixes
