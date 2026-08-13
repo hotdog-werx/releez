@@ -384,7 +384,7 @@ runs:
 
     - name: '[validate] Comment on PR'
       if: inputs.mode == 'validate' && inputs.post-comment == 'true'
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v3.0.5
       with:
         header: ${{ inputs.comment-tag }}
         message: |
