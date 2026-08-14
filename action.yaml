@@ -177,6 +177,9 @@ runs:
     - name: Install uv
       if: steps.check-uv.outputs.installed == 'false'
       uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        save-cache: false
 
     - name: Install releez and git-cliff
       shell: bash
