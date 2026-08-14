@@ -1,3 +1,11 @@
+## [1.0.4] - 2026-08-14
+
+### 🐛 Bug Fixes
+
+- Action is read-only to uv cache (#66) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#66](https://github.com/hotdog-werx/releez/pull/66)
+
 ## [1.0.3] - 2026-08-13
 
 ### 🐛 Bug Fixes
