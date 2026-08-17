@@ -1,0 +1,295 @@
+name: Test Action — monorepo distinct tag prefix
+
+# Regression coverage for projects whose configured name differs from their
+# tag prefix. A project named "application" with tag-prefix "app-" must pass
+# bare semver (0.5.0) to CLI --version-override options while retaining the
+# full app-0.5.0 release identifier for branches, tags, and action outputs.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-validate-distinct-tag-prefix:
+    name: validate with project name distinct from tag prefix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up monorepo history and config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/application
+          echo "# application" > packages/application/README.md
+          git add packages/application/README.md
+          git commit -m "feat: initial application package"
+          git tag app-0.4.0
+          echo "new feature" >> packages/application/README.md
+          git add packages/application/README.md
+          git commit -m "feat: add application feature"
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "application"
+          path = "packages/application"
+          tag-prefix = "app-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version }}]
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for commit in commits %}
+          - {{ commit.message }}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          TOML
+        shell: bash
+
+      - name: Run validate action
+        id: releez
+        uses: ./
+        with:
+          mode: validate
+          branch: 'release/app-0.5.0'
+          post-comment: 'false'
+
+      - name: Assert validate outputs
+        env:
+          RELEASE_PREVIEW: ${{ steps.releez.outputs.release-preview }}
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [validate-distinct-prefix]: $name"
+            else
+              echo "FAIL [validate-distinct-prefix]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "app-0.5.0"
+          assert_eq "project" "${{ steps.releez.outputs.project }}" "application"
+          assert_eq "validation-status" "${{ steps.releez.outputs.validation-status }}" "success"
+
+          if [[ "$RELEASE_PREVIEW" == *'Version: `app-0.5.0`'* ]]; then
+            echo "OK [validate-distinct-prefix]: preview uses full tag"
+          else
+            echo "FAIL [validate-distinct-prefix]: preview missing app-0.5.0"
+            fail=1
+          fi
+
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "FAIL [validate-distinct-prefix]: release notes are empty"
+            fail=1
+          fi
+
+          exit $fail
+        shell: bash
+
+  test-finalize-distinct-tag-prefix:
+    name: finalize with project name distinct from tag prefix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up monorepo history, config, and local remote
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/application
+          echo "# application" > packages/application/README.md
+          git add packages/application/README.md
+          git commit -m "feat: initial application package"
+          git tag app-0.4.0
+          echo "new feature" >> packages/application/README.md
+          git add packages/application/README.md
+          git commit -m "feat: add application feature"
+
+          git clone --bare . /tmp/finalize-distinct-prefix-origin
+          git remote set-url origin /tmp/finalize-distinct-prefix-origin
+          git push origin HEAD:master
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "application"
+          path = "packages/application"
+          tag-prefix = "app-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Write test cliff.toml (no GitHub remote)
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version }}]
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for commit in commits %}
+          - {{ commit.message }}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "Features" },
+            { message = "^fix", group = "Bug Fixes" },
+            { message = ".*", group = "Other" },
+          ]
+          filter_commits = false
+          TOML
+        shell: bash
+
+      - name: Run finalize action
+        id: releez
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/app-0.5.0'
+          alias-versions: 'none'
+          dry-run: 'false'
+
+      - name: Assert finalize outputs and tag
+        env:
+          RELEASE_NOTES: ${{ steps.releez.outputs.release-notes }}
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [finalize-distinct-prefix]: $name"
+            else
+              echo "FAIL [finalize-distinct-prefix]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "app-0.5.0"
+          assert_eq "project" "${{ steps.releez.outputs.project }}" "application"
+          assert_eq "semver-version" "${{ steps.releez.outputs.semver-version }}" "0.5.0"
+          assert_eq "docker-version" "${{ steps.releez.outputs.docker-version }}" "0.5.0"
+          assert_eq "pep440-version" "${{ steps.releez.outputs.pep440-version }}" "0.5.0"
+
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "FAIL [finalize-distinct-prefix]: release notes are empty"
+            fail=1
+          fi
+
+          if git ls-remote --exit-code --tags origin refs/tags/app-0.5.0 >/dev/null 2>&1; then
+            echo "OK [finalize-distinct-prefix]: app-0.5.0 tag pushed"
+          else
+            echo "FAIL [finalize-distinct-prefix]: app-0.5.0 tag was not pushed"
+            fail=1
+          fi
+
+          exit $fail
+        shell: bash
+
+  test-version-artifact-distinct-tag-prefix:
+    name: version artifact with project name distinct from tag prefix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up monorepo config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test"
+
+          mkdir -p packages/application
+          echo "# application" > packages/application/README.md
+          git add packages/application/README.md
+          git commit -m "chore: add application package"
+
+          cat >> pyproject.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = "application"
+          path = "packages/application"
+          tag-prefix = "app-"
+          changelog-path = "CHANGELOG.md"
+          TOML
+        shell: bash
+
+      - name: Run version-artifact action
+        id: releez
+        uses: ./
+        with:
+          mode: version-artifact
+          detect-from-branch: 'true'
+          branch: 'release/app-0.5.0'
+          is-full-release: 'true'
+          alias-versions: 'none'
+
+      - name: Assert version-artifact outputs
+        run: |
+          fail=0
+
+          assert_eq() {
+            local name="$1" actual="$2" expected="$3"
+            if [ "$actual" = "$expected" ]; then
+              echo "OK [artifact-distinct-prefix]: $name"
+            else
+              echo "FAIL [artifact-distinct-prefix]: $name"
+              printf '  expected: %q\n' "$expected"
+              printf '  actual:   %q\n' "$actual"
+              fail=1
+            fi
+          }
+
+          assert_eq "release-version" "${{ steps.releez.outputs.release-version }}" "app-0.5.0"
+          assert_eq "project" "${{ steps.releez.outputs.project }}" "application"
+          assert_eq "semver-version" "${{ steps.releez.outputs.semver-version }}" "0.5.0"
+          assert_eq "docker-version" "${{ steps.releez.outputs.docker-version }}" "0.5.0"
+          assert_eq "pep440-version" "${{ steps.releez.outputs.pep440-version }}" "0.5.0"
+
+          exit $fail
+        shell: bash
