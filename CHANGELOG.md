@@ -1,3 +1,11 @@
+## [1.0.5] - 2026-08-17
+
+### 🐛 Bug Fixes
+
+- Fix action logic when in monorepo mode the app name and prefix vary (#68) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#68](https://github.com/hotdog-werx/releez/pull/68)
+
 ## [1.0.4] - 2026-08-14
 
 ### 🐛 Bug Fixes
