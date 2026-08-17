@@ -91,6 +91,10 @@ The `--project <name>` flag is passed to `release tag`, `release notes`, and
 `release preview` when a project name is detected, so those commands apply the
 correct tag prefix and git-cliff path filtering.
 
+Always pass the detected `semver_version` to those commands' bare-semver
+`--version-override`. A project's configured `tag-prefix` is independent of its
+name, so stripping `<project-name>-` from the full version is not valid.
+
 ## Branch input for testing
 
 All three modes accept an optional `branch` input:
