@@ -181,6 +181,26 @@ def create_and_checkout_branch(repo: Repo, *, name: str) -> None:
     raise GitBranchExistsError(name)
 
 
+def commit_staged(repo: Repo, *, message: str) -> None:
+    """Commit staged changes using the native Git CLI.
+
+    Using ``git commit`` ensures repository and user configuration such as
+    ``commit.gpgSign`` is honored. GitPython's direct index commit constructs
+    the commit object itself and exposes no signing option.
+
+    Args:
+        repo: The Git repository.
+        message: The commit message.
+
+    Raises:
+        MissingCliError: If the `git` CLI is not available.
+    """
+    try:
+        repo.git.commit('-m', message)
+    except GitCommandNotFound as exc:  # pragma: no cover
+        raise MissingCliError(GIT_BIN) from exc
+
+
 def commit_file(repo: Repo, *, path: Path, message: str) -> None:
     """Stage and commit a file with the given message.
 
@@ -197,7 +217,7 @@ def commit_file(repo: Repo, *, path: Path, message: str) -> None:
     except ValueError:
         pathspec = str(abs_path)
     repo.index.add([pathspec])
-    repo.index.commit(message)
+    commit_staged(repo, message=message)
 
 
 def push_set_upstream(repo: Repo, *, remote_name: str, branch: str) -> None:
