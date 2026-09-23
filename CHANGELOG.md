@@ -1,3 +1,16 @@
+## [1.0.6] - 2026-09-23
+
+### 🐛 Bug Fixes
+
+- Use native git commit (#70) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#70](https://github.com/hotdog-werx/releez/pull/70)
+
+### ⚙️ Miscellaneous Tasks
+
+- Add social preview image by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [1.0.5] - 2026-08-17
 
 ### 🐛 Bug Fixes
