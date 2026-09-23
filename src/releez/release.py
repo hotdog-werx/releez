@@ -16,6 +16,7 @@ from releez.errors import (
 )
 from releez.git_repo import (
     checkout_remote_branch,
+    commit_staged,
     create_and_checkout_branch,
     ensure_clean,
     fetch,
@@ -313,7 +314,10 @@ def start_release(
     else:
         # Single repo: stage all modified/new files
         repo.git.add('-A')
-    repo.index.commit(message=f'{release_input.title_prefix}{version}')
+    commit_staged(
+        repo,
+        message=f'{release_input.title_prefix}{version}',
+    )
 
     push_set_upstream(
         repo,

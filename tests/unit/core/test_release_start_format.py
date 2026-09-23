@@ -178,6 +178,7 @@ def test_start_release_stages_project_path_and_adds_project_label(
     )
 
     repo.git.add.assert_called_once_with('packages/core')
+    repo.git.commit.assert_called_once_with('-m', 'chore(release): core-1.2.3')
     assert result.release_branch == 'release/core-1.2.3'
 
     pr_input = maybe_create_pr.call_args.kwargs['pr_input']
