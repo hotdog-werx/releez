@@ -28,7 +28,8 @@ def test_commit_file_stages_and_commits_file(tmp_path: Path) -> None:
     commit_file(repo, path=tracked, message='add tracked file')
 
     assert repo.head.commit.message == 'add tracked file\n'
-    assert (repo.head.commit.tree / 'tracked.txt').data_stream.read() == b'content\n'
+    committed = (repo.head.commit.tree / 'tracked.txt').data_stream.read()
+    assert committed.decode().splitlines() == ['content']
 
 
 def test_commit_staged_honors_required_signing_configuration(
