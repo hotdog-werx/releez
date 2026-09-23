@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 
 def _init_repo(tmp_path: Path) -> Repo:
     repo = Repo.init(tmp_path)
-    repo.config_writer().set_value('user', 'name', 'Test User').release()
-    repo.config_writer().set_value(
-        'user',
-        'email',
-        'test@example.com',
-    ).release()
+    with repo.config_writer() as config:
+        config.set_value('user', 'name', 'Test User')
+        config.set_value('user', 'email', 'test@example.com')
+        # Keep general integration tests independent of the host's signing agent.
+        # Signing behavior is covered explicitly in test_git_repo.py.
+        config.set_value('commit', 'gpgSign', 'false')
     if repo.active_branch.name != 'master':
         repo.git.branch('-M', 'master')
     return repo

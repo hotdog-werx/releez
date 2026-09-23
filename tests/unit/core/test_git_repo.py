@@ -32,7 +32,9 @@ def test_commit_staged_honors_required_signing_configuration(
     repo.index.add(['tracked.txt'])
     with repo.config_writer() as config:
         config.set_value('commit', 'gpgSign', 'true')
+        config.set_value('gpg', 'format', 'openpgp')
         config.set_value('gpg', 'program', 'releez-missing-gpg-program')
+        config.set_value('user', 'signingKey', 'releez-missing-signing-key')
 
     with pytest.raises(GitCommandError):
         commit_staged(repo, message='must be signed')
