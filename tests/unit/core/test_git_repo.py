@@ -8,10 +8,27 @@ import pytest
 from git import Repo
 from git.exc import GitCommandError
 
-from releez.git_repo import commit_staged
+from releez.git_repo import commit_file, commit_staged
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def test_commit_file_stages_and_commits_file(tmp_path: Path) -> None:
+    """The file helper stages its target and creates the requested commit."""
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as config:
+        config.set_value('user', 'name', 'Test')
+        config.set_value('user', 'email', 'test@example.com')
+        config.set_value('commit', 'gpgSign', 'false')
+
+    tracked = tmp_path / 'tracked.txt'
+    tracked.write_text('content\n', encoding='utf-8')
+
+    commit_file(repo, path=tracked, message='add tracked file')
+
+    assert repo.head.commit.message == 'add tracked file\n'
+    assert (repo.head.commit.tree / 'tracked.txt').data_stream.read() == b'content\n'
 
 
 def test_commit_staged_honors_required_signing_configuration(
