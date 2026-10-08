@@ -176,8 +176,9 @@ runs:
 
     - name: Install uv
       if: steps.check-uv.outputs.installed == 'false'
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
+        version: '0.9.18'
         enable-cache: true
         save-cache: false
 
@@ -379,7 +380,7 @@ runs:
 
     - name: '[validate] Comment on PR'
       if: inputs.mode == 'validate' && inputs.post-comment == 'true'
-      uses: marocchino/sticky-pull-request-comment@v3.0.5
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         header: ${{ inputs.comment-tag }}
         message: |
