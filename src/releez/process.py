@@ -19,12 +19,12 @@ def run_checked(
     """Run a command and raise a ReleezError on failure.
 
     Args:
-        args: The command and arguments to execute.
-        cwd: Optional working directory for the command.
-        capture_stdout: If false, stdout is not captured.
+        args (Sequence[str]): The command and arguments to execute.
+        cwd (Path | None): Optional working directory for the command.
+        capture_stdout (bool): If false, stdout is not captured.
 
     Returns:
-        The stripped stdout of the command.
+        str: The stripped stdout of the command.
 
     Raises:
         MissingCliError: If the executable is not found.

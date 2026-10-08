@@ -20,9 +20,9 @@ class MaintenanceContext:
     """Detected maintenance branch context.
 
     Attributes:
-        branch: The maintenance branch name (e.g. "support/1.x").
-        major: The major version number of the maintenance line.
-        tag_pattern: The git-cliff tag pattern scoped to this major.
+        branch (str): The maintenance branch name (e.g. "support/1.x").
+        major (int): The major version number of the maintenance line.
+        tag_pattern (str): The git-cliff tag pattern scoped to this major.
     """
 
     branch: str
@@ -42,7 +42,12 @@ class MaintenanceContext:
 def _maintenance_major(*, branch: str, regex: str) -> int | None:
     """Extract the major version integer from a branch name via regex.
 
-    Returns the major version if the branch matches, or None if no match.
+    Args:
+        branch (str): Branch name to match.
+        regex (str): Maintenance branch pattern containing a named major group.
+
+    Returns:
+        int | None: Major version if the branch matches, or None if it does not.
 
     Raises:
         InvalidMaintenanceBranchRegexError: If the regex is invalid, missing
@@ -183,6 +188,10 @@ def _validate_maintenance_version(
     maintenance_ctx: MaintenanceContext,
 ) -> None:
     """Validate that the release version major matches the maintenance branch.
+
+    Args:
+        version (str): Release version to validate.
+        maintenance_ctx (MaintenanceContext): Active maintenance branch context.
 
     Raises:
         MaintenanceBranchMajorMismatchError: If the major does not match.

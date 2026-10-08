@@ -33,10 +33,10 @@ class RepoInfo:
     """Information about a Git repository.
 
     Attributes:
-        root: The root path of the repository.
-        remote_url: The URL of the 'origin' remote.
-        active_branch: The name of the currently active branch, or None if in
-            detached HEAD state.
+        root (Path): The root path of the repository.
+        remote_url (str): The URL of the 'origin' remote.
+        active_branch (str | None): The name of the currently active branch, or
+            None if in detached HEAD state.
     """
 
     root: Path
@@ -49,8 +49,8 @@ class RepoContext:
     """Bundle a repository with its derived metadata.
 
     Attributes:
-        repo: The GitPython repository instance.
-        info: Derived repository metadata (root, remote, active branch).
+        repo (Repo): The GitPython repository instance.
+        info (RepoInfo): Derived repository metadata (root, remote, active branch).
     """
 
     repo: Repo
@@ -61,10 +61,11 @@ def open_repo(*, cwd: Path | None = None) -> RepoContext:
     """Open a Git repository and gather information about it.
 
     Args:
-        cwd: The working directory to start searching for the repository.
+        cwd (Path | None): The working directory to start searching for the
+            repository.
 
     Returns:
-        A RepoContext containing the Repo object and RepoInfo dataclass.
+        RepoContext: A context containing the Repo object and RepoInfo dataclass.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -103,7 +104,7 @@ def ensure_clean(repo: Repo) -> None:
     """Ensure the repository working tree is clean.
 
     Args:
-        repo: The Git repository.
+        repo (Repo): The Git repository.
 
     Raises:
         DirtyWorkingTreeError: If the repository has uncommitted changes.
@@ -116,8 +117,8 @@ def fetch(repo: Repo, *, remote_name: str) -> None:
     """Fetch updates from the remote (including tags).
 
     Args:
-        repo: The Git repository.
-        remote_name: The remote name to fetch from.
+        repo (Repo): The Git repository.
+        remote_name (str): The remote name to fetch from.
 
     Raises:
         GitRemoteNotFoundError: If the remote does not exist.
@@ -138,9 +139,9 @@ def checkout_remote_branch(
     """Check out the given remote branch as a detached HEAD.
 
     Args:
-        repo: The Git repository.
-        remote_name: The remote name.
-        branch: The branch name on the remote.
+        repo (Repo): The Git repository.
+        remote_name (str): The remote name.
+        branch (str): The branch name on the remote.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -163,8 +164,8 @@ def create_and_checkout_branch(repo: Repo, *, name: str) -> None:
     """Create and check out a new local branch.
 
     Args:
-        repo: The Git repository.
-        name: The new branch name.
+        repo (Repo): The Git repository.
+        name (str): The new branch name.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -189,8 +190,8 @@ def commit_staged(repo: Repo, *, message: str) -> None:
     the commit object itself and exposes no signing option.
 
     Args:
-        repo: The Git repository.
-        message: The commit message.
+        repo (Repo): The Git repository.
+        message (str): The commit message.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -205,9 +206,9 @@ def commit_file(repo: Repo, *, path: Path, message: str) -> None:
     """Stage and commit a file with the given message.
 
     Args:
-        repo: The Git repository.
-        path: The path to the file to stage and commit.
-        message: The commit message.
+        repo (Repo): The Git repository.
+        path (Path): The path to the file to stage and commit.
+        message (str): The commit message.
     """
     root = Path(repo.working_tree_dir or '.').resolve()
     abs_path = path.resolve()
@@ -224,9 +225,9 @@ def push_set_upstream(repo: Repo, *, remote_name: str, branch: str) -> None:
     """Push a branch and set upstream on the remote.
 
     Args:
-        repo: The Git repository.
-        remote_name: The remote name to push to.
-        branch: The branch to push.
+        repo (Repo): The Git repository.
+        remote_name (str): The remote name to push to.
+        branch (str): The branch to push.
     """
     repo.git.push('-u', remote_name, branch)
 
@@ -235,9 +236,9 @@ def create_tags(repo: Repo, *, tags: list[str], force: bool) -> None:
     """Create git tags pointing at HEAD.
 
     Args:
-        repo: The Git repository.
-        tags: The tag names to create.
-        force: If true, overwrite existing tags.
+        repo (Repo): The Git repository.
+        tags (list[str]): The tag names to create.
+        force (bool): If true, overwrite existing tags.
 
     Raises:
         GitTagExistsError: If a tag exists and force is false.
@@ -262,10 +263,10 @@ def push_tags(
     """Push git tags to a remote.
 
     Args:
-        repo: The Git repository.
-        remote_name: The remote to push to.
-        tags: The tag names to push.
-        force: If true, force-update tags on the remote.
+        repo (Repo): The Git repository.
+        remote_name (str): The remote to push to.
+        tags (list[str]): The tag names to push.
+        force (bool): If true, force-update tags on the remote.
     """
     if not tags:
         return
@@ -282,11 +283,11 @@ def _build_commit_to_tags_map(
     """Build mapping of commit SHA to matching tag names.
 
     Args:
-        repo: Git repository.
-        compiled_pattern: Compiled regex to match tag names.
+        repo (Repo): Git repository.
+        compiled_pattern (re.Pattern[str]): Compiled regex to match tag names.
 
     Returns:
-        Dict mapping commit SHA to list of matching tag names on that commit.
+        dict[str, list[str]]: Commit SHA mapped to matching tag names on that commit.
     """
     commit_to_tags: dict[str, list[str]] = {}
     for tag in repo.tags:
@@ -308,11 +309,11 @@ def _find_tag_by_topology(
     rapid succession and share the same timestamp.
 
     Args:
-        repo: Git repository.
-        commit_to_tags: Mapping of commit SHA to tag names.
+        repo (Repo): Git repository.
+        commit_to_tags (dict[str, list[str]]): Mapping of commit SHA to tag names.
 
     Returns:
-        Most recent tag name, or None if iteration fails.
+        str | None: Most recent tag name, or None if iteration fails.
     """
     try:
         for commit in repo.iter_commits():
@@ -333,11 +334,11 @@ def _find_tag_by_date(
     """Find latest tag by commit date (fallback for topology failure).
 
     Args:
-        repo: Git repository.
-        compiled_pattern: Compiled regex to match tag names.
+        repo (Repo): Git repository.
+        compiled_pattern (re.Pattern[str]): Compiled regex to match tag names.
 
     Returns:
-        Most recently committed tag name, or None if no tags match.
+        str | None: Most recently committed tag name, or None if no tags match.
     """
     all_tags = [(tag, tag.commit.committed_datetime) for tag in repo.tags if compiled_pattern.match(tag.name)]
     if all_tags:
@@ -350,11 +351,13 @@ def find_latest_tag_matching_pattern(repo: Repo, *, pattern: str) -> str | None:
     r"""Find the latest tag matching the given regex pattern.
 
     Args:
-        repo: Git repository.
-        pattern: Regex pattern to match tags (e.g., '^core-([0-9]+\.[0-9]+\.[0-9]+)$').
+        repo (Repo): Git repository.
+        pattern (str): Regex pattern to match tags (e.g.,
+            '^core-([0-9]+\.[0-9]+\.[0-9]+)$').
 
     Returns:
-        The most recent tag name matching the pattern, or None if no tags match.
+        str | None: The most recent tag name matching the pattern, or None if no
+            tags match.
     """
     compiled_pattern = re.compile(pattern)
     commit_to_tags = _build_commit_to_tags_map(repo, compiled_pattern)
@@ -373,11 +376,11 @@ def find_all_major_versions(repo: Repo, *, tag_prefix: str) -> list[int]:
     """Return sorted list of distinct major versions found in release tags.
 
     Args:
-        repo: Git repository.
-        tag_prefix: Tag prefix (e.g., "core-", or "" for single-repo).
+        repo (Repo): Git repository.
+        tag_prefix (str): Tag prefix (e.g., "core-", or "" for single-repo).
 
     Returns:
-        Sorted list of major version integers (e.g., [1, 2, 3]).
+        list[int]: Sorted list of major version integers (e.g., [1, 2, 3]).
     """
     compiled = re.compile(generate_tag_pattern(tag_prefix))
     majors: set[int] = set()
@@ -393,9 +396,9 @@ def create_branch_from_ref(repo: Repo, *, name: str, ref: str) -> None:
     """Create and check out a new local branch from a specific ref.
 
     Args:
-        repo: The Git repository.
-        name: The new branch name.
-        ref: The git ref (commit SHA, tag, branch) to branch from.
+        repo (Repo): The Git repository.
+        name (str): The new branch name.
+        ref (str): The git ref (commit SHA, tag, branch) to branch from.
 
     Raises:
         MissingCliError: If the `git` CLI is not available.
@@ -425,13 +428,13 @@ def validate_commit_for_major(
     by the latest N.x.x tag, ensuring it is within the N.x history.
 
     Args:
-        repo: Git repository.
-        commit_ref: The ref to validate (commit SHA, tag, or branch).
-        latest_tag: The latest tag name for the major (e.g., "1.4.0").
-        major: The major version being validated.
+        repo (Repo): Git repository.
+        commit_ref (str): The ref to validate (commit SHA, tag, or branch).
+        latest_tag (str): The latest tag name for the major (e.g., "1.4.0").
+        major (int): The major version being validated.
 
     Returns:
-        The resolved commit SHA.
+        str: The resolved commit SHA.
 
     Raises:
         InvalidSupportBranchCommitError: If the ref cannot be resolved or is not
@@ -466,12 +469,12 @@ def _has_commits_for_path(repo: Repo, range_spec: str, path: str) -> bool:
     """Check if any commits touched the given path.
 
     Args:
-        repo: Git repository.
-        range_spec: Git range specification (e.g., "tag..HEAD").
-        path: File or directory path to check.
+        repo (Repo): Git repository.
+        range_spec (str): Git range specification (e.g., "tag..HEAD").
+        path (str): File or directory path to check.
 
     Returns:
-        True if commits exist for the path, False otherwise.
+        bool: True if commits exist for the path, False otherwise.
     """
     try:
         commits = repo.git.log(range_spec, '--format=%H', '--', path)
@@ -488,12 +491,12 @@ def _project_has_changes(
     """Check if a project has unreleased changes.
 
     Args:
-        repo: Git repository.
-        project: SubProject to check.
-        base_branch: Base branch to compare against.
+        repo (Repo): Git repository.
+        project (SubProject): SubProject to check.
+        base_branch (str): Base branch to compare against.
 
     Returns:
-        True if project has unreleased changes, False otherwise.
+        bool: True if project has unreleased changes, False otherwise.
     """
     range_spec = _get_range_spec(repo, project, base_branch)
     paths = _get_monitored_paths(project, repo)
@@ -515,12 +518,12 @@ def detect_changed_projects(
     3. Monitored paths = project.path + project.include_paths
 
     Args:
-        repo: Git repository.
-        base_branch: Base branch to compare against.
-        projects: SubProject instances to check.
+        repo (Repo): Git repository.
+        base_branch (str): Base branch to compare against.
+        projects (list[SubProject]): SubProject instances to check.
 
     Returns:
-        Projects with unreleased changes.
+        list[SubProject]: Projects with unreleased changes.
     """
     return [p for p in projects if _project_has_changes(repo, p, base_branch)]
 
@@ -529,12 +532,12 @@ def _get_range_spec(repo: Repo, project: SubProject, base_branch: str) -> str:
     """Get git range specification for project.
 
     Args:
-        repo: Git repository.
-        project: SubProject to get range for.
-        base_branch: Base branch name.
+        repo (Repo): Git repository.
+        project (SubProject): SubProject to get range for.
+        base_branch (str): Base branch name.
 
     Returns:
-        Git range spec (e.g., "tag..HEAD" or just "HEAD").
+        str: Git range spec (e.g., "tag..HEAD" or just "HEAD").
     """
     latest_tag = find_latest_tag_matching_pattern(
         repo,
@@ -547,11 +550,11 @@ def _get_monitored_paths(project: SubProject, repo: Repo) -> list[str]:
     """Get all paths monitored by a project.
 
     Args:
-        project: SubProject to get paths for.
-        repo: Git repository.
+        project (SubProject): SubProject to get paths for.
+        repo (Repo): Git repository.
 
     Returns:
-        List of paths (project path + include_paths).
+        list[str]: List of paths (project path + include_paths).
     """
     rel_path = str(project.path.relative_to(Path(repo.working_tree_dir or '.')))
     return [rel_path, *project.include_paths]
@@ -565,12 +568,12 @@ def _collect_changed_files(
     """Collect changed files for given paths.
 
     Args:
-        repo: Git repository.
-        range_spec: Git range specification.
-        paths: Paths to check for changes.
+        repo (Repo): Git repository.
+        range_spec (str): Git range specification.
+        paths (list[str]): Paths to check for changes.
 
     Returns:
-        Set of changed file paths.
+        set[str]: Set of changed file paths.
     """
     changed_files = set()
     for path in paths:
@@ -592,12 +595,12 @@ def get_changed_files_per_project(
     """Get the list of changed files for each project.
 
     Args:
-        repo: The Git repository.
-        base_branch: The base branch to compare against.
-        projects: List of SubProject instances to check.
+        repo (Repo): The Git repository.
+        base_branch (str): The base branch to compare against.
+        projects (list[SubProject]): List of SubProject instances to check.
 
     Returns:
-        Dictionary mapping project name to list of changed file paths.
+        dict[str, list[str]]: Project names mapped to changed file paths.
     """
     result = {}
     for project in projects:
@@ -616,10 +619,12 @@ class DetectedRelease:
     """Information parsed from a release branch name.
 
     Attributes:
-        version: Full release version string (e.g., "1.2.3" or "core-1.2.3" for monorepo).
-        semver_version: Plain semver without tag prefix (e.g., "1.2.3"). Equal to version for single-repo.
-        project_name: Project name for monorepo, None for single-repo.
-        branch_name: Original branch name.
+        version (str): Full release version string (e.g., "1.2.3" or
+            "core-1.2.3" for monorepo).
+        semver_version (str): Plain semver without tag prefix (e.g., "1.2.3").
+            Equal to version for single-repo.
+        project_name (str | None): Project name for monorepo, None for single-repo.
+        branch_name (str): Original branch name.
     """
 
     version: str
@@ -644,11 +649,12 @@ def detect_release_from_branch(
     If no matching prefix is found, treats it as a single-repo release.
 
     Args:
-        branch_name: Branch name to parse.
-        projects: Configured projects, empty for single-repo.
+        branch_name (str): Branch name to parse.
+        projects (list[SubProject]): Configured projects, empty for single-repo.
 
     Returns:
-        Parsed release information, or None if not a release branch.
+        DetectedRelease | None: Parsed release information, or None if not a
+            release branch.
 
     Examples:
         >>> # Single repo

@@ -22,14 +22,14 @@ class SubProject:
     """Represents a subproject in a monorepo.
 
     Attributes:
-        name: Unique project identifier.
-        path: Absolute path to project directory.
-        changelog_path: Absolute path to changelog file.
-        tag_prefix: Git tag prefix (e.g., "core-").
-        tag_pattern: Auto-generated regex for matching tags.
-        alias_versions: Version alias strategy (major/minor/none).
-        hooks: Per-project hooks, merged with global hooks.
-        include_paths: Additional paths to monitor for changes.
+        name (str): Unique project identifier.
+        path (Path): Absolute path to project directory.
+        changelog_path (Path): Absolute path to changelog file.
+        tag_prefix (str): Git tag prefix (e.g., "core-").
+        tag_pattern (str): Auto-generated regex for matching tags.
+        alias_versions (AliasVersions): Version alias strategy.
+        hooks (ReleezHooks): Per-project hooks, merged with global hooks.
+        include_paths (list[str]): Additional paths to monitor for changes.
     """
 
     name: str
@@ -54,16 +54,16 @@ class SubProject:
         project-specific hooks with global hooks (global first).
 
         Args:
-            config: Project configuration from TOML.
-            repo_root: Git repository root directory.
-            global_settings: Global releez settings.
+            config (ProjectConfig): Project configuration from TOML.
+            repo_root (Path): Git repository root directory.
+            global_settings (ReleezSettings): Global releez settings.
 
         Returns:
-            Validated SubProject instance.
+            SubProject: Validated project instance.
 
         Raises:
             MonorepoValidationError: If configuration is invalid.
-        """
+        """  # noqa: DOC502
         project_path = _validate_project_path(config, repo_root)
         changelog_path = _validate_changelog_path(config, project_path)
         _validate_include_paths(config, repo_root)
@@ -87,11 +87,11 @@ def _validate_project_path(config: ProjectConfig, repo_root: Path) -> Path:
     """Validate and return project path.
 
     Args:
-        config: Project configuration.
-        repo_root: Repository root directory.
+        config (ProjectConfig): Project configuration.
+        repo_root (Path): Repository root directory.
 
     Returns:
-        Absolute project path.
+        Path: Absolute project path.
 
     Raises:
         MonorepoValidationError: If path doesn't exist, isn't a directory, or is outside repo.
@@ -118,11 +118,11 @@ def _validate_changelog_path(config: ProjectConfig, project_path: Path) -> Path:
     """Validate and return changelog path.
 
     Args:
-        config: Project configuration.
-        project_path: Absolute project path.
+        config (ProjectConfig): Project configuration.
+        project_path (Path): Absolute project path.
 
     Returns:
-        Absolute changelog path.
+        Path: Absolute changelog path.
 
     Raises:
         MonorepoValidationError: If changelog directory doesn't exist.
@@ -147,8 +147,8 @@ def _validate_include_paths(config: ProjectConfig, repo_root: Path) -> None:
     root are rejected, as those would be a genuine misconfiguration.
 
     Args:
-        config: Project configuration.
-        repo_root: Repository root directory.
+        config (ProjectConfig): Project configuration.
+        repo_root (Path): Repository root directory.
 
     Raises:
         MonorepoValidationError: If any include path is outside the repository.
@@ -169,11 +169,11 @@ def _merge_hooks(
     """Merge global and project-specific hooks.
 
     Args:
-        global_settings: Global releez settings.
-        config: Project configuration.
+        global_settings (ReleezSettings): Global releez settings.
+        config (ProjectConfig): Project configuration.
 
     Returns:
-        Merged hooks with global hooks first, then project hooks.
+        ReleezHooks: Merged hooks with global hooks first, then project hooks.
     """
     return ReleezHooks(
         post_changelog=[
@@ -187,10 +187,10 @@ def generate_tag_pattern(tag_prefix: str) -> str:
     r"""Generate regex pattern for git tags with the given prefix.
 
     Args:
-        tag_prefix: Tag prefix (e.g., "core-", "ui-", or "" for no prefix).
+        tag_prefix (str): Tag prefix (e.g., "core-", "ui-", or "" for no prefix).
 
     Returns:
-        Regex pattern like "^core-([0-9]+\.[0-9]+\.[0-9]+)$"
+        str: Regex pattern like "^core-([0-9]+\.[0-9]+\.[0-9]+)$"
 
     Raises:
         MonorepoValidationError: If tag_prefix contains invalid characters.
@@ -214,7 +214,7 @@ def _check_duplicate_names(projects: list[SubProject]) -> None:
     """Check for duplicate project names.
 
     Args:
-        projects: SubProject instances to validate.
+        projects (list[SubProject]): SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If duplicate names found.
@@ -230,7 +230,7 @@ def _check_duplicate_prefixes(projects: list[SubProject]) -> None:
     """Check for duplicate tag prefixes.
 
     Args:
-        projects: SubProject instances to validate.
+        projects (list[SubProject]): SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If duplicate prefixes found.
@@ -249,7 +249,7 @@ def _check_overlapping_paths(paths: list[tuple[str, Path]]) -> None:
     """Check if any project paths overlap.
 
     Args:
-        paths: List of (project_name, project_path) tuples.
+        paths (list[tuple[str, Path]]): Project-name and project-path tuples.
 
     Raises:
         MonorepoValidationError: If any paths overlap.
@@ -276,12 +276,12 @@ def validate_projects(projects: list[SubProject]) -> None:
     """Validate that projects don't have conflicts.
 
     Args:
-        projects: List of SubProject instances to validate.
+        projects (list[SubProject]): SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If projects have duplicate names, tag prefixes,
             or overlapping paths.
-    """
+    """  # noqa: DOC502
     if not projects:
         return
 
