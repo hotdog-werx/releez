@@ -35,12 +35,15 @@ class ArtifactVersionInput:
     """Inputs for computing an artifact version.
 
     Attributes:
-        scheme: Output scheme for the artifact version.
-        version_override: If set, use this instead of computing via git-cliff.
-        is_full_release: If true, output a full release version without prerelease markers.
-        prerelease_type: Prerelease label (e.g. alpha, beta, rc).
-        prerelease_number: Optional prerelease number (e.g. PR number for alpha123).
-        build_number: Build identifier for prerelease builds.
+        scheme (ArtifactVersionScheme): Output scheme for the artifact version.
+        version_override (str | None): If set, use this instead of computing via
+            git-cliff.
+        is_full_release (bool): If true, output a full release version without
+            prerelease markers.
+        prerelease_type (PrereleaseType): Prerelease label (e.g. alpha, beta, rc).
+        prerelease_number (int | None): Optional prerelease number (e.g. PR number
+            for alpha123).
+        build_number (int | None): Build identifier for prerelease builds.
     """
 
     scheme: ArtifactVersionScheme
@@ -62,14 +65,15 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
     """Compute an artifact version string.
 
     Args:
-        artifact_input: Inputs for computing the version.
+        artifact_input (ArtifactVersionInput): Inputs for computing the version.
 
     Returns:
-        Version string to apply to the artifact.
+        str: Version string to apply to the artifact.
 
     Raises:
         BuildNumberRequiredError: If a prerelease build is missing a build number.
-        ReleezError: If git or git-cliff are unavailable, or git-cliff fails.
+        PrereleaseNumberRequiredError: If a prerelease build is missing its sequence
+            number.
     """
     next_version = artifact_input.version_override or _compute_next_version()
     if artifact_input.is_full_release:
@@ -99,7 +103,7 @@ def _compute_next_version() -> str:
     """Compute next version from the current git repo using git-cliff.
 
     Returns:
-        Next version string as determined by git-cliff.
+        str: Next version string as determined by git-cliff.
     """
     info = open_repo().info
     cliff = GitCliff(repo_root=info.root)
@@ -119,13 +123,13 @@ def _pep440_version(
     Example: 1.2.3a123.dev456
 
     Args:
-        next_version: Base version (e.g., "1.2.3").
-        prerelease_type: Prerelease type (alpha/beta/rc).
-        prerelease_number: Prerelease sequence number.
-        build_number: Build identifier.
+        next_version (str): Base version (e.g., "1.2.3").
+        prerelease_type (PrereleaseType): Prerelease type (alpha/beta/rc).
+        prerelease_number (int | None): Prerelease sequence number.
+        build_number (int): Build identifier.
 
     Returns:
-        PEP 440 formatted version string.
+        str: PEP 440 formatted version string.
     """
     # Map prerelease type to PEP 440 marker: alpha→a, beta→b, rc→rc
     marker = _PEP440_PRERELEASE_MARKERS[prerelease_type]

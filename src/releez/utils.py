@@ -34,11 +34,11 @@ def resolve_changelog_path(changelog_path: str, repo_root: Path) -> Path:
     """Resolve the changelog path relative to the repo root.
 
     Args:
-        changelog_path: Path to the changelog file (absolute or relative).
-        repo_root: Root directory of the git repository.
+        changelog_path (str): Path to the changelog file (absolute or relative).
+        repo_root (Path): Root directory of the git repository.
 
     Returns:
-        The resolved absolute path to the changelog.
+        Path: The resolved absolute path to the changelog.
     """
     changelog = Path(changelog_path)
     if not changelog.is_absolute():
@@ -57,13 +57,14 @@ def run_post_changelog_hooks(
     """Run post-changelog hooks with template variable substitution.
 
     Args:
-        hooks: List of command argv lists to run in order.
-        repo_root: Root directory to run commands from.
-        template_vars: Template variables to substitute (e.g. {"version": "1.2.3"}).
+        hooks (list[list[str]]): List of command argv lists to run in order.
+        repo_root (Path): Root directory to run commands from.
+        template_vars (Mapping[str, str]): Template variables to substitute (e.g.
+            {"version": "1.2.3"}).
 
     Raises:
         ExternalCommandError: If any hook command fails.
-    """
+    """  # noqa: DOC502
     for hook_cmd in hooks:
         # Substitute template variables in each argument
         cmd = [arg.format(**template_vars) if '{' in arg else arg for arg in hook_cmd]

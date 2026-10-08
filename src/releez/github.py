@@ -13,8 +13,8 @@ class PullRequest:
     """A minimal representation of a created GitHub pull request.
 
     Attributes:
-        url: PR URL.
-        number: PR number.
+        url (str): PR URL.
+        number (int): PR number.
     """
 
     url: str
@@ -26,13 +26,13 @@ class PullRequestCreateRequest:
     """Parameters for creating a GitHub pull request.
 
     Attributes:
-        remote_url: Git remote URL used to infer the GitHub repo.
-        token: GitHub token used for authentication.
-        base: Base branch for the PR.
-        head: Head branch for the PR.
-        title: PR title.
-        body: PR body.
-        labels: Labels to add to the PR.
+        remote_url (str): Git remote URL used to infer the GitHub repo.
+        token (str): GitHub token used for authentication.
+        base (str): Base branch for the PR.
+        head (str): Head branch for the PR.
+        title (str): PR title.
+        body (str): PR body.
+        labels (list[str]): Labels to add to the PR.
     """
 
     remote_url: str
@@ -63,7 +63,8 @@ def _github_api_base_url_from_env() -> str | None:
     Supports GitHub Enterprise Server by respecting custom server URLs.
 
     Returns:
-        API base URL with trailing slash removed, or None if not configured.
+        str | None: API base URL with trailing slash removed, or None if not
+            configured.
     """
     api_url = os.getenv('RELEEZ_GITHUB_API_URL') or os.getenv('GITHUB_API_URL')
     if api_url:
@@ -85,7 +86,7 @@ def _allowed_github_hosts_from_env() -> set[str]:
     Handles both full URLs (parses hostname) and plain hostnames.
 
     Returns:
-        Set of allowed hostname strings.
+        set[str]: Set of allowed hostname strings.
     """
     hosts = {'github.com'}
 
@@ -117,10 +118,10 @@ def _parse_github_full_name(remote_url: str) -> str:
     - HTTPS: https://github.com/owner/repo.git
 
     Args:
-        remote_url: Git remote URL to parse.
+        remote_url (str): Git remote URL to parse.
 
     Returns:
-        Full repository name in "owner/repo" format.
+        str: Full repository name in "owner/repo" format.
 
     Raises:
         InvalidGitHubRemoteError: If URL format is unrecognized or host is not allowed.
@@ -144,15 +145,15 @@ def create_pull_request(request: PullRequestCreateRequest) -> PullRequest:
     """Create a GitHub pull request.
 
     Args:
-        request: Parameters for creating the pull request.
+        request (PullRequestCreateRequest): Parameters for creating the pull request.
 
     Returns:
-        Created PR with URL and number.
+        PullRequest: Created PR with URL and number.
 
     Raises:
         MissingGitHubDependencyError: If PyGithub is not installed.
         InvalidGitHubRemoteError: If the remote URL cannot be mapped to a GitHub repo.
-    """
+    """  # noqa: DOC503
     try:
         from github import Github  # noqa: PLC0415
     except ImportError as exc:

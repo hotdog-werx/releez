@@ -104,7 +104,8 @@ def _git_cliff_base_cmd() -> list[str]:
     the correct git-cliff version is used when multiple are on PATH.
 
     Returns:
-        Command list with absolute path to git-cliff, or ["git-cliff"] as fallback.
+        list[str]: Command list with absolute path to git-cliff, or ["git-cliff"]
+            as fallback.
 
     Raises:
         MissingCliError: If git-cliff cannot be found anywhere.
@@ -136,10 +137,11 @@ def _bump_args(bump: GitCliffBump) -> list[str]:
     """Build git-cliff --bump arguments.
 
     Args:
-        bump: Bump mode. "auto" lets git-cliff decide; others pass the value explicitly.
+        bump (GitCliffBump): Bump mode. "auto" lets git-cliff decide; others pass
+            the value explicitly.
 
     Returns:
-        List of CLI arguments for the bump mode.
+        list[str]: List of CLI arguments for the bump mode.
     """
     if bump == 'auto':
         return ['--bump']
@@ -180,16 +182,16 @@ class GitCliff:
         """Compute the next version using git-cliff.
 
         Args:
-            bump: The bump mode for git-cliff.
-            tag_pattern: Optional regex pattern to match tags. Defaults to GIT_CLIFF_TAG_PATTERN.
-            include_paths: Optional list of path patterns to filter commits
-                (e.g., ["packages/core/**", "pyproject.toml"]).
+            bump (GitCliffBump): The bump mode for git-cliff.
+            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+                to GIT_CLIFF_TAG_PATTERN.
+            include_paths (list[str] | None): Optional list of path patterns to filter
+                commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Returns:
-            The computed next version.
+            str: The computed next version.
 
         Raises:
-            MissingCliError: If `git-cliff` is not available.
             ExternalCommandError: If git-cliff fails.
             GitCliffVersionComputeError: If git-cliff returns an empty version.
         """
@@ -226,18 +228,19 @@ class GitCliff:
         """Generate the unreleased section as markdown.
 
         Args:
-            version: The version to tag the release notes.
-            tag_pattern: Optional regex pattern to match tags. Defaults to GIT_CLIFF_TAG_PATTERN.
-            include_paths: Optional list of path patterns to filter commits
-                (e.g., ["packages/core/**", "pyproject.toml"]).
+            version (str): The version to tag the release notes.
+            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+                to GIT_CLIFF_TAG_PATTERN.
+            include_paths (list[str] | None): Optional list of path patterns to filter
+                commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Returns:
-            The generated markdown content.
+            str: The generated markdown content.
 
         Raises:
             MissingCliError: If `git-cliff` is not available.
             ExternalCommandError: If git-cliff fails.
-        """
+        """  # noqa: DOC502
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_path = Path(tmp_dir) / 'RELEASE_NOTES.md'
             cmd = [
@@ -275,16 +278,17 @@ class GitCliff:
         """Prepend the unreleased section to the changelog file.
 
         Args:
-            version: The version to tag the release notes.
-            changelog_path: The path to the changelog file.
-            tag_pattern: Optional regex pattern to match tags. Defaults to GIT_CLIFF_TAG_PATTERN.
-            include_paths: Optional list of path patterns to filter commits
-                (e.g., ["packages/core/**", "pyproject.toml"]).
+            version (str): The version to tag the release notes.
+            changelog_path (Path): The path to the changelog file.
+            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+                to GIT_CLIFF_TAG_PATTERN.
+            include_paths (list[str] | None): Optional list of path patterns to filter
+                commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Raises:
             MissingCliError: If `git-cliff` is not available.
             ExternalCommandError: If git-cliff fails.
-        """
+        """  # noqa: DOC502
         cmd = [
             *self._cmd,
             '-v',
@@ -387,15 +391,16 @@ class GitCliff:
         """Regenerate the full changelog file from git history.
 
         Args:
-            changelog_path: The path to the changelog file.
-            tag_pattern: Optional regex pattern to match tags. Defaults to GIT_CLIFF_TAG_PATTERN.
-            include_paths: Optional list of path patterns to filter commits
-                (e.g., ["packages/core/**", "pyproject.toml"]).
+            changelog_path (Path): The path to the changelog file.
+            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+                to GIT_CLIFF_TAG_PATTERN.
+            include_paths (list[str] | None): Optional list of path patterns to filter
+                commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Raises:
             MissingCliError: If `git-cliff` is not available.
             ExternalCommandError: If git-cliff fails.
-        """
+        """  # noqa: DOC502
         cmd = [
             *self._cmd,
             '-v',

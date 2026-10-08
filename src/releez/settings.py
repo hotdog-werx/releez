@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from pydantic import (
     AliasChoices,
@@ -106,15 +106,13 @@ class ReleezHooks(BaseModel):
     """Hook-related configuration.
 
     Attributes:
-        post_changelog: List of commands to run after changelog generation. Each
-            command is an argv list (e.g. [["uv", "version", "{version}"]]).
-            Supports template variables:
-              {version}         Bare semver (e.g. "1.2.3"), tag prefix stripped.
-              {project_version} Full project version as tagged (e.g. "core-1.2.3").
-              {changelog}       Absolute path to the changelog file.
+        model_config (ClassVar[ConfigDict]): Pydantic model configuration.
+        post_changelog (list[list[str]]): Commands to run after changelog
+            generation. Each command is an argv list and supports version,
+            project-version, and changelog template variables.
     """
 
-    model_config = ConfigDict(
+    model_config: ClassVar[ConfigDict] = ConfigDict(
         alias_generator=_ALIASES,
         populate_by_name=True,
     )
@@ -126,16 +124,17 @@ class ProjectConfig(BaseModel):
     """Configuration for a single project in a monorepo.
 
     Attributes:
-        name: Unique project identifier.
-        path: Project directory relative to repo root.
-        changelog_path: Changelog file relative to project path.
-        tag_prefix: Git tag prefix (e.g., "core-").
-        alias_versions: Override global alias_versions setting.
-        hooks: Per-project hooks, merged with global hooks.
-        include_paths: Additional paths to monitor for changes.
+        model_config (ClassVar[ConfigDict]): Pydantic model configuration.
+        name (str): Unique project identifier.
+        path (str): Project directory relative to repo root.
+        changelog_path (str): Changelog file relative to project path.
+        tag_prefix (str): Git tag prefix (e.g., "core-").
+        alias_versions (AliasVersions | None): Override the global alias setting.
+        hooks (ReleezHooks): Per-project hooks, merged with global hooks.
+        include_paths (list[str]): Additional paths to monitor for changes.
     """
 
-    model_config = ConfigDict(
+    model_config: ClassVar[ConfigDict] = ConfigDict(
         alias_generator=_ALIASES,
         populate_by_name=True,
     )
@@ -154,6 +153,13 @@ def _filter_projects_by_name(
     project_names: list[str],
 ) -> list[SubProject]:
     """Return a deduplicated ordered subset of *subprojects* matching *project_names*.
+
+    Args:
+        subprojects (list[SubProject]): Available projects.
+        project_names (list[str]): Names to select in the requested order.
+
+    Returns:
+        list[SubProject]: Selected projects with duplicate names removed.
 
     Raises:
         ReleezError: If any name in *project_names* is not present in *subprojects*.
@@ -286,10 +292,10 @@ class ReleezSettings(BaseSettings):
         """Build SubProject instances from all configured projects.
 
         Args:
-            repo_root: Absolute path to the repository root.
+            repo_root (Path): Absolute path to the repository root.
 
         Returns:
-            List of SubProject instances; empty list in single-repo mode.
+            list[SubProject]: Instances, or an empty list in single-repo mode.
         """
         from releez.subproject import SubProject  # noqa: PLC0415 (local import to avoid circular dependency)
 
@@ -312,6 +318,10 @@ class ReleezSettings(BaseSettings):
 
         No-op in monorepo mode.
 
+        Args:
+            project_names (list[str]): Explicitly selected project names.
+            all_projects (bool): Whether all projects were requested.
+
         Raises:
             ReleezError: If called with project flags when not in monorepo mode.
         """
@@ -330,6 +340,14 @@ class ReleezSettings(BaseSettings):
 
         Only valid in monorepo mode. Callers must check ``is_monorepo`` before
         calling this method.
+
+        Args:
+            repo_root (Path): Absolute path to the repository root.
+            project_names (list[str]): Explicitly selected project names.
+            all_projects (bool): Whether to select all configured projects.
+
+        Returns:
+            list[SubProject]: Selected projects in configuration or request order.
 
         Raises:
             ReleezError: If called in single-repo mode, or for conflicting flags,
