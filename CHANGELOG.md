@@ -1,3 +1,11 @@
+## [1.0.8] - 2026-10-09
+
+### 🐛 Bug Fixes
+
+- Version artifact mode needs GITHUB_TOKEN env (#75) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#75](https://github.com/hotdog-werx/releez/pull/75)
+
 ## [1.0.7] - 2026-10-09
 
 ### 🐛 Bug Fixes
