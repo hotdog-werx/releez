@@ -1,3 +1,16 @@
+## [1.0.7] - 2026-10-09
+
+### 🐛 Bug Fixes
+
+- Exact pin action versions (#73) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#73](https://github.com/hotdog-werx/releez/pull/73)
+
+### ⚙️ Miscellaneous Tasks
+
+- Doc lint fixes (#72) by [@jamestrousdale](https://github.com/jamestrousdale)
+  in [#72](https://github.com/hotdog-werx/releez/pull/72)
+
 ## [1.0.6] - 2026-09-23
 
 ### 🐛 Bug Fixes
