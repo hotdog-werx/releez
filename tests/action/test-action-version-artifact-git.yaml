@@ -84,6 +84,48 @@ jobs:
           exit $fail
         shell: bash
 
+  # ── GitHub token propagation ────────────────────────────────────────────────
+  #
+  # Uses a git-cliff test double to verify the action exposes github-token via
+  # the environment variable git-cliff actually reads during auto-detection.
+
+  test-version-artifact-github-token:
+    name: version-artifact passes GitHub token to git-cliff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install token-checking git-cliff test double
+        run: |
+          mkdir -p "$RUNNER_TEMP/token-test-bin"
+          cat > "$RUNNER_TEMP/token-test-bin/git-cliff" << 'SH'
+          #!/usr/bin/env bash
+          if [ "${GITHUB_TOKEN:-}" != "token-from-action-input" ]; then
+            echo "github-token input was not exposed to git-cliff as GITHUB_TOKEN" >&2
+            exit 1
+          fi
+          echo "8.9.0"
+          SH
+          chmod +x "$RUNNER_TEMP/token-test-bin/git-cliff"
+          echo "$RUNNER_TEMP/token-test-bin" >> "$GITHUB_PATH"
+        shell: bash
+
+      - name: Run action (git-cliff token propagation)
+        id: version
+        uses: ./
+        with:
+          mode: version-artifact
+          github-token: 'token-from-action-input'
+          is-full-release: 'true'
+          alias-versions: 'none'
+
+      - name: Assert output (git-cliff token propagation)
+        env:
+          SEMVER_VERSION: ${{ steps.version.outputs.semver-version }}
+        run: test "$SEMVER_VERSION" = "8.9.0"
+        shell: bash
+
   # ── Detect from release branch ───────────────────────────────────────────────
   #
   # Simulates being on a release/2.3.4 branch. The action detects the version

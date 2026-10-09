@@ -413,6 +413,7 @@ runs:
       id: va-compute
       if: inputs.mode == 'version-artifact'
       env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         DETECTED_PROJECT: ${{ steps.va-detect.outputs.project }}
       shell: bash
       run: |
