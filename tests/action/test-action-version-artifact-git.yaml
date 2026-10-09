@@ -96,10 +96,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install token-checking git-cliff test double
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install releez with token-checking git-cliff test double
         run: |
-          mkdir -p "$RUNNER_TEMP/token-test-bin"
-          cat > "$RUNNER_TEMP/token-test-bin/git-cliff" << 'SH'
+          uv tool install .
+          RELEEZ_BIN=$(readlink -f "$(command -v releez)")
+          TOOL_BIN=$(dirname "$RELEEZ_BIN")
+          cat > "$TOOL_BIN/git-cliff" << 'SH'
           #!/usr/bin/env bash
           if [ "${GITHUB_TOKEN:-}" != "token-from-action-input" ]; then
             echo "github-token input was not exposed to git-cliff as GITHUB_TOKEN" >&2
@@ -107,8 +112,7 @@ jobs:
           fi
           echo "8.9.0"
           SH
-          chmod +x "$RUNNER_TEMP/token-test-bin/git-cliff"
-          echo "$RUNNER_TEMP/token-test-bin" >> "$GITHUB_PATH"
+          chmod +x "$TOOL_BIN/git-cliff"
         shell: bash
 
       - name: Run action (git-cliff token propagation)
