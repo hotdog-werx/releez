@@ -1,2 +1,3 @@
--P ubuntu-latest=catthehacker/ubuntu:act-latest
+-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest
+--pull=false
 --env GITHUB_RUN_NUMBER=456
