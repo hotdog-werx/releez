@@ -155,8 +155,8 @@ def _filter_projects_by_name(
     """Return a deduplicated ordered subset of *subprojects* matching *project_names*.
 
     Args:
-        subprojects (list[SubProject]): Available projects.
-        project_names (list[str]): Names to select in the requested order.
+        subprojects: Available projects.
+        project_names: Names to select in the requested order.
 
     Returns:
         list[SubProject]: Selected projects with duplicate names removed.
@@ -292,7 +292,7 @@ class ReleezSettings(BaseSettings):
         """Build SubProject instances from all configured projects.
 
         Args:
-            repo_root (Path): Absolute path to the repository root.
+            repo_root: Absolute path to the repository root.
 
         Returns:
             list[SubProject]: Instances, or an empty list in single-repo mode.
@@ -319,8 +319,8 @@ class ReleezSettings(BaseSettings):
         No-op in monorepo mode.
 
         Args:
-            project_names (list[str]): Explicitly selected project names.
-            all_projects (bool): Whether all projects were requested.
+            project_names: Explicitly selected project names.
+            all_projects: Whether all projects were requested.
 
         Raises:
             ReleezError: If called with project flags when not in monorepo mode.
@@ -342,9 +342,9 @@ class ReleezSettings(BaseSettings):
         calling this method.
 
         Args:
-            repo_root (Path): Absolute path to the repository root.
-            project_names (list[str]): Explicitly selected project names.
-            all_projects (bool): Whether to select all configured projects.
+            repo_root: Absolute path to the repository root.
+            project_names: Explicitly selected project names.
+            all_projects: Whether to select all configured projects.
 
         Returns:
             list[SubProject]: Selected projects in configuration or request order.

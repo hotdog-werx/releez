@@ -118,7 +118,7 @@ def _parse_github_full_name(remote_url: str) -> str:
     - HTTPS: https://github.com/owner/repo.git
 
     Args:
-        remote_url (str): Git remote URL to parse.
+        remote_url: Git remote URL to parse.
 
     Returns:
         str: Full repository name in "owner/repo" format.
@@ -145,7 +145,7 @@ def create_pull_request(request: PullRequestCreateRequest) -> PullRequest:
     """Create a GitHub pull request.
 
     Args:
-        request (PullRequestCreateRequest): Parameters for creating the pull request.
+        request: Parameters for creating the pull request.
 
     Returns:
         PullRequest: Created PR with URL and number.

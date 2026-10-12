@@ -36,8 +36,8 @@ def _tag_commit_sha(repo: Repo, *, tag_name: str) -> str | None:
     """Return the commit SHA for a local tag, if it exists.
 
     Args:
-        repo (Repo): Git repository.
-        tag_name (str): Tag name to resolve.
+        repo: Git repository.
+        tag_name: Tag name to resolve.
 
     Returns:
         str | None: The peeled commit SHA, or None when the tag is absent.

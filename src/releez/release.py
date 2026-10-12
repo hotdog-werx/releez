@@ -146,8 +146,8 @@ def _maybe_create_pull_request(
     """Create pull request if requested.
 
     Args:
-        repo (Repo): Git repository.
-        pr_input (_MaybeCreatePullRequestInput): Pull request configuration.
+        repo: Git repository.
+        pr_input: Pull request configuration.
 
     Returns:
         str | None: Pull request URL if created, None otherwise.
@@ -186,8 +186,8 @@ def _resolve_release_version(
     """Resolve release version from override or git-cliff computation.
 
     Args:
-        cliff (GitCliff): git-cliff wrapper instance.
-        release_input (StartReleaseInput): Release configuration.
+        cliff: git-cliff wrapper instance.
+        release_input: Release configuration.
 
     Returns:
         str: Version string to use for the release.
@@ -225,10 +225,10 @@ def _run_post_changelog_hooks_if_requested(
       {changelog}       Absolute path to the changelog file.
 
     Args:
-        repo_root (Path): Repository root directory.
-        changelog_path (Path): Path to changelog file.
-        version (str): Release version string (may include a tag prefix).
-        release_input (StartReleaseInput): Release configuration.
+        repo_root: Repository root directory.
+        changelog_path: Path to changelog file.
+        version: Release version string (may include a tag prefix).
+        release_input: Release configuration.
     """
     if not release_input.post_changelog_hooks:
         return
@@ -251,7 +251,7 @@ def start_release(
     """Start a release.
 
     Args:
-        release_input (StartReleaseInput): Input parameters for starting the release.
+        release_input: Input parameters for starting the release.
 
     Returns:
         StartReleaseResult: Version, release notes, and optional branch/PR details.

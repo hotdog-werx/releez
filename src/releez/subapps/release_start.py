@@ -51,9 +51,9 @@ def _confirm_release_start(
     """Show a confirmation prompt before starting a release.
 
     Args:
-        options (ReleaseStartOptions): Release command options to display.
-        version (VersionInfo): Version proposed for release.
-        active_branch (str): Currently checked-out branch.
+        options: Release command options to display.
+        version: Version proposed for release.
+        active_branch: Currently checked-out branch.
 
     Raises:
         SystemExit: If the user declines.

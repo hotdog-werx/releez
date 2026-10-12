@@ -43,8 +43,8 @@ def _maintenance_major(*, branch: str, regex: str) -> int | None:
     """Extract the major version integer from a branch name via regex.
 
     Args:
-        branch (str): Branch name to match.
-        regex (str): Maintenance branch pattern containing a named major group.
+        branch: Branch name to match.
+        regex: Maintenance branch pattern containing a named major group.
 
     Returns:
         int | None: Major version if the branch matches, or None if it does not.
@@ -190,8 +190,8 @@ def _validate_maintenance_version(
     """Validate that the release version major matches the maintenance branch.
 
     Args:
-        version (str): Release version to validate.
-        maintenance_ctx (MaintenanceContext): Active maintenance branch context.
+        version: Release version to validate.
+        maintenance_ctx: Active maintenance branch context.
 
     Raises:
         MaintenanceBranchMajorMismatchError: If the major does not match.

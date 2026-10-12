@@ -54,9 +54,9 @@ class SubProject:
         project-specific hooks with global hooks (global first).
 
         Args:
-            config (ProjectConfig): Project configuration from TOML.
-            repo_root (Path): Git repository root directory.
-            global_settings (ReleezSettings): Global releez settings.
+            config: Project configuration from TOML.
+            repo_root: Git repository root directory.
+            global_settings: Global releez settings.
 
         Returns:
             SubProject: Validated project instance.
@@ -87,8 +87,8 @@ def _validate_project_path(config: ProjectConfig, repo_root: Path) -> Path:
     """Validate and return project path.
 
     Args:
-        config (ProjectConfig): Project configuration.
-        repo_root (Path): Repository root directory.
+        config: Project configuration.
+        repo_root: Repository root directory.
 
     Returns:
         Path: Absolute project path.
@@ -118,8 +118,8 @@ def _validate_changelog_path(config: ProjectConfig, project_path: Path) -> Path:
     """Validate and return changelog path.
 
     Args:
-        config (ProjectConfig): Project configuration.
-        project_path (Path): Absolute project path.
+        config: Project configuration.
+        project_path: Absolute project path.
 
     Returns:
         Path: Absolute changelog path.
@@ -147,8 +147,8 @@ def _validate_include_paths(config: ProjectConfig, repo_root: Path) -> None:
     root are rejected, as those would be a genuine misconfiguration.
 
     Args:
-        config (ProjectConfig): Project configuration.
-        repo_root (Path): Repository root directory.
+        config: Project configuration.
+        repo_root: Repository root directory.
 
     Raises:
         MonorepoValidationError: If any include path is outside the repository.
@@ -169,8 +169,8 @@ def _merge_hooks(
     """Merge global and project-specific hooks.
 
     Args:
-        global_settings (ReleezSettings): Global releez settings.
-        config (ProjectConfig): Project configuration.
+        global_settings: Global releez settings.
+        config: Project configuration.
 
     Returns:
         ReleezHooks: Merged hooks with global hooks first, then project hooks.
@@ -187,7 +187,7 @@ def generate_tag_pattern(tag_prefix: str) -> str:
     r"""Generate regex pattern for git tags with the given prefix.
 
     Args:
-        tag_prefix (str): Tag prefix (e.g., "core-", "ui-", or "" for no prefix).
+        tag_prefix: Tag prefix (e.g., "core-", "ui-", or "" for no prefix).
 
     Returns:
         str: Regex pattern like "^core-([0-9]+\.[0-9]+\.[0-9]+)$"
@@ -214,7 +214,7 @@ def _check_duplicate_names(projects: list[SubProject]) -> None:
     """Check for duplicate project names.
 
     Args:
-        projects (list[SubProject]): SubProject instances to validate.
+        projects: SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If duplicate names found.
@@ -230,7 +230,7 @@ def _check_duplicate_prefixes(projects: list[SubProject]) -> None:
     """Check for duplicate tag prefixes.
 
     Args:
-        projects (list[SubProject]): SubProject instances to validate.
+        projects: SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If duplicate prefixes found.
@@ -249,7 +249,7 @@ def _check_overlapping_paths(paths: list[tuple[str, Path]]) -> None:
     """Check if any project paths overlap.
 
     Args:
-        paths (list[tuple[str, Path]]): Project-name and project-path tuples.
+        paths: Project-name and project-path tuples.
 
     Raises:
         MonorepoValidationError: If any paths overlap.
@@ -276,7 +276,7 @@ def validate_projects(projects: list[SubProject]) -> None:
     """Validate that projects don't have conflicts.
 
     Args:
-        projects (list[SubProject]): SubProject instances to validate.
+        projects: SubProject instances to validate.
 
     Raises:
         MonorepoValidationError: If projects have duplicate names, tag prefixes,

@@ -35,8 +35,8 @@ def compute_version_tags(*, version: str, tag_prefix: str = '') -> VersionTags:
     """Compute exact/major/minor tags for a full release version.
 
     Args:
-        version (str): The full release version (`x.y.z`).
-        tag_prefix (str): Optional prefix for tags (e.g., "core-" creates
+        version: The full release version (`x.y.z`).
+        tag_prefix: Optional prefix for tags (e.g., "core-" creates
             "core-1.2.3").
 
     Returns:

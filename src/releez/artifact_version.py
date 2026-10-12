@@ -65,7 +65,7 @@ def compute_artifact_version(artifact_input: ArtifactVersionInput) -> str:
     """Compute an artifact version string.
 
     Args:
-        artifact_input (ArtifactVersionInput): Inputs for computing the version.
+        artifact_input: Inputs for computing the version.
 
     Returns:
         str: Version string to apply to the artifact.
@@ -123,10 +123,10 @@ def _pep440_version(
     Example: 1.2.3a123.dev456
 
     Args:
-        next_version (str): Base version (e.g., "1.2.3").
-        prerelease_type (PrereleaseType): Prerelease type (alpha/beta/rc).
-        prerelease_number (int | None): Prerelease sequence number.
-        build_number (int): Build identifier.
+        next_version: Base version (e.g., "1.2.3").
+        prerelease_type: Prerelease type (alpha/beta/rc).
+        prerelease_number: Prerelease sequence number.
+        build_number: Build identifier.
 
     Returns:
         str: PEP 440 formatted version string.
