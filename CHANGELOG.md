@@ -1,3 +1,13 @@
+## [1.1.1] - 2026-10-12
+
+### 🐛 Bug Fixes
+
+- Bump uv version (#80) by [@jamestrousdale](https://github.com/jamestrousdale)
+  in [#80](https://github.com/hotdog-werx/releez/pull/80)
+
+- Fix check on installed uv version by
+  [@jamestrousdale](https://github.com/jamestrousdale)
+
 ## [1.1.0] - 2026-10-12
 
 ### 🚀 Features
