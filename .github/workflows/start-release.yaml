@@ -27,12 +27,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Install mise tools
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
-
-      - name: Install python dependencies
-        run: mise run python:uv-sync
 
       - name: Configure git author
         run: |
@@ -40,19 +38,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Releez release start
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          args=(release start --create-pr)
-
-          if [ -n "${{ inputs.version-override }}" ]; then
-            args+=(--version-override "${{ inputs.version-override }}")
-          fi
-
-          if [ "${{ inputs.dry-run }}" = "true" ]; then
-            args+=(--dry-run)
-          fi
-
-          uv run releez "${args[@]}"
+        id: releez
+        uses: ./
+        with:
+          mode: start
+          version-override: ${{ inputs.version-override }}
+          dry-run: ${{ inputs.dry-run }}

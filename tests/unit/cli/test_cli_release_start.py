@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from invoke_helper import invoke
 
 from releez import cli
 from releez.errors import ReleezError
+from releez.release import StartReleaseResult
 from releez.version_tags import AliasVersions
 
 if TYPE_CHECKING:
@@ -78,6 +80,38 @@ def test_cli_release_start_passes_version_override(
     assert result.exit_code == 0
     release_input = start_release.call_args.args[0]
     assert release_input.version_override == '1.2.3'
+
+
+def test_cli_release_start_result_file_contains_pr_url(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """The machine-readable result includes the created PR URL."""
+    _mock_repo_context(mocker, repo_root=tmp_path)
+    mocker.patch(
+        'releez.subapps.release_start.start_release',
+        return_value=StartReleaseResult(
+            version='1.2.3',
+            release_notes_markdown='## Notes\n- Feature',
+            release_branch='release/1.2.3',
+            pr_url='https://github.com/example/repo/pull/1',
+        ),
+    )
+    result_file = tmp_path / 'result.json'
+
+    result = invoke(
+        cli.app,
+        ['release', 'start', '--result-file', str(result_file)],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result_file.read_text()) == {
+        'version': '1.2.3',
+        'release_notes_markdown': '## Notes\n- Feature',
+        'release_branch': 'release/1.2.3',
+        'pr_url': 'https://github.com/example/repo/pull/1',
+        'project': '',
+    }
 
 
 def test_cli_release_start_uses_default_options_when_no_option_flags(
@@ -310,4 +344,27 @@ def test_cli_release_start_monorepo_override_requires_single_project(
 
     assert result.exit_code == 1
     assert '--version-override can only be used when releasing a single project' in result.output
+    start_release.assert_not_called()
+
+
+def test_cli_release_start_result_file_rejects_multiple_projects(
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    """A single JSON result cannot represent multiple simultaneous releases."""
+    _mock_repo_context(mocker, repo_root=tmp_path)
+    settings = _mock_settings(mocker, projects=[mocker.Mock(), mocker.Mock()])
+    settings.get_subprojects.return_value = [mocker.Mock(), mocker.Mock()]
+    settings.select_projects.return_value = [mocker.Mock(), mocker.Mock()]
+    start_release = mocker.patch('releez.subapps.release_start.start_release')
+    result_file = tmp_path / 'result.json'
+
+    result = invoke(
+        cli.app,
+        ['release', 'start', '--all', '--result-file', str(result_file)],
+    )
+
+    assert result.exit_code == 1
+    assert '--result-file requires exactly one project' in result.output
+    assert not result_file.exists()
     start_release.assert_not_called()

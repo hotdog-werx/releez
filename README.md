@@ -30,7 +30,10 @@ releez changelog regenerate    # rebuild the full CHANGELOG from git history
 Common flags: `--bump auto|patch|minor|major`, `--base <branch>`, `--dry-run`,
 `--alias-versions none|major|minor`.
 
-For monorepo projects, add `--project <name>` (repeatable) or `--all`.
+For monorepo projects, add `--project <name>` (repeatable) or `--all`. For
+automation needing structured start outputs, pass `--result-file <path>` to
+`releez release start` to write one release result as JSON; use a single project
+when doing so.
 
 ## Monorepo support
 
@@ -121,6 +124,7 @@ version is installed automatically.
 
 | Mode               | When                               | What it does                                      |
 | ------------------ | ---------------------------------- | ------------------------------------------------- |
+| `start`            | Manual dispatch / scheduled run    | Creates a release branch and optionally a PR      |
 | `validate`         | PR opened / updated on `release/*` | Dry-runs the release, posts a preview comment     |
 | `finalize`         | Release PR merged                  | Creates git tags, emits version outputs           |
 | `version-artifact` | Any build                          | Computes semver / docker / pep440 version strings |
@@ -133,6 +137,30 @@ version is installed automatically.
     mode: validate
     post-comment: 'true'
 ```
+
+### Start a release from a workflow
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+    fetch-tags: true
+- run: |
+    git config user.name 'github-actions[bot]'
+    git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+- id: releez
+  uses: hotdog-werx/releez@v0
+  with:
+    mode: start
+    project: core # omit for single-package repos
+```
+
+The job needs `contents: write` and `pull-requests: write`. The action uses
+`github-token` for git-cliff and PR creation; the checkout credential is used to
+push. For a custom token, pass it to both the checkout and the action. Install
+any tools required by configured post-changelog hooks before this step.
+`release-branch` and `pull-request-url` outputs are available when created. With
+`dry-run: 'true'`, the release preview appears in the job summary.
 
 ### Finalize and create a GitHub Release
 
@@ -163,7 +191,7 @@ version is installed automatically.
 Key outputs: `release-version`, `semver-versions`, `docker-versions`,
 `pep440-versions`, `semver-version`, `docker-version`, `pep440-version`
 (singular = exact version only, no aliases), `release-notes`, `project`
-(monorepo).
+(monorepo), and start-mode `release-branch` / `pull-request-url`.
 
 For the full input/output reference and workflow recipes see the
 [Action Reference](https://hotdog-werx.github.io/releez/github-actions/action/)
