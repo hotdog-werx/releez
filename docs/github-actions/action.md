@@ -175,6 +175,12 @@ jobs:
 computing all outputs. Useful for testing workflow logic on a branch without
 accidentally tagging.
 
+**Retry safety**: `finalize` is idempotent when the exact release tag already
+points at the checked-out commit, so a workflow can be rerun after a downstream
+publishing failure. It still fails if that immutable tag points at another
+commit. On retries, movable alias tags are left unchanged to prevent an older
+workflow run from rolling them backward.
+
 ---
 
 ### `validate`

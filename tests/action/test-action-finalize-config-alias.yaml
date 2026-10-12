@@ -80,6 +80,15 @@ jobs:
           is-full-release: 'true'
           dry-run: 'false'
 
+      - name: Retry action after tags already exist
+        id: retry
+        uses: ./
+        with:
+          mode: finalize
+          branch: 'release/99.1.0'
+          is-full-release: 'true'
+          dry-run: 'false'
+
       - name: Assert outputs and created tags (config alias)
         run: |
           fail=0
@@ -97,6 +106,7 @@ jobs:
           }
 
           assert_eq "release-version"  "${{ steps.releez.outputs.release-version }}"  "99.1.0"
+          assert_eq "retry release-version" "${{ steps.retry.outputs.release-version }}" "99.1.0"
           assert_eq "semver-versions"  "${{ steps.releez.outputs.semver-versions }}"  "$(printf '99.1.0\nv99')"
           assert_eq "docker-versions"  "${{ steps.releez.outputs.docker-versions }}"  "$(printf '99.1.0\nv99')"
           assert_eq "pep440-versions"  "${{ steps.releez.outputs.pep440-versions }}"  "99.1.0"

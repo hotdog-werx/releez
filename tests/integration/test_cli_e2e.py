@@ -751,6 +751,54 @@ create-pr = false
     assert 'refs/tags/v2' in remote_tags
     assert 'refs/tags/v2.3' in remote_tags
 
+    retry = invoke(
+        cli.app,
+        [
+            'release',
+            'tag',
+            '--version-override',
+            '2.3.4',
+            '--alias-versions',
+            'minor',
+        ],
+    )
+
+    assert retry.exit_code == 0
+    assert retry.stdout == '2.3.4\nv2\nv2.3\n'
+
+
+def test_cli_release_tag_rejects_existing_exact_tag_at_different_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An exact release tag remains immutable when it points away from HEAD."""
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / 'pyproject.toml').write_text(
+        '[tool.releez]\ngit-remote = "origin"\ncreate-pr = false\n',
+        encoding='utf-8',
+    )
+    (tmp_path / 'app.py').write_text('first\n', encoding='utf-8')
+    repo = _init_repo(tmp_path)
+    repo.index.add(['app.py', 'pyproject.toml'])
+    repo.index.commit('feat: first commit')
+    repo.create_tag('2.3.4')
+    _add_origin_remote(repo, tmp_path)
+    repo.git.push('origin', '2.3.4')
+
+    (tmp_path / 'app.py').write_text('second\n', encoding='utf-8')
+    repo.index.add(['app.py'])
+    repo.index.commit('fix: second commit')
+
+    result = invoke(
+        cli.app,
+        ['release', 'tag', '--version-override', '2.3.4'],
+    )
+
+    assert result.exit_code == 1
+    assert 'already exists' in result.output.lower()
+    assert repo.tags['2.3.4'].commit != repo.head.commit
+
 
 def test_cli_release_tag_monorepo_project_creates_prefixed_tags(
     tmp_path: Path,
@@ -898,11 +946,11 @@ alias-versions = "major"
     assert 'refs/tags/ui-v2' in remote_tags
 
 
-def test_cli_release_tag_monorepo_all_fails_fast_when_a_project_tag_exists(
+def test_cli_release_tag_monorepo_all_is_idempotent_at_same_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression guard: --all tagging should fail deterministically and avoid partial retagging."""
+    """A repeated --all invocation succeeds when exact tags already target HEAD."""
     monkeypatch.chdir(tmp_path)
 
     repo, core_dir, ui_dir = _init_two_project_monorepo_repo(
@@ -920,8 +968,7 @@ def test_cli_release_tag_monorepo_all_fails_fast_when_a_project_tag_exists(
     tags_after_first = {tag.name for tag in repo.tags}
 
     second = invoke(cli.app, ['release', 'tag', '--all'])
-    assert second.exit_code == 1
-    assert 'already exists' in second.output.lower()
+    assert second.exit_code == 0
     assert {tag.name for tag in repo.tags} == tags_after_first
 
 

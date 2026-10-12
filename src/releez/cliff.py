@@ -137,7 +137,7 @@ def _bump_args(bump: GitCliffBump) -> list[str]:
     """Build git-cliff --bump arguments.
 
     Args:
-        bump (GitCliffBump): Bump mode. "auto" lets git-cliff decide; others pass
+        bump: Bump mode. "auto" lets git-cliff decide; others pass
             the value explicitly.
 
     Returns:
@@ -182,10 +182,10 @@ class GitCliff:
         """Compute the next version using git-cliff.
 
         Args:
-            bump (GitCliffBump): The bump mode for git-cliff.
-            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+            bump: The bump mode for git-cliff.
+            tag_pattern: Optional regex pattern to match tags. Defaults
                 to GIT_CLIFF_TAG_PATTERN.
-            include_paths (list[str] | None): Optional list of path patterns to filter
+            include_paths: Optional list of path patterns to filter
                 commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Returns:
@@ -228,10 +228,10 @@ class GitCliff:
         """Generate the unreleased section as markdown.
 
         Args:
-            version (str): The version to tag the release notes.
-            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+            version: The version to tag the release notes.
+            tag_pattern: Optional regex pattern to match tags. Defaults
                 to GIT_CLIFF_TAG_PATTERN.
-            include_paths (list[str] | None): Optional list of path patterns to filter
+            include_paths: Optional list of path patterns to filter
                 commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Returns:
@@ -278,11 +278,11 @@ class GitCliff:
         """Prepend the unreleased section to the changelog file.
 
         Args:
-            version (str): The version to tag the release notes.
-            changelog_path (Path): The path to the changelog file.
-            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+            version: The version to tag the release notes.
+            changelog_path: The path to the changelog file.
+            tag_pattern: Optional regex pattern to match tags. Defaults
                 to GIT_CLIFF_TAG_PATTERN.
-            include_paths (list[str] | None): Optional list of path patterns to filter
+            include_paths: Optional list of path patterns to filter
                 commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Raises:
@@ -391,10 +391,10 @@ class GitCliff:
         """Regenerate the full changelog file from git history.
 
         Args:
-            changelog_path (Path): The path to the changelog file.
-            tag_pattern (str | None): Optional regex pattern to match tags. Defaults
+            changelog_path: The path to the changelog file.
+            tag_pattern: Optional regex pattern to match tags. Defaults
                 to GIT_CLIFF_TAG_PATTERN.
-            include_paths (list[str] | None): Optional list of path patterns to filter
+            include_paths: Optional list of path patterns to filter
                 commits (e.g., ["packages/core/**", "pyproject.toml"]).
 
         Raises:
