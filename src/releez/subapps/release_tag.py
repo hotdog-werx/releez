@@ -32,14 +32,40 @@ if TYPE_CHECKING:
     from releez.subproject import SubProject
 
 
+def _tag_commit_sha(repo: Repo, *, tag_name: str) -> str | None:
+    """Return the commit SHA for a local tag, if it exists.
+
+    Args:
+        repo (Repo): Git repository.
+        tag_name (str): Tag name to resolve.
+
+    Returns:
+        str | None: The peeled commit SHA, or None when the tag is absent.
+    """
+    for tag in repo.tags:
+        if tag.name == tag_name:
+            return str(tag.commit.hexsha)
+    return None
+
+
 def _create_and_push_selected_tags(
     *,
     repo: Repo,
     remote: str,
     selected_tags: list[str],
 ) -> None:
-    exact_tags = selected_tags[:1]
+    exact_tags = [selected_tags[0]]
     alias_only_tags = selected_tags[1:]
+
+    exact_tag = exact_tags[0]
+    existing_commit = _tag_commit_sha(repo, tag_name=exact_tag)
+    if existing_commit is not None and existing_commit == repo.head.commit.hexsha:
+        # An exact release tag is immutable. A matching tag means this is an
+        # idempotent retry, so ensure it reached the remote and leave movable
+        # aliases untouched. Rewriting aliases here could roll them backward
+        # if an older finalize workflow were rerun after a newer release.
+        push_tags(repo, remote_name=remote, tags=exact_tags, force=False)
+        return
 
     create_tags(repo, tags=exact_tags, force=False)
     push_tags(repo, remote_name=remote, tags=exact_tags, force=False)

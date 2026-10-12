@@ -78,6 +78,34 @@ def test_create_and_push_selected_tags_splits_exact_and_alias(
     ]
 
 
+def test_create_and_push_selected_tags_is_idempotent_at_same_commit(
+    mocker: MockerFixture,
+) -> None:
+    """A matching exact tag is pushed without recreating it or moving aliases."""
+    repo = mocker.MagicMock()
+    repo.head.commit.hexsha = 'same-commit'
+    existing_tag = mocker.MagicMock()
+    existing_tag.name = '1.2.3'
+    existing_tag.commit.hexsha = 'same-commit'
+    repo.tags = [existing_tag]
+    create_tags = mocker.patch('releez.subapps.release_tag.create_tags')
+    push_tags = mocker.patch('releez.subapps.release_tag.push_tags')
+
+    release_tag._create_and_push_selected_tags(
+        repo=repo,
+        remote='origin',
+        selected_tags=['1.2.3', 'v1', 'v1.2'],
+    )
+
+    create_tags.assert_not_called()
+    push_tags.assert_called_once_with(
+        repo,
+        remote_name='origin',
+        tags=['1.2.3'],
+        force=False,
+    )
+
+
 def test_run_monorepo_release_start_exits_when_any_project_fails(
     mocker: MockerFixture,
 ) -> None:

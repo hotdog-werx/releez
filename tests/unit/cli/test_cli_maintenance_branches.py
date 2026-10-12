@@ -404,6 +404,7 @@ class TestReleaseTagOnMaintenanceBranch:
     ) -> None:
         """On a support/1.x branch, release tag computes the next version using the 1.x tag pattern."""
         repo = mocker.Mock(spec=Repo)
+        repo.tags = []
         repo_info = RepoInfo(
             root=tmp_path,
             remote_url='',
