@@ -180,11 +180,12 @@ runs:
   steps:
 
     # ── Install toolchain ────────────────────────────────────────────────────
-    - name: Check for uv
+    - name: Check for uv 0.12.24
       id: check-uv
       shell: bash
       run: |
-        if command -v uv >/dev/null 2>&1; then
+        if command -v uv >/dev/null 2>&1 &&
+          [[ "$(uv --version)" == "uv 0.12.24 "* ]]; then
           echo "installed=true" >> "$GITHUB_OUTPUT"
         else
           echo "installed=false" >> "$GITHUB_OUTPUT"

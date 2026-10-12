@@ -1,7 +1,7 @@
 name: Test Action — version-artifact pre-installed uv
 
-# Verifies the action works when uv is already present — the action must skip
-# installation rather than reinstalling.
+# Verifies the action works when the expected uv version is already present —
+# the action must skip installation rather than reinstalling.
 #
 # Run manually or via act:
 #   act workflow_dispatch -W tests/action/test-action-version-artifact-install.yaml
