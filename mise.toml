@@ -1,7 +1,7 @@
 [env]
 
 [tools]
-uv = "0.9.18"
+uv = "0.12.24"
 lefthook = "2.0.12"
 dprint = "0.55.1"
 act = "0.2.84"
