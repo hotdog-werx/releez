@@ -1,3 +1,17 @@
+## [1.1.0] - 2026-10-12
+
+### 🚀 Features
+
+- Implement action start mode (#78) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#78](https://github.com/hotdog-werx/releez/pull/78)
+
+### 🐛 Bug Fixes
+
+- Make finalize mode idempotent (#77) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#77](https://github.com/hotdog-werx/releez/pull/77)
+
 ## [1.0.8] - 2026-10-09
 
 ### 🐛 Bug Fixes
