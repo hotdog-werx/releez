@@ -16,6 +16,7 @@ CLI version are always identical — version drift is impossible by construction
 - [Inputs](#inputs)
 - [Outputs](#outputs)
 - [Mode details](#mode-details)
+  - [start](#start)
   - [finalize](#finalize)
   - [validate](#validate)
   - [version-artifact](#version-artifact)
@@ -29,6 +30,7 @@ CLI version are always identical — version drift is impossible by construction
 
 | Mode                                    | Typical trigger                    | Purpose                                                         |
 | --------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| [`start`](#start)                       | Manual dispatch or schedule        | Create a release branch and optionally open a PR                |
 | [`finalize`](#finalize)                 | Release PR merged to main          | Create git tags, generate release notes, emit version outputs   |
 | [`validate`](#validate)                 | PR opened / updated on `release/*` | Dry-run the release, post a preview comment on the PR           |
 | [`version-artifact`](#version-artifact) | Any push or PR                     | Compute artifact version strings (semver / docker / pep440)     |
@@ -42,13 +44,21 @@ CLI version are always identical — version drift is impossible by construction
 
 | Input              | Required | Default        | Description                                                                                                                                                                                                                                                        |
 | ------------------ | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mode`             | Yes      | —              | `finalize`, `validate`, `version-artifact`, or `validate-commit`                                                                                                                                                                                                   |
-| `github-token`     | No       | `github.token` | Token passed to git-cliff for fetching PR metadata from GitHub. Override with a PAT if the default token lacks sufficient permissions.                                                                                                                             |
+| `mode`             | Yes      | —              | `start`, `finalize`, `validate`, `version-artifact`, or `validate-commit`                                                                                                                                                                                          |
+| `github-token`     | No       | `github.token` | Token passed to git-cliff and, in `start` mode, used to create the PR. Override with a GitHub App token or PAT when needed.                                                                                                                                        |
 | `releez-version`   | No       | `''`           | Override the releez CLI version to install. Bare version (`1.2.3`) installs from PyPI; full specifiers (`git+https://github.com/hotdog-werx/releez@branch`) are passed through to `uv tool install` unchanged. Defaults to the version co-located with the action. |
 | `is-full-release`  | No       | `true`         | `false` produces prerelease version strings                                                                                                                                                                                                                        |
 | `alias-versions`   | No       | `''`           | Optional override for alias tags on full releases: `none`, `major` (adds `v1`), or `minor` (adds `v1` and `v1.2`). When unset, releez config/defaults are used.                                                                                                    |
 | `version-override` | No       | `''`           | Explicit bare semver version (e.g. `1.2.3`) — skips git-cliff auto-detection. Must not include a tag prefix; for monorepo projects the prefix is added automatically.                                                                                              |
 | `branch`           | No       | `''`           | Branch name for release detection. Defaults to `github.head_ref` (finalize) or current branch (validate/version-artifact). Useful for testing with `act`.                                                                                                          |
+
+### `start` inputs
+
+| Input       | Default | Description                                                                              |
+| ----------- | ------- | ---------------------------------------------------------------------------------------- |
+| `project`   | `''`    | Select exactly one project in monorepo mode. Not needed for a single-package repository. |
+| `create-pr` | `''`    | Override PR creation (`true` / `false`); unset follows Releez's `create-pr` config.      |
+| `dry-run`   | `false` | Compute version and notes without creating a branch, commit, push, or PR.                |
 
 ### `finalize` inputs
 
@@ -77,6 +87,7 @@ CLI version are always identical — version drift is impossible by construction
 | `prerelease-type`    | `alpha`             | Prerelease label: `alpha`, `beta`, or `rc`                                                                                                                   |
 | `prerelease-number`  | `''`                | Prerelease number, e.g. the PR number. Makes each PR build's version unique.                                                                                 |
 | `build-number`       | `github.run_number` | Build number appended as metadata. Defaults to the GitHub run number.                                                                                        |
+| `project`            | `''`                | Project name for monorepo version detection and git-cliff path scoping.                                                                                      |
 
 ---
 
@@ -84,13 +95,15 @@ CLI version are always identical — version drift is impossible by construction
 
 ### Release metadata
 
-| Output              | Modes              | Description                                                                                               |
-| ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
-| `release-version`   | finalize, validate | Full version string as detected from the branch name, e.g. `1.2.3` or `core-1.2.3` for a monorepo project |
-| `project`           | finalize, validate | Project name for monorepo releases. Empty for single-repo.                                                |
-| `release-notes`     | finalize, validate | Markdown changelog section for the release                                                                |
-| `release-preview`   | validate           | Markdown dry-run preview of what will be released                                                         |
-| `validation-status` | validate           | `success` when the branch parses and the dry-run completes without error                                  |
+| Output              | Modes                     | Description                                                              |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------ |
+| `release-version`   | start, finalize, validate | Full version string, e.g. `1.2.3` or `core-1.2.3` for a monorepo project |
+| `project`           | start, finalize, validate | Project name for monorepo releases. Empty for single-repo.               |
+| `release-notes`     | start, finalize, validate | Markdown changelog section for the release                               |
+| `release-branch`    | start                     | Created branch, or empty in dry-run mode                                 |
+| `pull-request-url`  | start                     | Created PR URL, or empty if `create-pr: 'false'` or in dry-run mode      |
+| `release-preview`   | validate                  | Markdown dry-run preview of what will be released                        |
+| `validation-status` | validate                  | `success` when the branch parses and the dry-run completes without error |
 
 ### Artifact version arrays
 
@@ -124,6 +137,66 @@ multi-tag pushes).
 ---
 
 ## Mode details
+
+### `start`
+
+Starts one release using the same version calculation, changelog, hooks, branch
+push, and PR creation as `releez release start`. In a monorepo, pass `project`
+to select the project. `version-override` must be a bare semver; the project's
+configured tag prefix is added by Releez.
+
+```yaml
+name: Start Release
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Monorepo project (leave blank for a single-package repo)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Configure git author
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - id: releez
+        uses: hotdog-werx/releez@v0
+        with:
+          mode: start
+          project: ${{ inputs.project }}
+```
+
+The caller must provide full git history/tags, a writable checkout credential,
+git author identity, and `contents: write` / `pull-requests: write` permissions.
+The action's `github-token` is used for git-cliff and PR creation, but git push
+uses the checkout credential. If you supply a GitHub App token or PAT, pass the
+same token to both `actions/checkout` (`token`) and this action
+(`github-token`). PRs opened with the default `GITHUB_TOKEN` require approval
+before their PR-triggered workflows run; use an App token or PAT if immediate CI
+is needed
+([GitHub's token behavior](https://docs.github.com/en/actions/concepts/security/github_token/)).
+The CLI's configured post-changelog hooks must also be available in the job (for
+example, install `mise` first if your hook runs a `mise` task).
+
+`create-pr: 'false'` still creates and pushes the release branch.
+`dry-run: 'true'` makes no git changes and leaves `release-branch` and
+`pull-request-url` empty. It also writes the version and generated release notes
+to the workflow run's job summary for easy review. Start mode does not produce
+artifact version arrays; use `version-artifact` or `finalize` for those.
+
+---
 
 ### `finalize`
 

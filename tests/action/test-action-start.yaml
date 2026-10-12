@@ -1,0 +1,170 @@
+name: Test Action — start release
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test-start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prepare local release repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.email 'test@example.com'
+          git config user.name 'Test'
+          git config commit.gpgSign false
+          git checkout -B master
+
+          cat > releez.toml << 'TOML'
+          [tool.releez]
+          base-branch = 'master'
+          git-remote = 'origin'
+          create-pr = false
+
+          [tool.releez.hooks]
+          post-changelog = []
+          TOML
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          body = """
+          {% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}## [unreleased]
+          {% endif %}
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | striptags | trim | upper_first }}
+          {% for commit in commits %}
+          - {{ commit.message | upper_first }}
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+          render_always = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = '^feat', group = 'Features' },
+            { message = '.*', group = 'Other' },
+          ]
+          filter_commits = false
+          TOML
+          # act copies the local working tree, including uncommitted action edits.
+          # Commit that container-only snapshot so releez sees a clean checkout.
+          git add -A
+          git commit -m 'chore: configure test release'
+          git tag 99.0.0
+          git commit --allow-empty -m 'feat: test action start mode'
+          git init --bare "$RUNNER_TEMP/start-origin.git"
+          git remote set-url origin "$RUNNER_TEMP/start-origin.git"
+          git push --set-upstream origin master
+
+      - name: Start dry-run
+        id: dry-run
+        uses: ./
+        with:
+          mode: start
+          version-override: '99.1.0'
+          dry-run: 'true'
+          create-pr: 'true'
+
+      - name: Assert dry-run outputs
+        env:
+          VERSION: ${{ steps.dry-run.outputs.release-version }}
+          BRANCH: ${{ steps.dry-run.outputs.release-branch }}
+          PR_URL: ${{ steps.dry-run.outputs.pull-request-url }}
+          NOTES: ${{ steps.dry-run.outputs.release-notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VERSION" = '99.1.0'
+          test -z "$BRANCH"
+          test -z "$PR_URL"
+          test -n "$NOTES"
+          test "$(git branch --show-current)" = 'master'
+          test -z "$(git ls-remote --heads origin 'release/*')"
+
+      - name: Start release
+        id: start
+        uses: ./
+        with:
+          mode: start
+          version-override: '99.1.0'
+
+      - name: Assert branch and outputs
+        env:
+          VERSION: ${{ steps.start.outputs.release-version }}
+          PROJECT: ${{ steps.start.outputs.project }}
+          BRANCH: ${{ steps.start.outputs.release-branch }}
+          PR_URL: ${{ steps.start.outputs.pull-request-url }}
+          NOTES: ${{ steps.start.outputs.release-notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VERSION" = '99.1.0'
+          test -z "$PROJECT"
+          test "$BRANCH" = 'release/99.1.0'
+          test -z "$PR_URL"
+          test -n "$NOTES"
+          test "$(git branch --show-current)" = 'release/99.1.0'
+          test -n "$(git ls-remote --heads origin 'release/99.1.0')"
+          test -f CHANGELOG.md
+
+      - name: Prepare monorepo project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout master
+          mkdir -p packages/core
+          printf '# Core Changelog\n\n' > packages/core/CHANGELOG.md
+          printf 'first\n' > packages/core/README.md
+          cat >> releez.toml << 'TOML'
+
+          [[tool.releez.projects]]
+          name = 'core'
+          path = 'packages/core'
+          changelog-path = 'CHANGELOG.md'
+          tag-prefix = 'core-'
+          TOML
+          git add packages/core releez.toml
+          git commit -m 'chore: add core project'
+          git tag core-99.0.0
+          printf 'second\n' >> packages/core/README.md
+          git add packages/core/README.md
+          git commit -m 'feat(core): next feature'
+          git push origin master core-99.0.0
+
+      - name: Start monorepo project
+        id: project-start
+        uses: ./
+        with:
+          mode: start
+          project: core
+          version-override: '99.1.0'
+          create-pr: 'false'
+
+      - name: Assert monorepo outputs
+        env:
+          VERSION: ${{ steps.project-start.outputs.release-version }}
+          PROJECT: ${{ steps.project-start.outputs.project }}
+          BRANCH: ${{ steps.project-start.outputs.release-branch }}
+          PR_URL: ${{ steps.project-start.outputs.pull-request-url }}
+          NOTES: ${{ steps.project-start.outputs.release-notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VERSION" = 'core-99.1.0'
+          test "$PROJECT" = 'core'
+          test "$BRANCH" = 'release/core-99.1.0'
+          test -z "$PR_URL"
+          test -n "$NOTES"
+          test -n "$(git ls-remote --heads origin 'release/core-99.1.0')"
+          grep -q '99.1.0' packages/core/CHANGELOG.md

@@ -1,5 +1,5 @@
 name: 'Releez Action'
-description: 'Unified release automation: create tags, validate PRs, and compute artifact versions'
+description: 'Unified release automation: start and finalize releases, validate PRs, and compute artifact versions'
 author: 'hotdog-werx'
 
 branding:
@@ -10,6 +10,7 @@ inputs:
   mode:
     description: |
       Action mode:
+        start            — Create a release branch and pull request
         finalize         — Create tags and emit version outputs after a release PR is merged
         validate         — Preview and validate a release PR before merge
         version-artifact — Compute artifact versions for build pipelines
@@ -19,7 +20,7 @@ inputs:
   # ── Common inputs ──────────────────────────────────────────────────────────
 
   github-token:
-    description: 'GitHub token used by git-cliff to fetch PR metadata. Defaults to the built-in github.token.'
+    description: 'GitHub token for git-cliff and, in start mode, PR creation. Defaults to github.token.'
     required: false
     default: ${{ github.token }}
 
@@ -60,9 +61,16 @@ inputs:
   # ── Finalize mode inputs ───────────────────────────────────────────────────
 
   dry-run:
-    description: '[finalize] Skip tag creation and push (outputs are still computed)'
+    description: '[start/finalize] Compute release data without creating a branch, PR, or tags.'
     required: false
     default: 'false'
+
+  # ── Start mode inputs ──────────────────────────────────────────────────────
+
+  create-pr:
+    description: '[start] Override PR creation after pushing the release branch (true/false). Unset uses Releez config.'
+    required: false
+    default: ''
 
   # ── Validate-commit mode inputs ────────────────────────────────────────────
 
@@ -106,14 +114,14 @@ inputs:
     default: 'false'
 
   project:
-    description: '[version-artifact] Project name for monorepo version detection. Scopes git-cliff to the project path and tag pattern.'
+    description: '[start/version-artifact] Project name for monorepo release selection and version detection.'
     required: false
     default: ''
 
 outputs:
   # ── Release metadata ───────────────────────────────────────────────────────
   release-version:
-    description: 'Detected release version (e.g. "1.2.3" or "core-1.2.3" for monorepo)'
+    description: 'Release version (e.g. "1.2.3" or "core-1.2.3" for monorepo)'
     value: ${{ steps.set-outputs.outputs.release-version }}
 
   project:
@@ -123,6 +131,14 @@ outputs:
   release-notes:
     description: 'Markdown release notes'
     value: ${{ steps.set-outputs.outputs.release-notes }}
+
+  release-branch:
+    description: '[start] Created release branch (empty in dry-run mode)'
+    value: ${{ steps.set-outputs.outputs.release-branch }}
+
+  pull-request-url:
+    description: '[start] Created pull request URL (empty when PR creation is disabled or in dry-run mode)'
+    value: ${{ steps.set-outputs.outputs.pull-request-url }}
 
   release-preview:
     description: '[validate] Markdown release preview (dry-run output)'
@@ -215,12 +231,62 @@ runs:
       shell: bash
       run: |
         case "${{ inputs.mode }}" in
-          finalize|validate|version-artifact|validate-commit) ;;
+          start|finalize|validate|version-artifact|validate-commit) ;;
           *)
-            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: finalize, validate, version-artifact, or validate-commit" >&2
+            echo "::error::Invalid mode '${{ inputs.mode }}'. Must be: start, finalize, validate, version-artifact, or validate-commit" >&2
             exit 1
             ;;
         esac
+
+    # ── START MODE ───────────────────────────────────────────────────────────
+
+    - name: '[start] Create release branch and PR'
+      id: start-release
+      if: inputs.mode == 'start'
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        RELEEZ_GITHUB_TOKEN: ${{ inputs.github-token }}
+        START_VERSION_OVERRIDE: ${{ inputs.version-override }}
+        START_PROJECT: ${{ inputs.project }}
+        START_DRY_RUN: ${{ inputs.dry-run }}
+        START_CREATE_PR: ${{ inputs.create-pr }}
+      shell: bash
+      run: |
+        result_file=$(mktemp)
+        trap 'rm -f "$result_file"' EXIT
+
+        args=(release start --non-interactive --result-file "$result_file")
+        if [ -n "$START_VERSION_OVERRIDE" ]; then
+          args+=(--version-override "$START_VERSION_OVERRIDE")
+        fi
+        if [ -n "$START_PROJECT" ]; then
+          args+=(--project "$START_PROJECT")
+        fi
+        if [ "$START_DRY_RUN" = 'true' ]; then
+          args+=(--dry-run)
+        fi
+        case "$START_CREATE_PR" in
+          true)  args+=(--create-pr) ;;
+          false) args+=(--no-create-pr) ;;
+          '')    ;;
+          *)     echo "::error::create-pr must be true or false" >&2; exit 1 ;;
+        esac
+
+        releez "${args[@]}"
+        echo "json=$(jq -c . "$result_file")" >> "$GITHUB_OUTPUT"
+
+        if [ "$START_DRY_RUN" = 'true' ]; then
+          version=$(jq -r '.version' "$result_file")
+          notes=$(jq -r '.release_notes_markdown // empty' "$result_file")
+          {
+            printf '## Release preview: %s\n\n' "$version"
+            if [ -n "$notes" ]; then
+              printf '%s\n' "$notes"
+            else
+              printf '_No release notes generated._\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
 
     # ── FINALIZE MODE ────────────────────────────────────────────────────────
 
@@ -484,6 +550,7 @@ runs:
         # Pass step outputs via env to avoid quoting/escaping issues with
         # multiline values inside a shell run block
         FINALIZE_VERSION: ${{ steps.finalize-detect.outputs.version }}
+        START_JSON: ${{ steps.start-release.outputs.json }}
         FINALIZE_PROJECT: ${{ steps.finalize-detect.outputs.project }}
         FINALIZE_NOTES: ${{ steps.finalize-notes.outputs.content }}
         FINALIZE_JSON: ${{ steps.finalize-versions.outputs.json }}
@@ -500,6 +567,15 @@ runs:
 
         # Select per-mode outputs
         case "$MODE" in
+          start)
+            VERSION=$(printf '%s' "$START_JSON" | jq -r '.version // empty')
+            PROJECT=$(printf '%s' "$START_JSON" | jq -r '.project // empty')
+            RELEASE_BRANCH=$(printf '%s' "$START_JSON" | jq -r '.release_branch // empty')
+            PR_URL=$(printf '%s' "$START_JSON" | jq -r '.pr_url // empty')
+            NOTES=$(printf '%s' "$START_JSON" | jq -r '.release_notes_markdown // empty')
+            VERSIONS_JSON=""
+            PREVIEW=""
+            ;;
           finalize)
             VERSION="$FINALIZE_VERSION"
             PROJECT="$FINALIZE_PROJECT"
@@ -542,6 +618,8 @@ runs:
 
         echo "release-version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+        echo "release-branch=${RELEASE_BRANCH:-}" >> "$GITHUB_OUTPUT"
+        echo "pull-request-url=${PR_URL:-}" >> "$GITHUB_OUTPUT"
 
         {
           printf 'release-notes<<EOF\n%s\nEOF\n' "$NOTES"

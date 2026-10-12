@@ -249,6 +249,8 @@ create-pr = false
             '--no-create-pr',
             '--version-override',
             '1.1.0',
+            '--result-file',
+            str(tmp_path / 'result.json'),
         ],
     )
 
@@ -257,6 +259,12 @@ create-pr = false
     assert '1.1.0' in result.output
     assert 'Release branch:' not in result.output
     assert repo.active_branch.name == 'master'
+    release_result = json.loads((tmp_path / 'result.json').read_text())
+    assert release_result['version'] == '1.1.0'
+    assert release_result['project'] == ''
+    assert release_result['release_branch'] is None
+    assert release_result['pr_url'] is None
+    assert release_result['release_notes_markdown']
 
 
 def test_cli_release_start_creates_and_pushes_release_branch(
@@ -291,7 +299,15 @@ create-pr = false
 
     result = invoke(
         cli.app,
-        ['release', 'start', '--no-create-pr', '--version-override', '1.1.0'],
+        [
+            'release',
+            'start',
+            '--no-create-pr',
+            '--version-override',
+            '1.1.0',
+            '--result-file',
+            str(tmp_path / 'result.json'),
+        ],
     )
 
     assert result.exit_code == 0
@@ -302,6 +318,11 @@ create-pr = false
 
     pushed = _ls_remote(repo, '--heads', 'origin', 'release/1.1.0')
     assert 'refs/heads/release/1.1.0' in pushed
+    release_result = json.loads((tmp_path / 'result.json').read_text())
+    assert release_result['version'] == '1.1.0'
+    assert release_result['project'] == ''
+    assert release_result['release_branch'] == 'release/1.1.0'
+    assert release_result['pr_url'] is None
 
 
 def test_cli_release_start_monorepo_project_creates_project_branch(
@@ -374,6 +395,8 @@ tag-prefix = "ui-"
             '--no-create-pr',
             '--version-override',
             '1.1.0',
+            '--result-file',
+            str(tmp_path / 'result.json'),
         ],
     )
 
@@ -383,6 +406,10 @@ tag-prefix = "ui-"
     assert 'release/core-1.1.0' in {branch.name for branch in repo.branches}
     pushed = _ls_remote(repo, '--heads', 'origin', 'release/core-1.1.0')
     assert 'refs/heads/release/core-1.1.0' in pushed
+    release_result = json.loads((tmp_path / 'result.json').read_text())
+    assert release_result['version'] == 'core-1.1.0'
+    assert release_result['project'] == 'core'
+    assert release_result['release_branch'] == 'release/core-1.1.0'
 
 
 def test_cli_release_start_monorepo_autodetects_multiple_projects(

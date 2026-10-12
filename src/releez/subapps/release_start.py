@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
@@ -133,7 +135,13 @@ def _emit_release_start_result(
     result: StartReleaseResult,
     dry_run: bool,
     project_name: str | None = None,
+    result_file: Path | None = None,
 ) -> None:
+    if result_file is not None:
+        result_file.write_text(
+            json.dumps({**asdict(result), 'project': project_name or ''}),
+            encoding='utf-8',
+        )
     prefix = f'[{project_name}] ' if project_name else ''
     console.print(
         f'{prefix}Next version: {result.version}',
@@ -159,6 +167,7 @@ def _run_single_repo_release_start(  # noqa: PLR0913
     active_branch: str | None,
     non_interactive: bool,
     maintenance_branch_regex: str,
+    result_file: Path | None = None,
 ) -> None:
     maintenance_ctx = _maintenance_context(
         branch=active_branch,
@@ -188,6 +197,7 @@ def _run_single_repo_release_start(  # noqa: PLR0913
     _emit_release_start_result(
         result=result,
         dry_run=options.dry_run,
+        result_file=result_file,
     )
 
 
@@ -199,6 +209,7 @@ def _run_project_release_start(  # noqa: PLR0913
     repo_root: Path,
     maintenance_ctx: MaintenanceContext | None = None,
     non_interactive: bool = False,
+    result_file: Path | None = None,
 ) -> bool:
     if maintenance_ctx:
         version = _resolve_project_release_version(
@@ -235,6 +246,7 @@ def _run_project_release_start(  # noqa: PLR0913
         result=result,
         dry_run=options.dry_run,
         project_name=project.name,
+        result_file=result_file,
     )
     return True
 
@@ -248,6 +260,7 @@ def _run_monorepo_release_start(  # noqa: PLR0913
     active_branch: str | None = None,
     non_interactive: bool = False,
     maintenance_branch_regex: str,
+    result_file: Path | None = None,
 ) -> None:
     _require_single_project_override_scope(
         version_override=options.version_override,
@@ -275,6 +288,7 @@ def _run_monorepo_release_start(  # noqa: PLR0913
             repo_root=repo_root,
             maintenance_ctx=ctx,
             non_interactive=non_interactive,
+            result_file=result_file,
         ):
             succeeded += 1
 
@@ -295,6 +309,7 @@ def _run_release_start_command(  # noqa: PLR0913
     all_projects: bool,
     maintenance_branch_regex: str,
     non_interactive: bool,
+    result_file: Path | None = None,
 ) -> None:
     resolved = _resolve_project_targets_for_command(
         settings=settings,
@@ -309,10 +324,16 @@ def _run_release_start_command(  # noqa: PLR0913
             active_branch=resolved.active_branch,
             non_interactive=non_interactive,
             maintenance_branch_regex=maintenance_branch_regex,
+            result_file=result_file,
         )
         return
     if not resolved.target_projects:
         raise _exit()
+
+    if result_file is not None and len(resolved.target_projects) != 1:
+        raise _exit(
+            message='--result-file requires exactly one project; pass --project <name>.',
+        )
 
     _run_monorepo_release_start(
         options=options,
@@ -322,6 +343,7 @@ def _run_release_start_command(  # noqa: PLR0913
         active_branch=resolved.active_branch,
         non_interactive=non_interactive,
         maintenance_branch_regex=maintenance_branch_regex,
+        result_file=result_file,
     )
 
 
@@ -362,6 +384,14 @@ def start(
             show_default=True,
         ),
     ] = False,
+    result_file: Annotated[
+        Path | None,
+        Parameter(
+            '--result-file',
+            help='Write one release result as JSON to this path.',
+            show_default=False,
+        ),
+    ] = None,
 ) -> None:
     """Start release branch workflows for single-repo or monorepo projects."""
     settings = ReleezSettings()
@@ -375,4 +405,5 @@ def start(
         all_projects=selection.all_projects,
         maintenance_branch_regex=effective_regex,
         non_interactive=non_interactive,
+        result_file=result_file,
     )

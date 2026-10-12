@@ -102,6 +102,7 @@ Adjust to `%B` if you want to validate the full commit body.
 | Mode               | When to use                             | Key outputs                                                       |
 | ------------------ | --------------------------------------- | ----------------------------------------------------------------- |
 | `validate-commit`  | Any PR (validate title or commits)      | none — pass/fail only                                             |
+| `start`            | Manual dispatch or schedule             | `release-version`, `release-branch`, `pull-request-url`, notes    |
 | `validate`         | PR opened / updated on a release branch | `release-preview`, `release-notes`, `validation-status`           |
 | `finalize`         | Release PR merged to main               | `release-version`, `release-notes`, semver/docker/pep440 versions |
 | `version-artifact` | Every build, on any branch              | semver/docker/pep440 version arrays                               |
@@ -109,11 +110,72 @@ Adjust to `%B` if you want to validate the full commit body.
 The typical lifecycle for a release branch looks like this:
 
 ```
+workflow_dispatch    → start creates release branch and PR
 release/1.2.3 opened → validate runs → PR comment with preview
 release/1.2.3 merged → finalize runs → tag created, GitHub Release published
                                       → build pipeline runs with full-release versions
 any push / PR        → version-artifact → prerelease versions for CI builds
 ```
+
+---
+
+## Start a release from a workflow
+
+This is useful when release initiation should be a GitHub workflow rather than a
+developer running `releez release start` locally. The `project` input selects
+one monorepo project; leave it empty in a single-package repository.
+
+```yaml
+name: Start Release
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Monorepo project
+        required: false
+        type: string
+      version-override:
+        description: Bare semver override (optional)
+        required: false
+        type: string
+      dry-run:
+        description: Preview without creating a branch or PR
+        required: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Configure git author
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - id: releez
+        uses: hotdog-werx/releez@v0
+        with:
+          mode: start
+          project: ${{ inputs.project }}
+          version-override: ${{ inputs.version-override }}
+          dry-run: ${{ inputs.dry-run }}
+```
+
+Install any tools required by post-changelog hooks before invoking Releez. To
+use a GitHub App token or PAT, set both `actions/checkout`'s `token` and
+Releez's `github-token` to the same token; the latter does not change git push
+credentials. A PR created with the built-in `GITHUB_TOKEN` requires approval
+before PR workflows run
+([GitHub's token behavior](https://docs.github.com/en/actions/concepts/security/github_token/)).
+For `dry-run: 'true'`, the computed version and release notes appear in the job
+summary; no branch or PR is created.
 
 ---
 

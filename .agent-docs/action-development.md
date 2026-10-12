@@ -2,30 +2,28 @@
 
 ## Files
 
-| File                                              | Purpose                                                                     |
-| ------------------------------------------------- | --------------------------------------------------------------------------- |
-| `action.yaml`                                     | Composite action (root of repo — enables `uses: hotdog-werx/releez@vX.Y.Z`) |
-| `.github/tests/test-action-version-artifact.yaml` | Tests for `version-artifact` mode                                           |
-| `.github/tests/test-action-finalize.yaml`         | Tests for `finalize` mode (dry-run, single-repo + monorepo)                 |
-| `.github/tests/test-action-validate.yaml`         | Tests for `validate` mode (single-repo + monorepo)                          |
-| `.github/tests/test-action-guard.yaml`            | Edge case tests (invalid mode, etc.)                                        |
-| `.github/workflows/ci-checks.yaml`                | CI workflow — includes the 4 action test suite jobs alongside Python checks |
-| `.actrc`                                          | Default `act` flags (platform image, `GITHUB_RUN_NUMBER`)                   |
+| File                                               | Purpose                                                                     |
+| -------------------------------------------------- | --------------------------------------------------------------------------- |
+| `action.yaml`                                      | Composite action (root of repo — enables `uses: hotdog-werx/releez@vX.Y.Z`) |
+| `tests/action/test-action-start.yaml`              | Tests for `start` mode (dry-run and branch creation)                        |
+| `tests/action/test-action-version-artifact-*.yaml` | Tests for `version-artifact` mode                                           |
+| `tests/action/test-action-finalize-*.yaml`         | Tests for `finalize` mode (dry-run, single-repo + monorepo)                 |
+| `tests/action/test-action-validate-*.yaml`         | Tests for `validate` mode (single-repo + monorepo)                          |
+| `tests/action/test-action-guard.yaml`              | Edge case tests (invalid mode, etc.)                                        |
+| `.github/workflows/ci-checks.yaml`                 | CI workflow — runs the action test suite alongside Python checks            |
+| `.actrc`                                           | Default `act` flags (platform image, `GITHUB_RUN_NUMBER`)                   |
 
 ## Running tests locally with act
 
 ```bash
-# Run all action tests (all 4 suites sequentially)
-poe test-action
+# Run all action tests
+mise run test-action
 
-# Run a single test suite
-poe test-action-version-artifact
-poe test-action-finalize
-poe test-action-validate
-poe test-action-guard
+# Run a single test workflow
+mise exec -- pytest tests/action/test_workflows.py -k start
 
 # Or use act directly with verbose output
-act workflow_dispatch -W .github/tests/test-action-finalize.yaml --verbose
+act workflow_dispatch -W tests/action/test-action-start.yaml --verbose
 ```
 
 `act` reads `.actrc` automatically — no extra flags needed for the platform
@@ -35,6 +33,7 @@ image or `GITHUB_RUN_NUMBER`.
 
 | Mode               | Trigger                             | What it does                                         |
 | ------------------ | ----------------------------------- | ---------------------------------------------------- |
+| `start`            | Manual dispatch or schedule         | Creates one release branch and optionally a PR       |
 | `version-artifact` | Any build workflow                  | Computes version strings across semver/docker/pep440 |
 | `validate`         | PR opened/updated on release branch | Previews the release, optionally comments on PR      |
 | `finalize`         | PR merged from release branch       | Creates git tags, generates version outputs          |
@@ -71,6 +70,9 @@ multiline values like release notes and version arrays.
 
 Multiline outputs (version arrays, release notes) are written with
 `printf 'key<<EOF\n%s\nEOF\n'` to avoid the `echo` EOF-on-empty-string footgun.
+Start mode obtains one structured result from `release start --result-file`;
+this avoids scraping human-readable CLI output. Monorepo starts must select one
+project with `project`.
 
 ## Monorepo support
 
@@ -97,7 +99,8 @@ name, so stripping `<project-name>-` from the full version is not valid.
 
 ## Branch input for testing
 
-All three modes accept an optional `branch` input:
+The finalize, validate, and version-artifact modes accept an optional `branch`
+input:
 
 - **`finalize`**: defaults to `github.head_ref` (the merged PR's head branch)
 - **`validate`**: defaults to the current git branch
@@ -118,13 +121,9 @@ checkout a release branch in act:
 
 ## CI integration
 
-The action test jobs live in `ci-checks.yaml` alongside the Python checks,
-triggering on `pull_request` and `push` to `master`. They call all 4 test suites
-**in parallel** using the `workflow_call` trigger.
-
-Locally, `poe test-action` runs all suites **sequentially** (to avoid Docker
-contention with `act`). Each suite can also be run independently with its own
-`poe` task.
+The action test job lives in `ci-checks.yaml` alongside the Python checks,
+triggering on `pull_request` and `push` to `master`. It runs all discovered
+`tests/action/test-action-*.yaml` workflows through `act`.
 
 ## Adding a new test
 
