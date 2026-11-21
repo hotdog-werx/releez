@@ -1,3 +1,11 @@
+## [1.1.2] - 2026-11-21
+
+### 🐛 Bug Fixes
+
+- Emit machine-readable output without Rich styling (#82) by
+  [@jamestrousdale](https://github.com/jamestrousdale) in
+  [#82](https://github.com/hotdog-werx/releez/pull/82)
+
 ## [1.1.1] - 2026-10-12
 
 ### 🐛 Bug Fixes
