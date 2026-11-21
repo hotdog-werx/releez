@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Annotated
 from cyclopts import Parameter
 
 from releez.cli_utils import _exit
-from releez.console import console, err_console
+from releez.console import console, emit, err_console
 from releez.errors import (
     InvalidMaintenanceBranchRegexError,
     MajorVersionAlreadyLatestError,
@@ -277,7 +277,7 @@ def detect_from_branch(
         )
         raise SystemExit(1)
 
-    console.print(_format_detected_release_json(detected), markup=False)
+    emit(_format_detected_release_json(detected))
 
 
 @release_app.command

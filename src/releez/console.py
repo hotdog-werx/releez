@@ -22,5 +22,15 @@ class _DynamicConsole:
         Console(file=file).print(*args, **kwargs)
 
 
+def emit(text: str) -> None:
+    """Write machine-readable output to stdout verbatim.
+
+    Bypasses Rich so output consumed by scripts (JSON, versions, release
+    notes) never gains ANSI styling or line wrapping, even when color is
+    forced (e.g. ``FORCE_COLOR=1`` in CI).
+    """
+    sys.stdout.write(f'{text}\n')
+
+
 console = _DynamicConsole()
 err_console = _DynamicConsole(stderr=True)
