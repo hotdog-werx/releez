@@ -6,7 +6,7 @@ from typing import Annotated
 
 from cyclopts import App, Parameter
 
-from releez.console import console, err_console
+from releez.console import console, emit, err_console
 from releez.git_repo import detect_changed_projects, open_repo
 from releez.settings import ReleezSettings
 from releez.subproject import SubProject  # noqa: TC001
@@ -25,7 +25,7 @@ def _output_changed_projects(
             'projects': [p.name for p in changed],
             'include': [{'project': p.name} for p in changed],
         }
-        console.print(json.dumps(output, indent=2), markup=False)
+        emit(json.dumps(output, indent=2))
     elif not changed:
         console.print('No projects have unreleased changes.', style='green')
     else:

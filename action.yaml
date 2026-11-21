@@ -298,9 +298,16 @@ runs:
       run: |
         BRANCH="${{ inputs.branch || github.head_ref }}"
         RELEASE_INFO=$(releez release detect-from-branch --branch "$BRANCH")
-        echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
-        echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
+        # Assign before writing outputs so a jq failure (non-JSON output) fails
+        # the step under bash -e instead of silently producing empty values.
+        DETECTED_VERSION=$(jq -er '.version' <<< "$RELEASE_INFO")
+        DETECTED_SEMVER=$(jq -er '.semver_version' <<< "$RELEASE_INFO")
+        DETECTED_PROJECT=$(jq -r '.project // ""' <<< "$RELEASE_INFO")
+        {
+          echo "version=$DETECTED_VERSION"
+          echo "semver=$DETECTED_SEMVER"
+          echo "project=$DETECTED_PROJECT"
+        } >> "$GITHUB_OUTPUT"
 
     - name: '[finalize] Generate release notes'
       id: finalize-notes
@@ -395,9 +402,16 @@ runs:
         else
           RELEASE_INFO=$(releez release detect-from-branch)
         fi
-        echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
-        echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
+        # Assign before writing outputs so a jq failure (non-JSON output) fails
+        # the step under bash -e instead of silently producing empty values.
+        DETECTED_VERSION=$(jq -er '.version' <<< "$RELEASE_INFO")
+        DETECTED_SEMVER=$(jq -er '.semver_version' <<< "$RELEASE_INFO")
+        DETECTED_PROJECT=$(jq -r '.project // ""' <<< "$RELEASE_INFO")
+        {
+          echo "version=$DETECTED_VERSION"
+          echo "semver=$DETECTED_SEMVER"
+          echo "project=$DETECTED_PROJECT"
+        } >> "$GITHUB_OUTPUT"
 
     - name: '[validate] Preview release'
       id: validate-preview
@@ -472,9 +486,16 @@ runs:
         else
           RELEASE_INFO=$(releez release detect-from-branch)
         fi
-        echo "version=$(echo "$RELEASE_INFO" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-        echo "semver=$(echo "$RELEASE_INFO" | jq -r '.semver_version')" >> "$GITHUB_OUTPUT"
-        echo "project=$(echo "$RELEASE_INFO" | jq -r '.project // ""')" >> "$GITHUB_OUTPUT"
+        # Assign before writing outputs so a jq failure (non-JSON output) fails
+        # the step under bash -e instead of silently producing empty values.
+        DETECTED_VERSION=$(jq -er '.version' <<< "$RELEASE_INFO")
+        DETECTED_SEMVER=$(jq -er '.semver_version' <<< "$RELEASE_INFO")
+        DETECTED_PROJECT=$(jq -r '.project // ""' <<< "$RELEASE_INFO")
+        {
+          echo "version=$DETECTED_VERSION"
+          echo "semver=$DETECTED_SEMVER"
+          echo "project=$DETECTED_PROJECT"
+        } >> "$GITHUB_OUTPUT"
 
     - name: '[version-artifact] Compute versions'
       id: va-compute

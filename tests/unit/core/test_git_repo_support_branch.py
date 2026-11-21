@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 def _make_commit(repo: Repo, path: Path, message: str) -> None:
     """Create a file, stage it, and commit."""
     p = pathlib.Path(str(path))
-    p.write_text(message)
+    p.write_text(message, encoding='utf-8')
     repo.index.add([p.name])
     repo.index.commit(message)
 

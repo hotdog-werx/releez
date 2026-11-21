@@ -65,7 +65,7 @@ def mock_changelog_setup(
                 changelog_path = Path(path_str)
                 if changelog_path.is_absolute():
                     changelog_path.parent.mkdir(parents=True, exist_ok=True)
-                    changelog_path.write_text('# Changelog\n')
+                    changelog_path.write_text('# Changelog\n', encoding='utf-8')
                 else:
                     changelog_file = repo_root / path_str
                     changelog_file.parent.mkdir(parents=True, exist_ok=True)

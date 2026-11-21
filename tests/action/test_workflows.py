@@ -51,6 +51,7 @@ def _build_cmd(
     payload = input_data.get('payload', {})
 
     with tempfile.NamedTemporaryFile(
+        encoding='utf-8',
         mode='w',
         suffix='.json',
         delete=False,

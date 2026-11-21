@@ -12,7 +12,7 @@ from releez.cli_utils import (
     _resolve_release_version,
 )
 from releez.cliff import GitCliffBump  # noqa: TC001
-from releez.console import console
+from releez.console import emit
 from releez.git_repo import open_repo
 from releez.version_tags import AliasVersions  # noqa: TC001
 
@@ -179,7 +179,7 @@ def _emit_or_write_output(
     content: str,
 ) -> None:
     if output is None:
-        console.print(content, markup=False)
+        emit(content)
         return
     output_path = Path(output)
     output_path.write_text(content, encoding='utf-8')

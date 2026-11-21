@@ -12,6 +12,7 @@ from releez.errors import DirtyWorkingTreeError
 from releez.git_repo import DetectedRelease
 
 if TYPE_CHECKING:
+    import pytest
     from pytest_mock import MockerFixture
 
 
@@ -184,3 +185,36 @@ def test_cli_release_detect_from_branch_handles_releez_error(
 
     assert result.exit_code == 1
     assert 'Working tree is not clean' in result.output
+
+
+def test_cli_release_detect_from_branch_json_is_plain_when_color_forced(
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FORCE_COLOR must not inject ANSI codes into the JSON consumed by `jq` in the action."""
+    monkeypatch.setenv('FORCE_COLOR', '1')
+    mocker.patch(
+        'releez.subapps.release_support.open_repo',
+        return_value=mocker.Mock(
+            repo=mocker.MagicMock(),
+            info=mocker.MagicMock(root='/repo'),
+        ),
+    )
+    mocker.patch(
+        'releez.subapps.release_support.detect_release_from_branch',
+        return_value=DetectedRelease(
+            version='1.2.3',
+            semver_version='1.2.3',
+            project_name=None,
+            branch_name='release/1.2.3',
+        ),
+    )
+
+    result = invoke(
+        cli.app,
+        ['release', 'detect-from-branch', '--branch', 'release/1.2.3'],
+    )
+
+    assert result.exit_code == 0
+    assert '\x1b' not in result.stdout
+    assert json.loads(result.stdout)['semver_version'] == '1.2.3'

@@ -18,7 +18,7 @@ from releez.cli_utils import (
     _resolve_release_version,
     _validate_semver_override,
 )
-from releez.console import console, err_console
+from releez.console import emit, err_console
 from releez.git_repo import open_repo
 from releez.settings import ReleezSettings
 from releez.utils import handle_releez_errors
@@ -106,7 +106,7 @@ def _emit_all_artifact_versions_json(  # noqa: PLR0913
         result['release_version'] = f'{tag_prefix}{version_override}'
         result['project'] = project_name
 
-    console.print(json.dumps(result, indent=2), markup=False)
+    emit(json.dumps(result, indent=2))
 
 
 def _emit_artifact_version_output(
@@ -122,11 +122,11 @@ def _emit_artifact_version_output(
                 'Note: --alias-versions is ignored for --scheme pep440.',
                 style='yellow',
             )
-        console.print(artifact_version, markup=False)
+        emit(artifact_version)
         return
 
     if alias_versions == AliasVersions.none:
-        console.print(artifact_version, markup=False)
+        emit(artifact_version)
         return
 
     if not is_full_release:
@@ -134,12 +134,12 @@ def _emit_artifact_version_output(
             'Note: --alias-versions is only applied for full releases; ignoring because --is-full-release is not set.',
             style='yellow',
         )
-        console.print(artifact_version, markup=False)
+        emit(artifact_version)
         return
 
     tags = compute_version_tags(version=artifact_version)
     for tag in select_tags(tags=tags, aliases=alias_versions):
-        console.print(tag, markup=False)
+        emit(tag)
 
 
 def _find_project_for_artifact(
